@@ -1,21 +1,106 @@
-# API 계약
+# API 기준
 
-이 문서는 MVP 기준 API 계약 초안입니다.
+이 문서는 Runvas MVP에서 `backend/`와 `mobile/`이 공유하는 HTTP API 기준입니다.
 
-최종 URL prefix, 인증 방식, 페이지네이션 방식은 구현 중 확정하되, 요청/응답 필드 이름과 타입은 이 문서를 기준으로 맞춥니다.
+구현 중 내부 구조는 바뀔 수 있지만, 요청/응답 필드 이름, 타입, 상태 코드, 에러 코드는 이 문서를 기준으로 맞춥니다.
 
 ## 공통 규칙
 
+- Base path는 `/api`를 사용합니다. 예: `GET /api/courses`
 - 요청/응답 본문은 JSON을 사용합니다.
-- 날짜/시간은 ISO 8601 문자열을 사용합니다.
-- 거리는 미터 단위입니다.
-- 시간 길이는 초 단위입니다.
+- 날짜/시간은 ISO 8601 UTC 문자열을 사용합니다.
+- 거리는 미터 단위, 시간 길이는 초 단위를 사용합니다.
 - 좌표는 `{ "latitude": number, "longitude": number }` 형태를 사용합니다.
-- 인증이 필요한 API는 `Authorization: Bearer <token>` 헤더를 사용합니다.
-- 작성자 본인만 본인의 코스, 게시글, 댓글을 수정하거나 삭제할 수 있습니다.
-- 커뮤니티 목록 API는 커서 기반 페이지네이션을 사용합니다.
+- 인증이 필요한 API는 `Authorization: Bearer <accessToken>` 헤더를 사용합니다.
+- 요청 본문에서 선택 필드를 `null`로 보내면 값을 비우는 것으로 처리합니다.
+- 요청 본문에서 선택 필드를 생략하면 기존 값을 유지하거나 서버 기본값을 사용합니다.
+- 목록 API는 커서 기반 페이지네이션을 사용합니다.
+- 삭제 API와 좋아요 취소 API는 멱등적으로 처리합니다.
 
-## 에러 응답
+## 인증 정책
+
+| 표기 | 의미 |
+| --- | --- |
+| `None` | 인증 없이 호출할 수 있습니다. |
+| `Optional` | 인증 없이 호출할 수 있지만, 로그인 사용자는 개인화 필드가 추가될 수 있습니다. |
+| `Required` | 유효한 `Authorization` 헤더가 필요합니다. |
+
+## 공통 객체
+
+### GeoPoint
+
+```json
+{
+  "latitude": 37.5665,
+  "longitude": 126.978
+}
+```
+
+### RoutePoint
+
+```json
+{
+  "latitude": 37.5665,
+  "longitude": 126.978,
+  "sequence": 0
+}
+```
+
+### GeoBounds
+
+```json
+{
+  "southWest": {
+    "latitude": 37.5665,
+    "longitude": 126.978
+  },
+  "northEast": {
+    "latitude": 37.567,
+    "longitude": 126.979
+  }
+}
+```
+
+### PublicProfile
+
+```json
+{
+  "id": "user_123",
+  "nickname": "Seoul Runner",
+  "profileImageUrl": null,
+  "bio": "Drawing routes around Seoul."
+}
+```
+
+### PageInfo
+
+```json
+{
+  "nextCursor": "cursor_abc"
+}
+```
+
+`nextCursor`가 `null`이면 다음 페이지가 없습니다.
+
+### User
+
+`User` 응답은 현재 로그인한 사용자 본인에게만 반환합니다.
+소셜 로그인 제공자의 내부 식별자인 `providerUserId`는 API 응답에 포함하지 않습니다.
+
+```json
+{
+  "id": "user_123",
+  "email": "runner@example.com",
+  "provider": "KAKAO",
+  "nickname": "Seoul Runner",
+  "profileImageUrl": null,
+  "bio": "Drawing routes around Seoul.",
+  "createdAt": "2026-06-22T08:00:00Z",
+  "updatedAt": "2026-06-22T08:00:00Z"
+}
+```
+
+## 공통 에러 응답
 
 ```json
 {
@@ -25,18 +110,69 @@
     "details": [
       {
         "field": "path",
-        "message": "Path must contain at least 2 points"
+        "message": "Path must contain 2-5000 points"
       }
     ]
   }
 }
 ```
 
-## POST /courses
+| HTTP 상태 | 코드 | 설명 |
+| --- | --- | --- |
+| `400` | `VALIDATION_ERROR` | 요청 값이 형식, 타입, 제한값을 만족하지 않습니다. |
+| `401` | `UNAUTHORIZED` | 인증이 필요하거나 토큰이 유효하지 않습니다. |
+| `403` | `FORBIDDEN` | 인증은 되었지만 대상 리소스에 접근 권한이 없습니다. |
+| `404` | `NOT_FOUND` | 대상 리소스가 없거나 접근 가능한 상태가 아닙니다. |
+| `409` | `CONFLICT` | 중복 요청, 상태 충돌 등으로 처리할 수 없습니다. |
+| `500` | `INTERNAL_ERROR` | 서버 내부 오류입니다. |
+
+## 제한값
+
+### Course
+
+| 항목 | 값 |
+| --- | --- |
+| `title` | 1-60자 |
+| `description` | 0-500자 또는 `null` |
+| `tags` | 최대 10개 |
+| `tags[]` | 1-20자 |
+| `path` | 2-5000개 |
+| `distanceMeters` | 100-100000. 서버 계산값이 아니라 경로 탐색 API 또는 지도 폴리라인 기준 요청값 |
+| `visibility` | `PUBLIC`, `PRIVATE` |
+
+### Community
+
+| 항목 | 값 |
+| --- | --- |
+| `nickname` | 2-30자 |
+| `bio` | 0-160자 또는 `null` |
+| `post.title` | 1-80자 |
+| `post.body` | 1-5000자 |
+| `post.tags` | 최대 10개 |
+| `comment.body` | 1-1000자 |
+
+## Course APIs
+
+### POST /courses
 
 코스를 생성합니다.
 
-### Request
+#### Auth
+
+`Required`
+
+#### Request Body
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `title` | string | Y | 코스 제목 |
+| `description` | string \| null | N | 코스 설명 |
+| `path` | RoutePoint[] | Y | 실제 보행 경로 폴리라인 좌표 목록 |
+| `distanceMeters` | number | Y | 경로 탐색 API 또는 지도 폴리라인 기준 총 거리 |
+| `estimatedDurationSeconds` | number | Y | 경로 탐색 API 또는 모바일 표시 기준 예상 소요 시간 |
+| `bounds` | GeoBounds | Y | `path`를 포함하는 최소 지도 영역 |
+| `visibility` | string | Y | `PUBLIC` 또는 `PRIVATE` |
+| `tags` | string[] | N | 검색/분류용 태그. 기본 `[]` |
 
 ```json
 {
@@ -54,12 +190,24 @@
       "sequence": 1
     }
   ],
+  "distanceMeters": 1240,
+  "estimatedDurationSeconds": 480,
+  "bounds": {
+    "southWest": {
+      "latitude": 37.5665,
+      "longitude": 126.978
+    },
+    "northEast": {
+      "latitude": 37.567,
+      "longitude": 126.979
+    }
+  },
   "visibility": "PUBLIC",
   "tags": ["heart", "city"]
 }
 ```
 
-### Response
+#### Response: 201 Created
 
 ```json
 {
@@ -95,18 +243,27 @@
     "visibility": "PUBLIC",
     "tags": ["heart", "city"],
     "likeCount": 0,
-    "reportCount": 0,
+    "likedByMe": false,
     "createdAt": "2026-06-22T08:00:00Z",
     "updatedAt": "2026-06-22T08:00:00Z"
   }
 }
 ```
 
-## GET /courses
+#### Errors
 
-지도 범위 기준으로 코스 목록을 조회합니다.
+- `400 VALIDATION_ERROR`: 제한값 위반, 좌표 범위 오류, `sequence` 불연속, 거리 제한 위반, `bounds`가 `path`를 포함하지 않음
+- `401 UNAUTHORIZED`: 로그인하지 않음
 
-### Query
+### GET /courses
+
+지도 범위 기준으로 공개 코스 목록을 조회합니다.
+
+#### Auth
+
+`Optional`
+
+#### Query Params
 
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
@@ -116,11 +273,15 @@
 | `neLng` | number | Y | 북동쪽 경도 |
 | `limit` | number | N | 기본 20, 최대 50 |
 | `cursor` | string | N | 다음 페이지 조회용 커서 |
-| `q` | string | N | 코스 제목 검색어 |
+| `q` | string | N | 코스 제목 부분 일치 검색어 |
 | `tag` | string | N | 단일 태그 필터 |
-| `sort` | string | N | `createdAtDesc`, `distanceAsc`, `distanceDesc`, `popularDesc` 중 하나. 기본 `createdAtDesc` |
+| `sort` | string | N | `createdAtDesc`, `distanceAsc`, `distanceDesc`, `popularDesc`. 기본 `createdAtDesc` |
 
-### Response
+검색과 필터 조건이 함께 전달되면 서버는 모든 조건을 만족하는 공개 코스만 반환합니다.
+
+#### Response: 200 OK
+
+목록 응답에는 `path`를 포함하지 않습니다. 상세 화면 진입 시 `GET /courses/{courseId}`를 호출합니다.
 
 ```json
 {
@@ -145,7 +306,7 @@
       "visibility": "PUBLIC",
       "tags": ["heart", "city"],
       "likeCount": 12,
-      "reportCount": 0,
+      "likedByMe": false,
       "createdAt": "2026-06-22T08:00:00Z",
       "updatedAt": "2026-06-22T08:00:00Z"
     }
@@ -156,16 +317,25 @@
 }
 ```
 
-목록 응답에는 `path`를 포함하지 않습니다. 상세 화면 진입 시 `GET /courses/{courseId}`를 호출합니다.
+#### Errors
 
-검색과 필터 조건이 함께 전달되면 서버는 모든 조건을 만족하는 공개 코스만 반환합니다.
-`q`는 MVP에서 제목 부분 일치 검색으로 처리합니다.
+- `400 VALIDATION_ERROR`: bounds 값 오류, `limit` 범위 초과, 지원하지 않는 `sort`
 
-## GET /courses/{courseId}
+### GET /courses/{courseId}
 
 코스 상세 정보를 조회합니다.
 
-### Response
+#### Auth
+
+`Optional`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `courseId` | string | 코스 ID |
+
+#### Response: 200 OK
 
 ```json
 {
@@ -201,24 +371,51 @@
     "visibility": "PUBLIC",
     "tags": ["heart", "city"],
     "likeCount": 12,
-    "reportCount": 0,
+    "likedByMe": false,
     "createdAt": "2026-06-22T08:00:00Z",
     "updatedAt": "2026-06-22T08:00:00Z"
   }
 }
 ```
 
-## PATCH /courses/{courseId}
+비공개 코스는 작성자 본인만 조회할 수 있습니다.
+
+#### Errors
+
+- `401 UNAUTHORIZED`: 비공개 코스 조회에 인증이 필요함
+- `403 FORBIDDEN`: 비공개 코스 작성자가 아님
+- `404 NOT_FOUND`: 코스가 없음
+
+### PATCH /courses/{courseId}
 
 코스를 수정합니다.
 
-작성자 본인만 수정할 수 있습니다.
-수정 요청에 `path`가 포함되면 서버는 거리, 예상 소요 시간, bounds를 다시 계산합니다.
-
-### Request
-
-전송한 필드만 수정합니다.
+작성자 본인만 수정할 수 있습니다. 전송한 필드만 수정합니다.
 단, `path`와 `tags`는 부분 수정이 아니라 전체 교체 방식입니다.
+`path`를 전송하는 경우 `distanceMeters`, `estimatedDurationSeconds`, `bounds`도 함께 전송해야 합니다.
+
+#### Auth
+
+`Required`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `courseId` | string | 코스 ID |
+
+#### Request Body
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `title` | string | N | 코스 제목 |
+| `description` | string \| null | N | 코스 설명 |
+| `path` | RoutePoint[] | N | 전체 실제 보행 경로 폴리라인 좌표 목록 |
+| `distanceMeters` | number | N | 경로가 바뀐 경우 함께 전송하는 총 거리 |
+| `estimatedDurationSeconds` | number | N | 경로가 바뀐 경우 함께 전송하는 예상 소요 시간 |
+| `bounds` | GeoBounds | N | 경로가 바뀐 경우 함께 전송하는 최소 지도 영역 |
+| `visibility` | string | N | `PUBLIC` 또는 `PRIVATE` |
+| `tags` | string[] | N | 전체 태그 목록 |
 
 ```json
 {
@@ -236,128 +433,235 @@
       "sequence": 1
     }
   ],
+  "distanceMeters": 1270,
+  "estimatedDurationSeconds": 495,
+  "bounds": {
+    "southWest": {
+      "latitude": 37.5665,
+      "longitude": 126.978
+    },
+    "northEast": {
+      "latitude": 37.5672,
+      "longitude": 126.9791
+    }
+  },
   "visibility": "PRIVATE",
   "tags": ["heart", "river"]
 }
 ```
 
-### Response
+#### Response: 200 OK
 
-```json
-{
-  "course": {
-    "id": "course_123",
-    "authorId": "user_123",
-    "title": "Updated Heart Run in Seoul",
-    "description": "A refined heart-shaped running route near the river.",
-    "path": [
-      {
-        "latitude": 37.5665,
-        "longitude": 126.978,
-        "sequence": 0
-      },
-      {
-        "latitude": 37.5672,
-        "longitude": 126.9791,
-        "sequence": 1
-      }
-    ],
-    "distanceMeters": 1270,
-    "estimatedDurationSeconds": 495,
-    "bounds": {
-      "southWest": {
-        "latitude": 37.5665,
-        "longitude": 126.978
-      },
-      "northEast": {
-        "latitude": 37.5672,
-        "longitude": 126.9791
-      }
-    },
-    "visibility": "PRIVATE",
-    "tags": ["heart", "river"],
-    "likeCount": 12,
-    "reportCount": 0,
-    "createdAt": "2026-06-22T08:00:00Z",
-    "updatedAt": "2026-06-22T09:00:00Z"
-  }
-}
-```
+`POST /courses`의 `course`와 같은 전체 코스 객체를 반환합니다.
 
-## GET /courses/{courseId}/gpx
+#### Errors
+
+- `400 VALIDATION_ERROR`: 제한값 위반, 좌표 범위 오류, `sequence` 불연속, 거리 제한 위반, `bounds`가 `path`를 포함하지 않음
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `403 FORBIDDEN`: 작성자가 아님
+- `404 NOT_FOUND`: 코스가 없음
+
+### DELETE /courses/{courseId}
+
+코스를 삭제합니다.
+
+작성자 본인만 삭제할 수 있습니다.
+
+#### Auth
+
+`Required`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `courseId` | string | 코스 ID |
+
+#### Response: 204 No Content
+
+응답 본문이 없습니다.
+
+#### Errors
+
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `403 FORBIDDEN`: 작성자가 아님
+- `404 NOT_FOUND`: 코스가 없음
+
+### GET /courses/{courseId}/gpx
 
 코스를 GPX 파일로 다운로드합니다.
 
-### Response
+#### Auth
 
-- Content-Type: `application/gpx+xml`
-- Content-Disposition: `attachment; filename="course_123.gpx"`
+`Optional`
 
-## POST /courses/{courseId}/copy
+#### Path Params
 
-공개 코스를 내 코스로 복사합니다.
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `courseId` | string | 코스 ID |
 
-원본 코스는 변경하지 않습니다.
-복사된 코스의 `authorId`는 요청 사용자로 설정하고, 기본 `visibility`는 `PRIVATE`입니다.
+#### Response: 200 OK
 
-### Response
+| 헤더 | 값 |
+| --- | --- |
+| `Content-Type` | `application/gpx+xml` |
+| `Content-Disposition` | `attachment; filename="course_123.gpx"` |
+
+응답 본문은 GPX XML입니다.
+
+#### Errors
+
+- `401 UNAUTHORIZED`: 비공개 코스 다운로드에 인증이 필요함
+- `403 FORBIDDEN`: 비공개 코스 작성자가 아님
+- `404 NOT_FOUND`: 코스가 없음
+
+### POST /courses/{courseId}/bookmarks
+
+공개 코스를 내 저장 목록에 추가합니다.
+
+동일 사용자의 중복 북마크 요청은 성공으로 처리하되 중복 저장하지 않습니다.
+
+#### Auth
+
+`Required`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `courseId` | string | 공개 코스 ID |
+
+#### Response: 200 OK
 
 ```json
 {
-  "course": {
-    "id": "course_456",
-    "authorId": "user_456",
-    "title": "Heart Run in Seoul",
-    "description": "A heart-shaped running route near the river.",
-    "path": [
-      {
-        "latitude": 37.5665,
-        "longitude": 126.978,
-        "sequence": 0
-      },
-      {
-        "latitude": 37.567,
-        "longitude": 126.979,
-        "sequence": 1
-      }
-    ],
-    "distanceMeters": 1240,
-    "estimatedDurationSeconds": 480,
-    "bounds": {
-      "southWest": {
-        "latitude": 37.5665,
-        "longitude": 126.978
-      },
-      "northEast": {
-        "latitude": 37.567,
-        "longitude": 126.979
-      }
-    },
-    "visibility": "PRIVATE",
-    "tags": ["heart", "city"],
-    "likeCount": 0,
-    "reportCount": 0,
-    "createdAt": "2026-06-22T09:10:00Z",
-    "updatedAt": "2026-06-22T09:10:00Z"
+  "bookmark": {
+    "courseId": "course_123",
+    "createdAt": "2026-06-22T09:10:00Z"
   }
 }
 ```
 
-## POST /auth/signup
+#### Errors
 
-이메일과 비밀번호로 가입합니다.
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `404 NOT_FOUND`: 공개 코스가 없음
 
-### Request
+### DELETE /courses/{courseId}/bookmarks
+
+공개 코스를 내 저장 목록에서 제거합니다.
+
+북마크가 없는 상태에서 취소 요청을 보내도 성공으로 처리합니다.
+
+#### Auth
+
+`Required`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `courseId` | string | 공개 코스 ID |
+
+#### Response: 204 No Content
+
+응답 본문이 없습니다.
+
+#### Errors
+
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `404 NOT_FOUND`: 공개 코스가 없음
+
+### GET /me/bookmarked-courses
+
+현재 로그인한 사용자가 북마크한 공개 코스 목록을 조회합니다.
+
+#### Auth
+
+`Required`
+
+#### Query Params
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `limit` | number | N | 기본 20, 최대 50 |
+| `cursor` | string | N | 다음 페이지 조회용 커서 |
+
+#### Response: 200 OK
+
+`bookmarkedAt`은 `CourseBookmark.createdAt`을 코스 목록 표시용으로 노출한 값입니다.
 
 ```json
 {
-  "email": "runner@example.com",
-  "password": "secure-password",
-  "nickname": "Seoul Runner"
+  "courses": [
+    {
+      "id": "course_123",
+      "authorId": "user_123",
+      "title": "Heart Run in Seoul",
+      "description": "A heart-shaped running route near the river.",
+      "distanceMeters": 1240,
+      "estimatedDurationSeconds": 480,
+      "bounds": {
+        "southWest": {
+          "latitude": 37.5665,
+          "longitude": 126.978
+        },
+        "northEast": {
+          "latitude": 37.567,
+          "longitude": 126.979
+        }
+      },
+      "visibility": "PUBLIC",
+      "tags": ["heart", "city"],
+      "likeCount": 12,
+      "likedByMe": false,
+      "bookmarkedAt": "2026-06-22T09:10:00Z",
+      "createdAt": "2026-06-22T08:00:00Z",
+      "updatedAt": "2026-06-22T08:00:00Z"
+    }
+  ],
+  "pageInfo": {
+    "nextCursor": null
+  }
 }
 ```
 
-### Response
+#### Errors
+
+- `400 VALIDATION_ERROR`: `limit` 범위 초과
+- `401 UNAUTHORIZED`: 로그인하지 않음
+
+## Auth APIs
+
+### POST /auth/kakao
+
+카카오 로그인으로 가입 또는 로그인합니다.
+
+모바일 앱은 카카오 SDK를 통해 받은 인가 코드 또는 토큰을 서버에 전달합니다.
+서버는 카카오 사용자 식별자를 검증한 뒤 Runvas 사용자와 연결하고 자체 `accessToken`을 발급합니다.
+
+#### Auth
+
+`None`
+
+#### Request Body
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `provider` | string | Y | `KAKAO` |
+| `authorizationCode` | string | Y | 카카오 인가 코드 |
+| `redirectUri` | string | N | 카카오 인가 코드 요청에 사용한 redirect URI |
+
+```json
+{
+  "provider": "KAKAO",
+  "authorizationCode": "kakao_authorization_code",
+  "redirectUri": "runvas://auth/kakao"
+}
+```
+
+#### Response: 200 OK
 
 ```json
 {
@@ -365,43 +669,38 @@
   "user": {
     "id": "user_123",
     "email": "runner@example.com",
+    "provider": "KAKAO",
     "nickname": "Seoul Runner",
     "profileImageUrl": null,
     "bio": null,
     "createdAt": "2026-06-22T08:00:00Z",
     "updatedAt": "2026-06-22T08:00:00Z"
-  }
+  },
+  "isNewUser": true
 }
 ```
 
-## POST /auth/login
+#### Errors
 
-이메일과 비밀번호로 로그인합니다.
+- `400 VALIDATION_ERROR`: 필수 필드 누락
+- `401 UNAUTHORIZED`: 카카오 인증 실패
 
-### Request
-
-```json
-{
-  "email": "runner@example.com",
-  "password": "secure-password"
-}
-```
-
-### Response
-
-`POST /auth/signup`과 같은 형태를 반환합니다.
-
-## GET /me
+### GET /me
 
 현재 로그인한 사용자를 조회합니다.
 
-### Response
+#### Auth
+
+`Required`
+
+#### Response: 200 OK
 
 ```json
 {
   "user": {
     "id": "user_123",
     "email": "runner@example.com",
+    "provider": "KAKAO",
     "nickname": "Seoul Runner",
     "profileImageUrl": null,
     "bio": "Drawing routes around Seoul.",
@@ -411,11 +710,25 @@
 }
 ```
 
-## PATCH /me
+#### Errors
+
+- `401 UNAUTHORIZED`: 로그인하지 않음
+
+### PATCH /me
 
 현재 로그인한 사용자의 공개 프로필을 수정합니다.
 
-### Request
+#### Auth
+
+`Required`
+
+#### Request Body
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `nickname` | string | N | 공개 닉네임 |
+| `profileImageUrl` | string \| null | N | 공개 프로필 이미지 URL |
+| `bio` | string \| null | N | 공개 소개 |
 
 ```json
 {
@@ -425,21 +738,37 @@
 }
 ```
 
-## GET /posts
+#### Response: 200 OK
+
+`GET /me`와 같은 `user` 객체를 반환합니다.
+
+#### Errors
+
+- `400 VALIDATION_ERROR`: 제한값 위반
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `409 CONFLICT`: 이미 사용 중인 닉네임
+
+## Post APIs
+
+### GET /posts
 
 게시글 목록을 조회합니다.
 
-### Query
+#### Auth
+
+`Optional`
+
+#### Query Params
 
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | `q` | string | N | 제목 또는 본문 검색어 |
 | `tag` | string | N | 단일 태그 필터 |
-| `sort` | string | N | `createdAtDesc`, `popularDesc` 중 하나. 기본 `createdAtDesc` |
+| `sort` | string | N | `createdAtDesc`, `popularDesc`. 기본 `createdAtDesc` |
 | `limit` | number | N | 기본 20, 최대 50 |
 | `cursor` | string | N | 다음 페이지 조회용 커서 |
 
-### Response
+#### Response: 200 OK
 
 ```json
 {
@@ -457,8 +786,8 @@
       "attachedCourseId": "course_123",
       "tags": ["hangang", "heart"],
       "likeCount": 8,
+      "likedByMe": false,
       "commentCount": 2,
-      "reportCount": 0,
       "createdAt": "2026-06-22T09:00:00Z",
       "updatedAt": "2026-06-22T09:00:00Z"
     }
@@ -469,13 +798,28 @@
 }
 ```
 
-## POST /posts
+#### Errors
+
+- `400 VALIDATION_ERROR`: `limit` 범위 초과, 지원하지 않는 `sort`
+
+### POST /posts
 
 게시글을 작성합니다.
 
 `attachedCourseId`가 있으면 해당 코스는 `PUBLIC`이어야 합니다.
 
-### Request
+#### Auth
+
+`Required`
+
+#### Request Body
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `title` | string | Y | 게시글 제목 |
+| `body` | string | Y | 게시글 본문 |
+| `attachedCourseId` | string \| null | N | 첨부할 공개 코스 ID |
+| `tags` | string[] | N | 검색/분류용 태그. 기본 `[]` |
 
 ```json
 {
@@ -486,24 +830,80 @@
 }
 ```
 
-## GET /posts/{postId}
+#### Response: 201 Created
+
+`GET /posts`의 단일 게시글 객체와 같은 `post` 객체를 반환합니다.
+
+```json
+{
+  "post": {
+    "id": "post_123",
+    "author": {
+      "id": "user_123",
+      "nickname": "Seoul Runner",
+      "profileImageUrl": null,
+      "bio": "Drawing routes around Seoul."
+    },
+    "title": "한강 하트 코스 후기",
+    "body": "초반 구간이 평탄해서 가볍게 뛰기 좋았습니다.",
+    "attachedCourseId": "course_123",
+    "tags": ["hangang", "heart"],
+    "likeCount": 0,
+    "likedByMe": false,
+    "commentCount": 0,
+    "createdAt": "2026-06-22T09:00:00Z",
+    "updatedAt": "2026-06-22T09:00:00Z"
+  }
+}
+```
+
+#### Errors
+
+- `400 VALIDATION_ERROR`: 제한값 위반
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `404 NOT_FOUND`: 첨부 코스가 없음
+
+### GET /posts/{postId}
 
 게시글 상세를 조회합니다.
 
-### Response
+#### Auth
 
-`GET /posts`의 단일 게시글 객체와 같은 필드를 반환합니다.
+`Optional`
 
-## PATCH /posts/{postId}
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `postId` | string | 게시글 ID |
+
+#### Response: 200 OK
+
+`POST /posts`의 `post`와 같은 객체를 반환합니다.
+
+#### Errors
+
+- `404 NOT_FOUND`: 게시글이 없음
+
+### PATCH /posts/{postId}
 
 게시글을 수정합니다.
 
-작성자 본인만 수정할 수 있습니다.
-
-### Request
-
-전송한 필드만 수정합니다.
+작성자 본인만 수정할 수 있습니다. 전송한 필드만 수정합니다.
 단, `tags`는 부분 수정이 아니라 전체 교체 방식입니다.
+
+#### Auth
+
+`Required`
+
+#### Request Body
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `title` | string | N | 게시글 제목 |
+| `body` | string | N | 게시글 본문 |
+| `attachedCourseId` | string \| null | N | 첨부할 공개 코스 ID. `null`이면 첨부 해제 |
+| `tags` | string[] | N | 전체 태그 목록 |
 
 ```json
 {
@@ -514,25 +914,67 @@
 }
 ```
 
-## DELETE /posts/{postId}
+#### Response: 200 OK
+
+수정된 `post` 객체를 반환합니다.
+
+#### Errors
+
+- `400 VALIDATION_ERROR`: 제한값 위반
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `403 FORBIDDEN`: 작성자가 아님
+- `404 NOT_FOUND`: 게시글 또는 첨부 코스가 없음
+
+### DELETE /posts/{postId}
 
 게시글을 삭제합니다.
 
-작성자 본인만 삭제할 수 있습니다.
-게시글 삭제 시 해당 게시글의 댓글도 더 이상 목록에 노출하지 않습니다.
+작성자 본인만 삭제할 수 있습니다. 게시글 삭제 시 해당 게시글의 댓글도 더 이상 목록에 노출하지 않습니다.
 
-## GET /posts/{postId}/comments
+#### Auth
+
+`Required`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `postId` | string | 게시글 ID |
+
+#### Response: 204 No Content
+
+응답 본문이 없습니다.
+
+#### Errors
+
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `403 FORBIDDEN`: 작성자가 아님
+- `404 NOT_FOUND`: 게시글이 없음
+
+## Comment APIs
+
+### GET /posts/{postId}/comments
 
 게시글 댓글 목록을 조회합니다.
 
-### Query
+#### Auth
+
+`Optional`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `postId` | string | 게시글 ID |
+
+#### Query Params
 
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | `limit` | number | N | 기본 20, 최대 50 |
 | `cursor` | string | N | 다음 페이지 조회용 커서 |
 
-### Response
+#### Response: 200 OK
 
 ```json
 {
@@ -547,7 +989,6 @@
         "bio": null
       },
       "body": "이 코스 저장해두고 주말에 뛰어볼게요.",
-      "reportCount": 0,
       "createdAt": "2026-06-22T09:30:00Z",
       "updatedAt": "2026-06-22T09:30:00Z"
     }
@@ -558,11 +999,30 @@
 }
 ```
 
-## POST /posts/{postId}/comments
+#### Errors
+
+- `400 VALIDATION_ERROR`: `limit` 범위 초과
+- `404 NOT_FOUND`: 게시글이 없음
+
+### POST /posts/{postId}/comments
 
 댓글을 작성합니다.
 
-### Request
+#### Auth
+
+`Required`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `postId` | string | 게시글 ID |
+
+#### Request Body
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `body` | string | Y | 댓글 본문 |
 
 ```json
 {
@@ -570,13 +1030,53 @@
 }
 ```
 
-## PATCH /comments/{commentId}
+#### Response: 201 Created
+
+```json
+{
+  "comment": {
+    "id": "comment_123",
+    "postId": "post_123",
+    "author": {
+      "id": "user_456",
+      "nickname": "River Runner",
+      "profileImageUrl": null,
+      "bio": null
+    },
+    "body": "이 코스 저장해두고 주말에 뛰어볼게요.",
+    "createdAt": "2026-06-22T09:30:00Z",
+    "updatedAt": "2026-06-22T09:30:00Z"
+  }
+}
+```
+
+#### Errors
+
+- `400 VALIDATION_ERROR`: 제한값 위반
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `404 NOT_FOUND`: 게시글이 없음
+
+### PATCH /comments/{commentId}
 
 댓글을 수정합니다.
 
 작성자 본인만 수정할 수 있습니다.
 
-### Request
+#### Auth
+
+`Required`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `commentId` | string | 댓글 ID |
+
+#### Request Body
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `body` | string | Y | 댓글 본문 |
 
 ```json
 {
@@ -584,51 +1084,109 @@
 }
 ```
 
-## DELETE /comments/{commentId}
+#### Response: 200 OK
+
+수정된 `comment` 객체를 반환합니다.
+
+#### Errors
+
+- `400 VALIDATION_ERROR`: 제한값 위반
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `403 FORBIDDEN`: 작성자가 아님
+- `404 NOT_FOUND`: 댓글이 없음
+
+### DELETE /comments/{commentId}
 
 댓글을 삭제합니다.
 
 작성자 본인만 삭제할 수 있습니다.
 
-## PUT /likes/{targetType}/{targetId}
+#### Auth
+
+`Required`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `commentId` | string | 댓글 ID |
+
+#### Response: 204 No Content
+
+응답 본문이 없습니다.
+
+#### Errors
+
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `403 FORBIDDEN`: 작성자가 아님
+- `404 NOT_FOUND`: 댓글이 없음
+
+## Like APIs
+
+### PUT /likes/{targetType}/{targetId}
 
 코스 또는 게시글에 좋아요를 누릅니다.
 
-`targetType`은 `courses` 또는 `posts`를 사용합니다.
 동일 사용자의 중복 좋아요 요청은 성공으로 처리하되 좋아요 수를 중복 증가시키지 않습니다.
 
-## DELETE /likes/{targetType}/{targetId}
+#### Auth
+
+`Required`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `targetType` | string | `courses` 또는 `posts` |
+| `targetId` | string | 대상 ID |
+
+#### Response: 200 OK
+
+```json
+{
+  "targetType": "courses",
+  "targetId": "course_123",
+  "liked": true,
+  "likeCount": 13
+}
+```
+
+#### Errors
+
+- `400 VALIDATION_ERROR`: 지원하지 않는 `targetType`
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `404 NOT_FOUND`: 대상이 없음
+
+### DELETE /likes/{targetType}/{targetId}
 
 코스 또는 게시글 좋아요를 취소합니다.
 
 좋아요가 없는 상태에서 취소 요청을 보내도 성공으로 처리합니다.
 
-## POST /reports
+#### Auth
 
-코스, 게시글, 댓글을 신고합니다.
+`Required`
 
-### Request
+#### Path Params
 
-```json
-{
-  "targetType": "POST",
-  "targetId": "post_123",
-  "reason": "SPAM",
-  "message": "Repeated promotional content."
-}
-```
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `targetType` | string | `courses` 또는 `posts` |
+| `targetId` | string | 대상 ID |
 
-### Response
+#### Response: 200 OK
 
 ```json
 {
-  "report": {
-    "id": "report_123",
-    "targetType": "POST",
-    "targetId": "post_123",
-    "reason": "SPAM",
-    "status": "PENDING",
-    "createdAt": "2026-06-22T10:00:00Z"
-  }
+  "targetType": "courses",
+  "targetId": "course_123",
+  "liked": false,
+  "likeCount": 12
 }
 ```
+
+#### Errors
+
+- `400 VALIDATION_ERROR`: 지원하지 않는 `targetType`
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `404 NOT_FOUND`: 대상이 없음
