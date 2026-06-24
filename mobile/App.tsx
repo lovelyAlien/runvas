@@ -3,10 +3,10 @@ import {
   View,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -109,47 +109,49 @@ export default function App() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="dark" translucent={false} backgroundColor={Colors.white} />
 
-      <Header pointCount={waypoints.length} isRouting={isRouting} />
+        <Header pointCount={waypoints.length} isRouting={isRouting} />
 
-      <View style={styles.mapContainer}>
-        <KakaoMapView
-          ref={mapRef}
-          onMapPress={handleMapPress}
-        />
+        <View style={styles.mapContainer}>
+          <KakaoMapView
+            ref={mapRef}
+            onMapPress={handleMapPress}
+          />
 
-        {/* 경로 탐색 중 오버레이 */}
-        {isRouting && (
-          <View style={styles.routingOverlay}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+          {/* 경로 탐색 중 오버레이 */}
+          {isRouting && (
+            <View style={styles.routingOverlay}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+          )}
+
+          {/* 우측 플로팅 버튼 */}
+          <View style={styles.floatingButtons}>
+            <FAB icon="locate" onPress={handleLocate} />
+            <FAB
+              icon="arrow-undo"
+              onPress={handleUndo}
+              disabled={waypoints.length === 0 || isRouting}
+            />
+            <FAB
+              icon="trash-outline"
+              onPress={handleClear}
+              disabled={waypoints.length === 0 || isRouting}
+              color={Colors.danger}
+            />
           </View>
-        )}
-
-        {/* 우측 플로팅 버튼 */}
-        <View style={styles.floatingButtons}>
-          <FAB icon="locate" onPress={handleLocate} />
-          <FAB
-            icon="arrow-undo"
-            onPress={handleUndo}
-            disabled={waypoints.length === 0 || isRouting}
-          />
-          <FAB
-            icon="trash-outline"
-            onPress={handleClear}
-            disabled={waypoints.length === 0 || isRouting}
-            color={Colors.danger}
-          />
         </View>
-      </View>
 
-      <RouteStatsBar
-        stats={stats}
-        onExport={handleExportGpx}
-        isExporting={isExporting}
-      />
-    </SafeAreaView>
+        <RouteStatsBar
+          stats={stats}
+          onExport={handleExportGpx}
+          isExporting={isExporting}
+        />
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
