@@ -638,8 +638,23 @@
 
 카카오 로그인으로 가입 또는 로그인합니다.
 
-모바일 앱은 카카오 SDK를 통해 받은 인가 코드 또는 토큰을 서버에 전달합니다.
-서버는 카카오 사용자 식별자를 검증한 뒤 Runvas 사용자와 연결하고 자체 `accessToken`을 발급합니다.
+모바일 앱은 카카오 SDK를 통해 받은 인가 코드를 서버에 전달합니다.
+서버는 인가 코드로 카카오 토큰을 발급받고, 카카오 사용자 정보를 조회한 뒤 Runvas 사용자와 연결합니다.
+클라이언트는 카카오 액세스 토큰을 Runvas API 인증에 사용하지 않습니다.
+Runvas API 인증에는 이 API가 발급한 자체 `accessToken`을 사용합니다.
+
+#### Flow
+
+1. 모바일 앱이 카카오 SDK로 로그인과 동의 절차를 시작합니다.
+2. 카카오 SDK가 모바일 앱에 `authorizationCode`를 반환합니다.
+3. 모바일 앱이 `POST /api/auth/kakao`로 `authorizationCode`와 `redirectUri`를 전달합니다.
+4. 백엔드는 카카오 토큰 API에 `authorizationCode`, REST API 키, client secret, `redirectUri`를 전달해 카카오 액세스 토큰을 발급받습니다.
+5. 백엔드는 카카오 액세스 토큰으로 카카오 사용자 정보를 조회합니다.
+6. 백엔드는 `provider = KAKAO`, 카카오 사용자 ID를 기준으로 Runvas 사용자를 조회하거나 생성합니다.
+7. 백엔드는 Runvas 자체 `accessToken`, `user`, `isNewUser`를 모바일 앱에 반환합니다.
+
+카카오 액세스 토큰, 카카오 refresh token, client secret은 API 응답에 포함하지 않습니다.
+카카오 사용자 ID는 `providerUserId`로 내부 저장하되 API 응답에 포함하지 않습니다.
 
 #### Auth
 
@@ -651,7 +666,7 @@
 | --- | --- | --- | --- |
 | `provider` | string | Y | `KAKAO` |
 | `authorizationCode` | string | Y | 카카오 인가 코드 |
-| `redirectUri` | string | N | 카카오 인가 코드 요청에 사용한 redirect URI |
+| `redirectUri` | string | Y | 카카오 인가 코드 요청에 사용한 모바일 앱 redirect URI |
 
 ```json
 {
@@ -680,9 +695,14 @@
 }
 ```
 
+`accessToken`은 Runvas API용 JWT입니다.
+MVP에서는 refresh token을 응답하지 않습니다.
+`email`은 카카오 계정에 이메일이 없거나 사용자가 동의하지 않은 경우 `null`일 수 있습니다.
+`nickname`은 카카오 프로필 닉네임을 기본값으로 사용하되, 없으면 서버가 기본 닉네임을 생성합니다.
+
 #### Errors
 
-- `400 VALIDATION_ERROR`: 필수 필드 누락
+- `400 VALIDATION_ERROR`: 필수 필드 누락, `provider`가 `KAKAO`가 아님
 - `401 UNAUTHORIZED`: 카카오 인증 실패
 
 ### GET /me
