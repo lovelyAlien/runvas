@@ -43,6 +43,7 @@ Runvas는 사용자가 지도 위에서 직접 러닝 코스를 설계하고 공
 - [용어 정의](./docs/glossary.md)
 - [데이터 모델](./docs/data-model.md)
 - [API 기준](./docs/api-contract.md)
+- [백엔드 아키텍처 기준](./docs/backend-architecture.md)
 - [좌표 및 지도 규칙](./docs/geo-conventions.md)
 - [GPX 내보내기 규칙](./docs/gpx-export.md)
 - [협업 가이드](./docs/collaboration.md)
