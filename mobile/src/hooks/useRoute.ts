@@ -51,10 +51,15 @@ export function useRoute() {
     return { distanceMeters: total, estimatedDurationSeconds, pointCount: waypoints.length };
   }, [routeCoords, waypoints.length]);
 
-  // GPX 내보내기·향후 코스 저장(POST /api/courses)에 필요한 RoutePoint[] (sequence 0부터 연속).
+  // GPX 내보내기·코스 저장(POST /api/courses)의 path에 필요한 RoutePoint[] (sequence 0부터 연속).
   const toRoutePoints = useCallback((): RoutePoint[] => {
     return routeCoords.map((coord, index) => ({ ...coord, sequence: index }));
   }, [routeCoords]);
+
+  // 코스 저장의 waypoints에 필요한 RoutePoint[] — 사용자가 실제 탭한 지점(path보다 적음).
+  const toWaypointPoints = useCallback((): RoutePoint[] => {
+    return waypoints.map((coord, index) => ({ ...coord, sequence: index }));
+  }, [waypoints]);
 
   // path를 포함하는 최소 지도 영역. 오늘은 호출하는 곳이 없지만 향후 코스 저장 시 필요합니다.
   const getBounds = useCallback((): GeoBounds | null => {
@@ -84,6 +89,7 @@ export function useRoute() {
     undoLast,
     clearRoute,
     toRoutePoints,
+    toWaypointPoints,
     getBounds,
   };
 }

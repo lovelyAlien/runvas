@@ -1,7 +1,7 @@
 import React, { useRef, useImperativeHandle, forwardRef } from 'react';
 import { StyleSheet } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
-import { Coordinate } from '../types';
+import { Coordinate, GeoBounds } from '../types';
 
 const KAKAO_APP_KEY = process.env.EXPO_PUBLIC_KAKAO_APP_KEY ?? '';
 
@@ -9,12 +9,14 @@ export interface KakaoMapViewRef {
   moveToLocation: (coord: Coordinate) => void;
   addWaypoint: (coord: Coordinate, index: number) => void; // 마커만 추가
   addRouteSegment: (coords: Coordinate[]) => void; // 실제 경로 폴리라인 추가
+  fitBounds: (bounds: GeoBounds) => void; // 카메라를 주어진 영역에 맞춤 (저장된 코스 보기용)
   undoLast: () => void;
   clearMap: () => void;
 }
 
 interface Props {
   onMapPress: (coord: Coordinate) => void;
+  onMapReady?: () => void; // 지도가 로드 완료된 뒤에만 안전하게 메시지를 보낼 수 있다
 }
 
 function buildMapHtml(appKey: string): string {
@@ -129,6 +131,9 @@ function buildMapHtml(appKey: string): string {
           longitude: latlng.getLng()
         }));
       });
+
+      // 지도 로드 완료 알림 — RN이 이걸 받기 전에 보낸 메시지는 map이 아직 없어 무시될 수 있다.
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MAP_READY' }));
     });
 
     function handleRNMessage(data) {
@@ -172,6 +177,12 @@ function buildMapHtml(appKey: string): string {
         var lastSeg = segmentPolylines.pop();
         if (lastSeg) lastSeg.setMap(null);
 
+      } else if (msg.type === 'FIT_BOUNDS') {
+        var sw = new kakao.maps.LatLng(msg.swLat, msg.swLng);
+        var ne = new kakao.maps.LatLng(msg.neLat, msg.neLng);
+        var llBounds = new kakao.maps.LatLngBounds(sw, ne);
+        map.setBounds(llBounds);
+
       } else if (msg.type === 'CLEAR') {
         waypointMarkers.forEach(function(m) { m.setMap(null); });
         waypointMarkers = [];
@@ -205,7 +216,7 @@ function buildMapHtml(appKey: string): string {
 }
 
 const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
-  ({ onMapPress }, ref) => {
+  ({ onMapPress, onMapReady }, ref) => {
     const webViewRef = useRef<WebView>(null);
 
     const postMessage = (msg: object) => {
@@ -222,6 +233,15 @@ const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
       addRouteSegment: (coords: Coordinate[]) => {
         postMessage({ type: 'ADD_ROUTE_SEGMENT', coords });
       },
+      fitBounds: (bounds: GeoBounds) => {
+        postMessage({
+          type: 'FIT_BOUNDS',
+          swLat: bounds.southWest.latitude,
+          swLng: bounds.southWest.longitude,
+          neLat: bounds.northEast.latitude,
+          neLng: bounds.northEast.longitude,
+        });
+      },
       undoLast: () => {
         postMessage({ type: 'UNDO_LAST' });
       },
@@ -235,6 +255,8 @@ const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
         const data = JSON.parse(event.nativeEvent.data);
         if (data.type === 'MAP_PRESS') {
           onMapPress({ latitude: data.latitude, longitude: data.longitude });
+        } else if (data.type === 'MAP_READY') {
+          onMapReady?.();
         }
       } catch (_) {}
     };

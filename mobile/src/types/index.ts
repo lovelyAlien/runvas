@@ -23,6 +23,7 @@ export interface Course {
   title: string;
   description: string | null;
   path: RoutePoint[];
+  waypoints: RoutePoint[];
   distanceMeters: number;
   estimatedDurationSeconds: number;
   bounds: GeoBounds;
@@ -46,6 +47,7 @@ export interface CreateCourseRequestBody {
   title: string;
   description: string | null;
   path: RoutePoint[];
+  waypoints: RoutePoint[];
   distanceMeters: number;
   estimatedDurationSeconds: number;
   bounds: GeoBounds;
@@ -84,16 +86,20 @@ export interface ApiErrorBody {
   };
 }
 
-// 백엔드 Course API(docs/api-contract.md POST /courses)가 아직 없어 기기에만 저장하는
-// 임시 모델. id는 서버 발급 대신 클라이언트에서 생성하고, authorId/likeCount 등 서버 전용
-// 필드는 없다. 백엔드 연동 시 이 타입을 지우고 courseApi.ts의 Course/postCourse로 교체한다
-// (mobile/docs/implementations/saved-routes-screen.md 참고).
-export interface LocalSavedRoute {
+// docs/api-contract.md GET /courses, GET /courses/mine 목록 응답과 1:1 대응. path는 빠진다
+// (목록에서는 안 내려주고, 상세 화면 진입 시 GET /courses/{courseId}로 따로 조회한다).
+export interface CourseSummary {
   id: string;
+  authorId: string;
   title: string;
-  path: RoutePoint[];
+  description: string | null;
   distanceMeters: number;
   estimatedDurationSeconds: number;
   bounds: GeoBounds;
+  visibility: CourseVisibility;
+  tags: string[];
+  likeCount: number;
+  likedByMe: boolean;
   createdAt: string;
+  updatedAt: string;
 }

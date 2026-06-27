@@ -2,21 +2,27 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { getLocalRoutes, deleteLocalRoute } from '../services/localRoutesStorage';
+import { getMyCourses, deleteCourse } from '../services/courseApi';
 import { formatDistance, formatDuration } from '../utils/format';
 import { useAuthGate } from '../hooks/useAuthGate';
+import { useAuth } from '../contexts/AuthContext';
 import { Colors } from '../constants/theme';
-import { LocalSavedRoute } from '../types';
-import { RootTabParamList } from '../navigation/types';
+import { CourseSummary } from '../types';
+import { RootTabParamList, RootStackParamList } from '../navigation/types';
 
-type Props = BottomTabScreenProps<RootTabParamList, 'SavedRoutes'>;
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<RootTabParamList, 'SavedRoutes'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
 
-export default function SavedRoutesScreen(_props: Props) {
-  const [routes, setRoutes] = useState<LocalSavedRoute[]>([]);
+export default function SavedRoutesScreen({ navigation }: Props) {
+  const [routes, setRoutes] = useState<CourseSummary[]>([]);
   const { requireAuth } = useAuthGate();
+  const { accessToken } = useAuth();
 
   // tabPress 가드가 막지 못하는 명령형 진입(딥링크 등)에 대한 방어 가드.
   useFocusEffect(
@@ -27,18 +33,20 @@ export default function SavedRoutesScreen(_props: Props) {
 
   useFocusEffect(
     useCallback(() => {
-      getLocalRoutes().then(setRoutes);
-    }, [])
+      if (!accessToken) return;
+      getMyCourses(accessToken).then(setRoutes);
+    }, [accessToken])
   );
 
-  const handleDelete = (route: LocalSavedRoute) => {
+  const handleDelete = (route: CourseSummary) => {
     Alert.alert('코스 삭제', `"${route.title}"를 삭제할까요?`, [
       { text: '취소', style: 'cancel' },
       {
         text: '삭제',
         style: 'destructive',
         onPress: async () => {
-          await deleteLocalRoute(route.id);
+          if (!accessToken) return;
+          await deleteCourse(route.id, accessToken);
           setRoutes((prev) => prev.filter((r) => r.id !== route.id));
         },
       },
@@ -59,7 +67,11 @@ export default function SavedRoutesScreen(_props: Props) {
           <Text style={styles.emptyText}>아직 저장한 코스가 없습니다.</Text>
         }
         renderItem={({ item }) => (
-          <View style={styles.row}>
+          <TouchableOpacity
+            style={styles.row}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('CourseDetail', { courseId: item.id })}
+          >
             <View style={styles.rowInfo}>
               <Text style={styles.rowTitle}>{item.title}</Text>
               <Text style={styles.rowMeta}>
@@ -71,7 +83,7 @@ export default function SavedRoutesScreen(_props: Props) {
             <TouchableOpacity onPress={() => handleDelete(item)} activeOpacity={0.7}>
               <Ionicons name="trash-outline" size={20} color={Colors.danger} />
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         )}
       />
     </SafeAreaView>

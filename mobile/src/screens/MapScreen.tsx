@@ -21,7 +21,6 @@ import { useLocation } from '../hooks/useLocation';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchPedestrianRoute } from '../services/routingApi';
 import { exportGpx } from '../utils/exportGpx';
-import { saveLocalRoute } from '../services/localRoutesStorage';
 import { postCourse, buildCreateCourseRequest } from '../services/courseApi';
 import { Colors } from '../constants/theme';
 import { Coordinate } from '../types';
@@ -40,6 +39,7 @@ export default function MapScreen({ navigation }: Props) {
     undoLast,
     clearRoute,
     toRoutePoints,
+    toWaypointPoints,
     getBounds,
   } = useRoute();
 
@@ -151,38 +151,26 @@ export default function MapScreen({ navigation }: Props) {
 
   const handleConfirmSave = async () => {
     const bounds = getBounds();
-    if (!bounds) return;
+    if (!bounds || !accessToken) return;
     const title = routeTitle.trim() || '제목 없는 코스';
     const path = toRoutePoints();
+    const waypointPoints = toWaypointPoints();
 
-    await saveLocalRoute({
-      title,
-      path,
-      distanceMeters: stats.distanceMeters,
-      estimatedDurationSeconds: stats.estimatedDurationSeconds,
-      bounds,
-    });
-
-    // 로컬 저장은 항상 성공시키고, 백엔드 업로드는 실패해도 로컬 저장 결과를 잃지 않게 분리한다
-    // (오프라인/백엔드 미기동 시에도 기존처럼 동작).
-    if (accessToken) {
-      try {
-        await postCourse(
-          buildCreateCourseRequest({
-            title,
-            path,
-            distanceMeters: stats.distanceMeters,
-            estimatedDurationSeconds: stats.estimatedDurationSeconds,
-            bounds,
-          }),
-          accessToken
-        );
-      } catch (e: any) {
-        Alert.alert(
-          '서버 저장 실패',
-          `기기에는 저장됐지만 서버 업로드는 실패했습니다.\n${e.message ?? ''}`
-        );
-      }
+    try {
+      await postCourse(
+        buildCreateCourseRequest({
+          title,
+          path,
+          waypoints: waypointPoints,
+          distanceMeters: stats.distanceMeters,
+          estimatedDurationSeconds: stats.estimatedDurationSeconds,
+          bounds,
+        }),
+        accessToken
+      );
+    } catch (e: any) {
+      Alert.alert('저장 실패', e.message ?? '알 수 없는 오류가 발생했습니다.');
+      return;
     }
 
     setIsSaveModalOpen(false);

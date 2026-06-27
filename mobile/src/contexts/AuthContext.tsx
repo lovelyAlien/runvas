@@ -3,15 +3,17 @@ import { User } from '../types';
 import { devLogin } from '../services/authApi';
 
 // 백엔드 카카오 로그인(POST /auth/kakao)이 아직 없어 DevAuthController(/auth/dev-login)로
-// 실제 JWT를 받아 흐름을 구현한다. 카카오 SDK 연동 시 mockLogin 본문을 postAuthKakao() 호출로
-// 교체하고, accessToken은 expo-secure-store에 저장한다 (지금은 메모리에만 보관).
+// 실제 JWT를 받아 흐름을 구현한다. 테스트 계정은 고정 닉네임 하나로 통일했다 — 매번 다른
+// 사용자로 로그인되면 저장한 코스도 계정마다 흩어져 "저장 → 다시 보기" 테스트가 안 됐다.
+// 카카오 SDK 연동 시 mockLogin 본문을 postAuthKakao() 호출로 교체하고, accessToken은
+// expo-secure-store에 저장한다 (지금은 메모리에만 보관).
 interface AuthContextValue {
   user: User | null;
   accessToken: string | null;
   isLoginModalVisible: boolean;
   isLoggingIn: boolean;
   loginError: string | null;
-  mockLogin: (forceNewUser: boolean) => Promise<void>;
+  mockLogin: () => Promise<void>;
   logout: () => void;
   requireAuth: () => boolean;
   closeLoginModal: () => void;
@@ -30,11 +32,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [pendingNewUserRedirect, setPendingNewUserRedirect] = useState(false);
 
-  const mockLogin = useCallback(async (forceNewUser: boolean) => {
+  const mockLogin = useCallback(async () => {
     setIsLoggingIn(true);
     setLoginError(null);
     try {
-      const response = await devLogin(forceNewUser ? undefined : FIXED_DEV_NICKNAME);
+      const response = await devLogin(FIXED_DEV_NICKNAME);
       setUser(response.user);
       setAccessToken(response.accessToken);
       setPendingNewUserRedirect(response.isNewUser);

@@ -19,31 +19,18 @@ export default function LoginPromptModal() {
           {loginError && <Text style={styles.errorText}>{loginError}</Text>}
 
           {/* 백엔드 카카오 로그인이 아직 없어 DevAuthController(/auth/dev-login)로 실제 JWT를
-              발급받는다. 고정 닉네임 버튼은 두 번째 호출부터 isNewUser=false가 되고, 매번 신규
-              버튼은 항상 새 사용자를 만들어 1회성 게시판 이동을 반복 테스트할 수 있다.
-              실제 SDK 연동 시 "카카오 로그인" 버튼 하나로 교체한다. */}
+              발급받는다. 항상 같은 고정 닉네임으로 로그인해 저장한 코스가 한 계정에 모이게 한다.
+              실제 SDK 연동 시 "카카오 로그인" 버튼으로 교체한다. */}
           <TouchableOpacity
             style={styles.kakaoButton}
-            onPress={() => mockLogin(false)}
+            onPress={() => mockLogin()}
             activeOpacity={0.8}
             disabled={isLoggingIn}
           >
             {isLoggingIn ? (
               <ActivityIndicator size="small" color={Colors.gray900} />
             ) : (
-              <Text style={styles.kakaoButtonLabel}>테스트 로그인 (고정 계정)</Text>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.kakaoButton, styles.kakaoButtonSecondary]}
-            onPress={() => mockLogin(true)}
-            activeOpacity={0.8}
-            disabled={isLoggingIn}
-          >
-            {isLoggingIn ? (
-              <ActivityIndicator size="small" color={Colors.gray900} />
-            ) : (
-              <Text style={styles.kakaoButtonLabel}>테스트 로그인 (매번 신규 가입)</Text>
+              <Text style={styles.kakaoButtonLabel}>테스트 로그인</Text>
             )}
           </TouchableOpacity>
 
@@ -92,9 +79,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     marginBottom: 8,
-  },
-  kakaoButtonSecondary: {
-    backgroundColor: Colors.gray100,
   },
   kakaoButtonLabel: {
     fontSize: 13,
