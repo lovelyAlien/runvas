@@ -36,10 +36,37 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.error.details[0].field").value("name"));
     }
 
+    @Test
+    void malformedJsonUsesDocumentedShape() throws Exception {
+        mockMvc.perform(post("/test/validation")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.message").value("Invalid request body"))
+                .andExpect(jsonPath("$.error.details.length()").value(0));
+    }
+
+    @Test
+    void unexpectedExceptionUsesDocumentedShape() throws Exception {
+        mockMvc.perform(post("/test/unexpected")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error.code").value("INTERNAL_ERROR"))
+                .andExpect(jsonPath("$.error.message").value("Internal server error"))
+                .andExpect(jsonPath("$.error.details.length()").value(0));
+    }
+
     @RestController
     public static class TestController {
         @PostMapping("/test/validation")
         public void validate(@Valid @RequestBody TestRequest request) {
+        }
+
+        @PostMapping("/test/unexpected")
+        public void unexpected() {
+            throw new IllegalStateException("boom");
         }
     }
 
