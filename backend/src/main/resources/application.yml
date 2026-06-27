@@ -20,7 +20,7 @@ spring:
 
 runvas:
   jwt:
-    secret: ${JWT_SECRET:dev-secret-dev-secret-dev-secret-dev-secret}
+    secret: ${JWT_SECRET}
     expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
   kakao:
     token-uri: ${KAKAO_TOKEN_URI:https://kauth.kakao.com/oauth/token}

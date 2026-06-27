@@ -5,3 +5,8 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+
+runvas:
+  jwt:
+    secret: dev-secret-dev-secret-dev-secret-dev-secret
+    expiration-seconds: 3600

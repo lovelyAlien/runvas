@@ -13,6 +13,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class JwtProvider {
 
+    private static final int MIN_SECRET_BYTES = 32;
+
     private final SecretKey key;
     private final long expirationSeconds;
 
@@ -20,7 +22,14 @@ public class JwtProvider {
             @Value("${runvas.jwt.secret}") String secret,
             @Value("${runvas.jwt.expiration-seconds}") long expirationSeconds
     ) {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalArgumentException("JWT secret must not be blank");
+        }
+        byte[] secretBytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (secretBytes.length < MIN_SECRET_BYTES) {
+            throw new IllegalArgumentException("JWT secret must be at least 32 bytes");
+        }
+        this.key = Keys.hmacShaKeyFor(secretBytes);
         this.expirationSeconds = expirationSeconds;
     }
 
