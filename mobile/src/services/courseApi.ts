@@ -1,20 +1,13 @@
-// 코스 저장(POST /api/courses) 연동 준비 — 오늘은 백엔드(runvas/backend)가 README만 있는
-// 상태라 이 모듈은 어디서도 호출하지 않습니다. 백엔드가 준비되면 다음 체크리스트만 따르면 됩니다.
-//
-// 1. App.tsx에 "저장" 버튼을 추가하고, useRoute().toRoutePoints() / getBounds() / stats를
-//    buildCreateCourseRequest()에 넘겨 본문을 만든 뒤 postCourse()를 호출하세요.
-// 2. 인증: 아직 로그인 기능이 없습니다. 로그인 구현 후 발급받은 accessToken을
-//    `Authorization: Bearer <accessToken>` 헤더로 추가해야 합니다 (현재는 미적용).
-// 3. 에러 처리: 응답이 실패하면 ApiErrorBody.error.code를 docs/api-contract.md의
-//    VALIDATION_ERROR / UNAUTHORIZED 등 에러 코드 표와 매핑해 사용자 메시지를 보여주세요.
+// 코스 저장(POST /api/courses) — runvas/backend의 CourseController와 연동됨
+// (MapScreen.tsx의 handleConfirmSave에서 accessToken과 함께 호출).
 import {
   Course,
   CreateCourseRequestBody,
   GeoBounds,
-  ApiErrorBody,
   RoutePoint,
   CourseVisibility,
 } from '../types';
+import { parseApiErrorMessage } from '../utils/apiError';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 
@@ -45,7 +38,7 @@ export function buildCreateCourseRequest(
   };
 }
 
-export async function postCourse(body: CreateCourseRequestBody): Promise<Course> {
+export async function postCourse(body: CreateCourseRequestBody, accessToken: string): Promise<Course> {
   if (!API_BASE_URL) {
     throw new Error(
       'EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다. backend가 준비되면 .env에 값을 채워주세요.'
@@ -54,15 +47,15 @@ export async function postCourse(body: CreateCourseRequestBody): Promise<Course>
 
   const response = await fetch(`${API_BASE_URL}/api/courses`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
     body: JSON.stringify(body),
   });
 
   if (!response.ok) {
-    const errorBody: ApiErrorBody = await response.json().catch(() => ({
-      error: { code: 'UNKNOWN_ERROR', message: response.statusText },
-    }));
-    throw new Error(`${errorBody.error.code}: ${errorBody.error.message}`);
+    throw new Error(await parseApiErrorMessage(response));
   }
 
   const { course } = (await response.json()) as { course: Course };

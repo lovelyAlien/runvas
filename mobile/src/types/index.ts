@@ -53,6 +53,28 @@ export interface CreateCourseRequestBody {
   tags: string[];
 }
 
+// docs/data-model.md User와 1:1 대응. providerUserId는 API 응답에 절대 노출되지 않는 내부
+// 저장값이라 모바일 타입에는 포함하지 않는다.
+// 'DEV'는 docs/api-contract.md 계약이 아니라 백엔드 DevAuthController(개발용 로그인)가
+// 발급하는 값. 카카오 SDK 연동 후에는 'DEV' 분기와 devLogin 호출부를 함께 제거한다.
+export interface User {
+  id: string;
+  email: string | null;
+  provider: 'KAKAO' | 'DEV';
+  nickname: string;
+  profileImageUrl: string | null;
+  bio: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// docs/api-contract.md POST /auth/kakao 응답과 동일한 모양 (DevAuthController도 같은 모양으로 응답).
+export interface AuthResponse {
+  accessToken: string;
+  user: User;
+  isNewUser: boolean;
+}
+
 // docs/api-contract.md 공통 에러 응답 형식.
 export interface ApiErrorBody {
   error: {
@@ -60,4 +82,18 @@ export interface ApiErrorBody {
     message: string;
     details?: Array<{ field: string; message: string }>;
   };
+}
+
+// 백엔드 Course API(docs/api-contract.md POST /courses)가 아직 없어 기기에만 저장하는
+// 임시 모델. id는 서버 발급 대신 클라이언트에서 생성하고, authorId/likeCount 등 서버 전용
+// 필드는 없다. 백엔드 연동 시 이 타입을 지우고 courseApi.ts의 Course/postCourse로 교체한다
+// (mobile/docs/implementations/saved-routes-screen.md 참고).
+export interface LocalSavedRoute {
+  id: string;
+  title: string;
+  path: RoutePoint[];
+  distanceMeters: number;
+  estimatedDurationSeconds: number;
+  bounds: GeoBounds;
+  createdAt: string;
 }

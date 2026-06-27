@@ -9,26 +9,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { RouteStats } from '../types';
 import { Colors } from '../constants/theme';
+import { formatDistance, formatDuration } from '../utils/format';
 
 interface Props {
   stats: RouteStats;
   onExport: () => void;
   isExporting: boolean;
-}
-
-function formatDistance(meters: number): string {
-  if (meters < 1000) return `${meters}m`;
-  return `${(meters / 1000).toFixed(2)}km`;
-}
-
-// stats는 seconds 단위로 보관하고(geo-conventions.md), 표시할 때만 분/시간으로 환산합니다.
-function formatTime(seconds: number): string {
-  const minutes = Math.round(seconds / 60);
-  if (minutes === 0) return '-';
-  if (minutes < 60) return `${minutes}분`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
 }
 
 export default function RouteStatsBar({ stats, onExport, isExporting }: Props) {
@@ -39,7 +25,7 @@ export default function RouteStatsBar({ stats, onExport, isExporting }: Props) {
       <View style={styles.stats}>
         <StatItem label="거리" value={formatDistance(stats.distanceMeters)} />
         <Divider />
-        <StatItem label="예상 시간" value={formatTime(stats.estimatedDurationSeconds)} />
+        <StatItem label="예상 시간" value={formatDuration(stats.estimatedDurationSeconds)} />
         <Divider />
         <StatItem label="포인트" value={`${stats.pointCount}개`} />
       </View>
