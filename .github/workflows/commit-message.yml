@@ -1,0 +1,37 @@
+name: Commit Message
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  validate:
+    name: Validate commits and PR title
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate PR title
+        run: |
+          printf '%s\n' "${{ github.event.pull_request.title }}" > /tmp/pr-title
+          ./scripts/validate-commit-msg.sh /tmp/pr-title
+
+      - name: Validate commit messages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh api "repos/$REPOSITORY/pulls/$PR_NUMBER/commits" --paginate \
+            --jq '.[] | @base64' | while read -r encoded; do
+            [ -n "$encoded" ] || continue
+            sha=$(printf '%s' "$encoded" | base64 --decode | jq -r '.sha')
+            message_file="/tmp/commit-message-$sha"
+            printf '%s' "$encoded" | base64 --decode | jq -r '.commit.message' > "$message_file"
+            ./scripts/validate-commit-msg.sh "$message_file"
+          done

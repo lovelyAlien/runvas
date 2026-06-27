@@ -48,6 +48,16 @@ Runvas는 사용자가 지도 위에서 직접 러닝 코스를 설계하고 공
 - [GPX 내보내기 규칙](./docs/gpx-export.md)
 - [협업 가이드](./docs/collaboration.md)
 
+## 팀 개발 설정
+
+커밋 메시지 검증 hook을 사용하려면 저장소를 받은 뒤 한 번 실행합니다.
+
+```bash
+./scripts/setup-git-hooks.sh
+```
+
+Git 작업 규칙과 커밋 메시지 기준은 [협업 가이드](./docs/collaboration.md)를 따릅니다.
+
 ## 변경 원칙
 
 공통 기준이 바뀌면 `backend/`와 `mobile/` 모두 영향을 받습니다.
