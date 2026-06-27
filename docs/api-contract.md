@@ -151,6 +151,49 @@
 | `post.tags` | 최대 10개 |
 | `comment.body` | 1-1000자 |
 
+## Routing APIs
+
+### POST /routes/pedestrian
+
+두 지점 사이의 보행자 경로를 조회합니다. T-Map 보행자 경로 탐색 API를 백엔드에서만 호출하고
+(클라이언트에 키를 노출하지 않기 위해), 좌표 쌍 단위로 결과를 캐싱해 외부 API 호출량(무료 한도
+1,000회/일)을 아낀다. 외부 API 호출이 실패하면 두 지점을 잇는 직선 2점을 반환한다.
+
+#### Auth
+
+`Required`
+
+#### Request Body
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `start` | GeoPoint | Y | 출발 지점 |
+| `end` | GeoPoint | Y | 도착 지점 |
+
+```json
+{
+  "start": { "latitude": 37.5665, "longitude": 126.978 },
+  "end": { "latitude": 37.567, "longitude": 126.979 }
+}
+```
+
+#### Response: 200 OK
+
+```json
+{
+  "path": [
+    { "latitude": 37.5665, "longitude": 126.978, "sequence": 0 },
+    { "latitude": 37.5667, "longitude": 126.9785, "sequence": 1 },
+    { "latitude": 37.567, "longitude": 126.979, "sequence": 2 }
+  ]
+}
+```
+
+#### Errors
+
+- `400 VALIDATION_ERROR`: `start`/`end` 누락
+- `401 UNAUTHORIZED`: 로그인하지 않음
+
 ## Course APIs
 
 ### POST /courses

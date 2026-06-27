@@ -21,8 +21,17 @@ spring:
           descriptor:
             sql:
               BasicBinder: trace
+  data:
+    redis:
+      # 전용 Runvas Redis 컨테이너 (다른 프로젝트의 Redis와 분리):
+      # docker run -d --name runvas-redis -p 6380:6379 redis:7 redis-server --appendonly yes
+      host: localhost
+      port: 6380
+  cache:
+    type: redis
 
 logging:
   level:
     org.hibernate.SQL: debug
     org.hibernate.orm.jdbc.bind: trace
+    com.runvas.backend.routing: debug

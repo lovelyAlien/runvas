@@ -36,6 +36,7 @@ public class SecurityConfig {
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers(HttpMethod.GET, "/me", "/me/bookmarked-courses").authenticated()
 						.requestMatchers(HttpMethod.PATCH, "/me").authenticated()
+						.requestMatchers(HttpMethod.POST, "/routes/pedestrian").authenticated()
 						.requestMatchers(HttpMethod.POST, "/courses").authenticated()
 						.requestMatchers(HttpMethod.PATCH, "/courses/*").authenticated()
 						.requestMatchers(HttpMethod.DELETE, "/courses/*").authenticated()

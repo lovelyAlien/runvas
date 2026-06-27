@@ -130,6 +130,23 @@ com.runvas.backend
 않는다. 카카오 로그인이 실제로 연동되면 이 컨트롤러와 모바일의 `authApi.devLogin()` 호출부를
 함께 제거해야 한다 (`mobile/docs/implementations/entry-screen-auth-gating.md` 참고).
 
+## 보행자 경로 캐싱 (`routing` 패키지)
+
+T-Map 보행자 경로 탐색 API는 무료 한도가 1,000회/일이고, 모바일이 직접 호출하면 앱 키가
+클라이언트 번들에 노출된다. 그래서 `routing` 패키지(`TmapPedestrianClient`,
+`RoutingService`, `RoutingController`)를 백엔드에 두고 모바일은 `POST /routes/pedestrian`만
+호출하게 했다.
+
+캐시는 전용 Redis 컨테이너(`runvas-redis`, 포트 6380 — 다른 프로젝트의 Redis와 분리,
+`docker run -d --name runvas-redis -p 6380:6379 redis:7 redis-server --appendonly yes`)에
+저장한다. `RoutingService`는 `@Cacheable` 대신 `CacheManager`를 직접 써서 히트/미스를
+`log.info`로 명시적으로 남긴다 (`@Cacheable`은 히트 시 메서드 진입 자체를 건너뛰어 내부에서
+로그를 찍을 수 없음). 캐시 키는 출발/도착 좌표를 소수 4자리(약 11m 격자)로 반올림한 문자열이다
+— 처음엔 5자리(약 1.1m)였는데, 실사용 탭 좌표가 "거의 같은 지점"이어도 2~3m씩 차이가 나서
+캐시 미스가 잦았다(실측 로그로 확인). TTL은 30일(보행자 도로가 자주 바뀌지 않으므로)이고,
+`--appendonly yes`로 AOF를 켜서 백엔드/컨테이너
+재시작에도 캐시가 남는다. T-Map 호출이 실패하면(한도 초과 등) 직선 2점으로 폴백한다.
+
 ## 다음 작업
 
 - `community`, `bookmark` 패키지의 서비스/컨트롤러 구현

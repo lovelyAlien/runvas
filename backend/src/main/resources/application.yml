@@ -20,3 +20,5 @@ runvas:
   kakao:
     client-id: ${RUNVAS_KAKAO_CLIENT_ID:}
     client-secret: ${RUNVAS_KAKAO_CLIENT_SECRET:}
+  tmap:
+    app-key: ${RUNVAS_TMAP_APP_KEY:}
