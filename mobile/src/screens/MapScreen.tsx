@@ -19,7 +19,7 @@ import RouteStatsBar from '../components/RouteStatsBar';
 import { useRoute } from '../hooks/useRoute';
 import { useLocation } from '../hooks/useLocation';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchPedestrianRoute } from '../utils/tmapRouting';
+import { fetchPedestrianRoute } from '../services/routingApi';
 import { exportGpx } from '../utils/exportGpx';
 import { saveLocalRoute } from '../services/localRoutesStorage';
 import { postCourse, buildCreateCourseRequest } from '../services/courseApi';
@@ -61,9 +61,9 @@ export default function MapScreen({ navigation }: Props) {
         return;
       }
 
-      // 두 번째 이후: 로그인 시 T-MAP 보행로 API, 비로그인 시 직선 좌표로 구간 연결
+      // 두 번째 이후: 로그인 시 백엔드 경유 보행로 API, 비로그인 시 직선 좌표로 구간 연결
       const prevWaypoint = waypoints[waypoints.length - 1];
-      if (!user) {
+      if (!user || !accessToken) {
         const straightSegment = [prevWaypoint, coord];
         addSegment(coord, straightSegment);
         mapRef.current?.addWaypoint(coord, waypoints.length + 1);
@@ -73,15 +73,23 @@ export default function MapScreen({ navigation }: Props) {
 
       setIsRouting(true);
       try {
-        const segmentCoords = await fetchPedestrianRoute(prevWaypoint, coord);
+        const segmentCoords = await fetchPedestrianRoute(prevWaypoint, coord, accessToken);
         addSegment(coord, segmentCoords);
         mapRef.current?.addWaypoint(coord, waypoints.length + 1);
         mapRef.current?.addRouteSegment(segmentCoords);
+      } catch (error: unknown) {
+        // 백엔드 호출 실패 시 직선으로 대체 (T-Map 자체 실패는 백엔드가 이미 직선으로 폴백함).
+        // 실패 원인이 안 보이면 디버깅이 안 되므로 콘솔에는 남긴다.
+        console.error('보행로 API 호출 실패:', error);
+        const straightSegment = [prevWaypoint, coord];
+        addSegment(coord, straightSegment);
+        mapRef.current?.addWaypoint(coord, waypoints.length + 1);
+        mapRef.current?.addRouteSegment(straightSegment);
       } finally {
         setIsRouting(false);
       }
     },
-    [waypoints, isRouting, user, addFirstPoint, addSegment]
+    [waypoints, isRouting, user, accessToken, addFirstPoint, addSegment]
   );
 
   const handleLocate = async () => {
