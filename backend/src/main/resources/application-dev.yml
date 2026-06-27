@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    # 로컬 전용 Runvas MySQL 컨테이너 (다른 프로젝트의 MySQL과 분리):
+    # docker run -d --name runvas-mysql -e MYSQL_ROOT_PASSWORD=runvas_dev_root \
+    #   -e MYSQL_DATABASE=runvas -e MYSQL_USER=runvas -e MYSQL_PASSWORD=runvas_dev_password \
+    #   -p 3308:3306 mysql:8.0 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    url: jdbc:mysql://localhost:3308/runvas?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${RUNVAS_DB_USERNAME:runvas}
+    password: ${RUNVAS_DB_PASSWORD:runvas_dev_password}
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        show_sql: true
+        format_sql: true
+        type:
+          descriptor:
+            sql:
+              BasicBinder: trace
+
+logging:
+  level:
+    org.hibernate.SQL: debug
+    org.hibernate.orm.jdbc.bind: trace

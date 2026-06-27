@@ -1,0 +1,22 @@
+server:
+  port: 8921
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: runvas-backend
+  profiles:
+    active: dev
+  jackson:
+    time-zone: UTC
+    serialization:
+      write-dates-as-timestamps: false
+
+runvas:
+  jwt:
+    secret: ${RUNVAS_JWT_SECRET:dev-only-secret-change-me-before-production-0123456789}
+    expiration-seconds: 2592000
+  kakao:
+    client-id: ${RUNVAS_KAKAO_CLIENT_ID:}
+    client-secret: ${RUNVAS_KAKAO_CLIENT_SECRET:}
