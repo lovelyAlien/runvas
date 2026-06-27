@@ -18,7 +18,7 @@ Spring Boot로 구현하기 위한 설계다. **필드명·타입·에러 코드
     -e MYSQL_DATABASE=runvas -e MYSQL_USER=runvas -e MYSQL_PASSWORD=runvas_dev_password \
     -p 3308:3306 mysql:8.0 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
   ```
-  (시스템에 이미 3306 포트로 다른 MySQL이 떠 있을 수 있어 3308로 분리했다 — `application-dev.yml` 참고.)
+  (시스템에 이미 3306 포트로 다른 MySQL이 떠 있을 수 있어 3308로 분리했다 — `application.yml` 참고.)
   (참고: 사용자의 다른 회사 프로젝트 `kicm-be`는 MyBatis만 쓰는 컨벤션이지만, 그건 그
   멀티모듈 프로젝트의 별도 컨벤션이고 Runvas는 독립된 신규 프로젝트라 따르지 않는다.)
 - **Spring Security + JWT**(자체 발급) — 카카오 로그인 자체는 OAuth, 그 이후 클라이언트가 쓰는

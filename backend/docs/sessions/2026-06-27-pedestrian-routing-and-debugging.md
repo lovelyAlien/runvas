@@ -48,8 +48,9 @@ T-Map 보행자 경로 탐색 API가 무료 한도 1,000회/일이라, 클라이
 ## 4. 디버깅 중 알아낸 환경 사실
 
 - 백엔드가 IntelliJ로 떠 있으면 콘솔 로그를 외부에서 못 본다 — 디버깅이 필요할 땐
-  `./gradlew bootRun --args='--spring.profiles.active=dev,local' > /tmp/runvas-backend.log 2>&1 &`
-  로 직접 띄우는 게 로그 확인에 유리하다.
+  `./gradlew bootRun > /tmp/runvas-backend.log 2>&1 &`로 직접 띄우는 게 로그 확인에 유리하다.
+  (이 세션 당시엔 `--spring.profiles.active=dev,local`이 필요했지만, 아래 "이후 정리" 항목으로
+  `application-dev.yml`/`application-local.yml` 분리를 없애서 더 이상 프로필 지정이 필요 없다.)
 - `:8081`(Expo 번들러)과 `:8921`(백엔드)은 의도적으로 분리된 별개 서비스 — 혼동 포인트였지만
   버그는 아니었다.
 - "BE 호출이 안 되는 것 같다"는 보고의 실제 원인은 비로그인 상태였다 — `MapScreen.tsx`의
@@ -61,3 +62,15 @@ T-Map 보행자 경로 탐색 API가 무료 한도 1,000회/일이라, 클라이
 - 백엔드만 재시작(Redis 유지) 후에도 캐시 유지 확인(AOF 영속화).
 - 실사용 좌표차(~2.5m)로 재현 테스트 → 4자리 격자로 캐시 히트 확인.
 - 모바일 `npx tsc --noEmit` 통과, Expo 번들 200 확인.
+
+## 5. 이후 정리 — yml 통합
+
+`application.yml`(공통)/`application-dev.yml`("dev" 프로필)/`application-local.yml`("local"
+프로필, 시크릿)로 나뉘어 있던 게, 프로필을 두 개 다 켜야 시크릿까지 로드되는 구조였다. IntelliJ
+실행 설정이 "dev"만 켜고 "local"을 빼먹어서 T-Map 키가 비는 사고가 실제로 났다(위 디버깅 참고).
+
+이 프로젝트엔 아직 "운영(prod)" 환경이 없어 dev/local을 프로필로 나눌 필요가 없다고 판단해
+`application-dev.yml`의 내용을 `application.yml`에 합치고, `application.yml`에
+`spring.config.import: optional:classpath:application-local.yml`을 추가해 시크릿 파일이
+프로필 지정 없이 항상 로드되게 했다. `application-dev.yml`은 삭제했다. 이제 백엔드는
+`./gradlew bootRun`만으로 항상 같은 설정으로 뜬다.
