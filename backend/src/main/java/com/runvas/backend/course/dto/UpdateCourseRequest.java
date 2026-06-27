@@ -13,6 +13,7 @@ public record UpdateCourseRequest(
 		@Size(min = 1, max = 60) String title,
 		@Size(max = 500) String description,
 		@Valid List<RoutePoint> path,
+		@Valid List<RoutePoint> waypoints,
 		Integer distanceMeters,
 		Integer estimatedDurationSeconds,
 		@Valid GeoBounds bounds,

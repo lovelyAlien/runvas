@@ -16,29 +16,32 @@ public class CourseValidator {
 	private static final int MIN_DISTANCE_METERS = 100;
 	private static final int MAX_DISTANCE_METERS = 100_000;
 
-	public void validate(List<RoutePoint> path, int distanceMeters, GeoBounds bounds) {
-		validatePointCount(path);
-		validateSequenceContinuity(path);
+	public void validate(
+			List<RoutePoint> path, List<RoutePoint> waypoints, int distanceMeters, GeoBounds bounds) {
+		validatePointCount(path, "path");
+		validateSequenceContinuity(path, "path");
+		validatePointCount(waypoints, "waypoints");
+		validateSequenceContinuity(waypoints, "waypoints");
 		validateDistance(distanceMeters);
 		validateBoundsContainsPath(path, bounds);
 	}
 
-	private void validatePointCount(List<RoutePoint> path) {
-		if (path.size() < MIN_POINTS || path.size() > MAX_POINTS) {
+	private void validatePointCount(List<RoutePoint> points, String fieldName) {
+		if (points.size() < MIN_POINTS || points.size() > MAX_POINTS) {
 			throw new ApiException(
 					ErrorCode.VALIDATION_ERROR,
-					"Path must contain " + MIN_POINTS + "-" + MAX_POINTS + " points",
-					List.of(new ApiException.FieldErrorDetail("path", "포인트 개수가 범위를 벗어났습니다")));
+					fieldName + " must contain " + MIN_POINTS + "-" + MAX_POINTS + " points",
+					List.of(new ApiException.FieldErrorDetail(fieldName, "포인트 개수가 범위를 벗어났습니다")));
 		}
 	}
 
-	private void validateSequenceContinuity(List<RoutePoint> path) {
-		for (int i = 0; i < path.size(); i++) {
-			if (path.get(i).sequence() == null || path.get(i).sequence() != i) {
+	private void validateSequenceContinuity(List<RoutePoint> points, String fieldName) {
+		for (int i = 0; i < points.size(); i++) {
+			if (points.get(i).sequence() == null || points.get(i).sequence() != i) {
 				throw new ApiException(
 						ErrorCode.VALIDATION_ERROR,
-						"Path sequence must be continuous starting from 0",
-						List.of(new ApiException.FieldErrorDetail("path", "sequence가 연속적이지 않습니다")));
+						fieldName + " sequence must be continuous starting from 0",
+						List.of(new ApiException.FieldErrorDetail(fieldName, "sequence가 연속적이지 않습니다")));
 			}
 		}
 	}

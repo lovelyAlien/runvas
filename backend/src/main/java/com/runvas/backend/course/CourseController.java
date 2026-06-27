@@ -48,6 +48,11 @@ public class CourseController {
 		return Map.of("courses", result.courses(), "pageInfo", result.pageInfo());
 	}
 
+	@GetMapping("/mine")
+	public Map<String, Object> listMine() {
+		return Map.of("courses", courseService.listMine());
+	}
+
 	@GetMapping("/{courseId}")
 	public Map<String, CourseResponse> getById(@PathVariable String courseId) {
 		return Map.of("course", courseService.getById(courseId));

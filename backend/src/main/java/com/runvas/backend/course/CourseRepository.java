@@ -14,4 +14,7 @@ public interface CourseRepository extends JpaRepository<Course, String> {
 					+ "order by c.createdAt desc")
 	java.util.List<Course> findPublicCoursesWithinBounds(
 			double swLat, double swLng, double neLat, double neLng);
+
+	// 본인이 만든 코스 목록 — visibility 필터 없이 PRIVATE도 포함한다.
+	java.util.List<Course> findByAuthorIdOrderByCreatedAtDesc(String authorId);
 }

@@ -15,6 +15,7 @@ public record CreateCourseRequest(
 		@NotNull @Size(min = 1, max = 60) String title,
 		@Size(max = 500) String description,
 		@NotEmpty @Valid List<RoutePoint> path,
+		@NotEmpty @Valid List<RoutePoint> waypoints,
 		@NotNull Integer distanceMeters,
 		@NotNull Integer estimatedDurationSeconds,
 		@NotNull @Valid GeoBounds bounds,

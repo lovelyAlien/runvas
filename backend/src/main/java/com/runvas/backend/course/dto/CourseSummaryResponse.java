@@ -32,7 +32,9 @@ public record CourseSummaryResponse(
 				course.getEstimatedDurationSeconds(),
 				course.getBounds(),
 				course.getVisibility(),
-				course.getTags(),
+				// tags는 지연 로딩 컬렉션 — 트랜잭션이 끝난 뒤(Jackson 직렬화 시점) 접근하면
+				// LazyInitializationException이 나므로, 트랜잭션 안에서 즉시 복사해 둔다.
+				Set.copyOf(course.getTags()),
 				course.getLikeCount(),
 				likedByMe,
 				course.getCreatedAt(),

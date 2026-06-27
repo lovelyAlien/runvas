@@ -51,6 +51,13 @@ public class Course {
 	@Column(nullable = false, columnDefinition = "LONGTEXT")
 	private List<RoutePoint> path;
 
+	// 사용자가 지도에서 실제로 탭한 지점 — path(보행 경로 탐색 API 응답의 상세 좌표)와 별개로
+	// 보관해서 "포인트 개수" 표시와 향후 코스 수정에 쓴다 (docs/data-model.md 참고).
+	@Lob
+	@Convert(converter = RoutePointListConverter.class)
+	@Column(nullable = false, columnDefinition = "LONGTEXT")
+	private List<RoutePoint> waypoints;
+
 	@Column(nullable = false)
 	private Integer distanceMeters;
 
@@ -92,6 +99,7 @@ public class Course {
 			String title,
 			String description,
 			List<RoutePoint> path,
+			List<RoutePoint> waypoints,
 			Integer distanceMeters,
 			Integer estimatedDurationSeconds,
 			GeoBounds bounds,
@@ -101,6 +109,7 @@ public class Course {
 		this.title = title;
 		this.description = description;
 		this.path = path;
+		this.waypoints = waypoints;
 		this.distanceMeters = distanceMeters;
 		this.estimatedDurationSeconds = estimatedDurationSeconds;
 		applyBounds(bounds);

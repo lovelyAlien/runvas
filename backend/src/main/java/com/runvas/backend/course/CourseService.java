@@ -34,13 +34,14 @@ public class CourseService {
 	@Transactional
 	public CourseResponse create(CreateCourseRequest request) {
 		String authorId = currentUserProvider.requireUserId();
-		courseValidator.validate(request.path(), request.distanceMeters(), request.bounds());
+		courseValidator.validate(request.path(), request.waypoints(), request.distanceMeters(), request.bounds());
 
 		Course course = new Course(
 				authorId,
 				request.title(),
 				request.description(),
 				request.path(),
+				request.waypoints(),
 				request.distanceMeters(),
 				request.estimatedDurationSeconds(),
 				request.bounds(),
@@ -51,6 +52,10 @@ public class CourseService {
 		return CourseResponse.from(course, false);
 	}
 
+	// tags가 지연 로딩 컬렉션이라, open-in-view=false에서 트랜잭션 밖으로 나가면
+	// CourseResponse.from()이 course.getTags()를 읽을 때 LazyInitializationException이 난다
+	// (listMine()에서 같은 문제를 겪고 고친 것과 동일 — CourseDetailScreen에서 실제로 재현됨).
+	@Transactional(readOnly = true)
 	public CourseResponse getById(String courseId) {
 		Course course = findCourseOrThrow(courseId);
 		String currentUserId = currentUserProvider.currentUserIdOrNull();
@@ -67,6 +72,8 @@ public class CourseService {
 		return CourseResponse.from(course, isLikedByCurrentUser(course.getId(), currentUserId));
 	}
 
+	// getById()/listMine()과 같은 이유로 필요 — tags 지연 로딩 컬렉션을 트랜잭션 안에서 복사해야 한다.
+	@Transactional(readOnly = true)
 	public ListResult list(double swLat, double swLng, double neLat, double neLng, Integer limit, String q, String tag) {
 		int effectiveLimit = limit == null ? DEFAULT_LIMIT : Math.min(limit, MAX_LIMIT);
 		if (limit != null && limit > MAX_LIMIT) {
@@ -89,6 +96,16 @@ public class CourseService {
 		return new ListResult(courses, new PageInfo(null));
 	}
 
+	// tags가 지연 로딩 컬렉션이라, open-in-view=false인 상태에서 트랜잭션 밖으로 나가면
+	// CourseSummaryResponse.from()이 course.getTags()를 읽을 때 LazyInitializationException이 난다.
+	@Transactional(readOnly = true)
+	public List<CourseSummaryResponse> listMine() {
+		String currentUserId = currentUserProvider.requireUserId();
+		return courseRepository.findByAuthorIdOrderByCreatedAtDesc(currentUserId).stream()
+				.map(course -> CourseSummaryResponse.from(course, isLikedByCurrentUser(course.getId(), currentUserId)))
+				.toList();
+	}
+
 	@Transactional
 	public CourseResponse update(String courseId, UpdateCourseRequest request) {
 		Course course = findCourseOrThrow(courseId);
@@ -100,13 +117,17 @@ public class CourseService {
 		if (request.tags() != null) course.replaceTags(request.tags());
 
 		if (request.path() != null) {
-			if (request.distanceMeters() == null || request.estimatedDurationSeconds() == null || request.bounds() == null) {
+			if (request.waypoints() == null
+					|| request.distanceMeters() == null
+					|| request.estimatedDurationSeconds() == null
+					|| request.bounds() == null) {
 				throw new ApiException(
 						ErrorCode.VALIDATION_ERROR,
-						"path를 전송하면 distanceMeters, estimatedDurationSeconds, bounds도 함께 전송해야 합니다");
+						"path를 전송하면 waypoints, distanceMeters, estimatedDurationSeconds, bounds도 함께 전송해야 합니다");
 			}
-			courseValidator.validate(request.path(), request.distanceMeters(), request.bounds());
+			courseValidator.validate(request.path(), request.waypoints(), request.distanceMeters(), request.bounds());
 			course.setPath(request.path());
+			course.setWaypoints(request.waypoints());
 			course.setDistanceMeters(request.distanceMeters());
 			course.setEstimatedDurationSeconds(request.estimatedDurationSeconds());
 			course.applyBounds(request.bounds());
