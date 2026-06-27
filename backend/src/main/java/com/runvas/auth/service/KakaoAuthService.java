@@ -9,8 +9,8 @@ import com.runvas.user.domain.User;
 import com.runvas.user.dto.UserResponse;
 import com.runvas.user.repository.UserRepository;
 import java.util.Optional;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class KakaoAuthService {
@@ -25,7 +25,6 @@ public class KakaoAuthService {
         this.jwtProvider = jwtProvider;
     }
 
-    @Transactional
     public AuthResponse login(KakaoLoginRequest request) {
         if (!AuthProvider.KAKAO.name().equals(request.provider())) {
             throw new RunvasException(ErrorCode.VALIDATION_ERROR, "provider must be KAKAO");
@@ -40,15 +39,32 @@ public class KakaoAuthService {
                 AuthProvider.KAKAO,
                 kakaoUserInfo.providerUserId()
         );
-        boolean isNewUser = existingUser.isEmpty();
-        User user = existingUser.orElseGet(() -> userRepository.save(User.createKakaoUser(
-                kakaoUserInfo.providerUserId(),
-                kakaoUserInfo.email(),
-                kakaoUserInfo.nickname(),
-                kakaoUserInfo.profileImageUrl()
-        )));
+        LoginResult loginResult = existingUser
+                .map(user -> new LoginResult(user, false))
+                .orElseGet(() -> createOrFindRacedUser(kakaoUserInfo));
 
-        String accessToken = jwtProvider.createAccessToken(user.getId());
-        return new AuthResponse(accessToken, UserResponse.from(user), isNewUser);
+        String accessToken = jwtProvider.createAccessToken(loginResult.user().getId());
+        return new AuthResponse(accessToken, UserResponse.from(loginResult.user()), loginResult.isNewUser());
+    }
+
+    private LoginResult createOrFindRacedUser(KakaoUserInfo kakaoUserInfo) {
+        try {
+            User user = userRepository.saveAndFlush(User.createKakaoUser(
+                    kakaoUserInfo.providerUserId(),
+                    kakaoUserInfo.email(),
+                    kakaoUserInfo.nickname(),
+                    kakaoUserInfo.profileImageUrl()
+            ));
+            return new LoginResult(user, true);
+        } catch (DataIntegrityViolationException exception) {
+            return userRepository.findByProviderAndProviderUserId(
+                    AuthProvider.KAKAO,
+                    kakaoUserInfo.providerUserId()
+            ).map(user -> new LoginResult(user, false))
+                    .orElseThrow(() -> exception);
+        }
+    }
+
+    private record LoginResult(User user, boolean isNewUser) {
     }
 }

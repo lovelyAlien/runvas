@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,7 +35,7 @@ class KakaoAuthServiceTest {
                 .thenReturn(new KakaoUserInfo("kakao-123", "runner@example.com", "Seoul Runner", null));
         when(userRepository.findByProviderAndProviderUserId(AuthProvider.KAKAO, "kakao-123"))
                 .thenReturn(Optional.empty());
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> persisted(invocation.getArgument(0)));
+        when(userRepository.saveAndFlush(any())).thenAnswer(invocation -> persisted(invocation.getArgument(0)));
 
         AuthResponse response = kakaoAuthService.login(request);
 
@@ -44,7 +45,7 @@ class KakaoAuthServiceTest {
         assertThat(response.user().email()).isEqualTo("runner@example.com");
         assertThat(response.user().provider()).isEqualTo("KAKAO");
         assertThat(response.user().nickname()).isEqualTo("Seoul Runner");
-        verify(userRepository).save(any(User.class));
+        verify(userRepository).saveAndFlush(any(User.class));
     }
 
     @Test
@@ -59,6 +60,27 @@ class KakaoAuthServiceTest {
         AuthResponse response = kakaoAuthService.login(request);
 
         assertThat(response.isNewUser()).isFalse();
+        assertThat(response.user().email()).isEqualTo("runner@example.com");
+        assertThat(response.user().nickname()).isEqualTo("Seoul Runner");
+    }
+
+    @Test
+    void treatsDuplicateCreateRaceAsExistingUserLogin() {
+        KakaoLoginRequest request = new KakaoLoginRequest("KAKAO", "authorization-code", "runvas://auth/kakao");
+        User existingUser = persisted(User.createKakaoUser("kakao-123", "runner@example.com", "Seoul Runner", null));
+        when(kakaoAuthClient.fetchUserInfo("authorization-code", "runvas://auth/kakao"))
+                .thenReturn(new KakaoUserInfo("kakao-123", "runner@example.com", "Seoul Runner", null));
+        when(userRepository.findByProviderAndProviderUserId(AuthProvider.KAKAO, "kakao-123"))
+                .thenReturn(Optional.empty(), Optional.of(existingUser));
+        when(userRepository.saveAndFlush(any()))
+                .thenThrow(new DataIntegrityViolationException("duplicate provider user"));
+
+        AuthResponse response = kakaoAuthService.login(request);
+
+        UUID tokenUserId = jwtProvider.parseUserId(response.accessToken());
+        assertThat(tokenUserId.toString()).isEqualTo(existingUser.getId().toString());
+        assertThat(response.isNewUser()).isFalse();
+        assertThat(response.user().id()).isEqualTo("user_" + existingUser.getId());
         assertThat(response.user().email()).isEqualTo("runner@example.com");
         assertThat(response.user().nickname()).isEqualTo("Seoul Runner");
     }
@@ -81,7 +103,7 @@ class KakaoAuthServiceTest {
                 .thenReturn(new KakaoUserInfo("secret-provider-id", "runner@example.com", "Seoul Runner", null));
         when(userRepository.findByProviderAndProviderUserId(AuthProvider.KAKAO, "secret-provider-id"))
                 .thenReturn(Optional.empty());
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> persisted(invocation.getArgument(0)));
+        when(userRepository.saveAndFlush(any())).thenAnswer(invocation -> persisted(invocation.getArgument(0)));
 
         AuthResponse response = kakaoAuthService.login(request);
 
