@@ -7,7 +7,8 @@ Branch: `codex/backend-auth-scaffold`
 ## Current State
 
 - Last completed task: Task 3
-- Next task: Task 4, JWT Provider and Security Configuration
+- Last completed task: Task 4
+- Next task: Task 5, Kakao Login Service and Endpoint
 - Test status: `JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home ./gradlew test` passed locally; `UserRepositoryTest` is skipped because Docker is unavailable.
 
 ## Tasks
@@ -63,13 +64,25 @@ Branch: `codex/backend-auth-scaffold`
     - Local Docker daemon is unavailable, so the Testcontainers test is skipped via `@Testcontainers(disabledWithoutDocker = true)`.
     - CI or a local environment with Docker should execute this repository test.
 
-- [ ] Task 4: JWT Provider and Security Configuration
-  - [ ] Implementer complete
-  - [ ] Verification complete
-  - [ ] Spec review approved
-  - [ ] Code quality review approved
+- [x] Task 4: JWT Provider and Security Configuration
+  - [x] Implementer complete
+  - [x] Verification complete
+  - [x] Spec review approved
+  - [x] Code quality review approved
   - Commits:
+    - `7774cd0 feat(auth): JWT 인증 기반 추가`
+    - `aa71880 fix(auth): 인증 실패 응답 형식 정리`
   - Verification:
+    - `JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home ./gradlew test --tests com.runvas.auth.service.JwtProviderTest`
+    - `JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home ./gradlew test`
+    - Result: `BUILD SUCCESSFUL`
+  - Notes:
+    - 2026-06-28: Implementer dispatched.
+    - 2026-06-28: Spec review approved.
+    - 2026-06-28: Code quality review found JWT/security error-response gaps; follow-up fix dispatched.
+    - 2026-06-28: Follow-up fix implemented; code quality re-review pending.
+    - 2026-06-28: Code quality re-review approved.
+    - `UserRepositoryTest` skipped because Docker is unavailable.
 
 - [ ] Task 5: Kakao Login Service and Endpoint
   - [ ] Implementer complete
