@@ -65,4 +65,10 @@ class MeControllerTest {
                 .andExpect(jsonPath("$.user.provider").value("KAKAO"))
                 .andExpect(jsonPath("$.user.providerUserId").doesNotExist());
     }
+
+    @Test
+    void unauthenticatedRequestReturns401() throws Exception {
+        mockMvc.perform(get("/api/me"))
+                .andExpect(status().isUnauthorized());
+    }
 }
