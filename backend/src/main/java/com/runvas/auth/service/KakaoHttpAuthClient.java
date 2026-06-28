@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.runvas.global.error.ErrorCode;
 import com.runvas.global.error.RunvasException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
@@ -42,6 +43,9 @@ public class KakaoHttpAuthClient implements KakaoAuthClient {
                 .uri(userInfoUri)
                 .header("Authorization", "Bearer " + kakaoAccessToken)
                 .retrieve()
+                .onStatus(HttpStatusCode::isError, (req, res) -> {
+                    throw new RunvasException(ErrorCode.UNAUTHORIZED, "Kakao authentication failed");
+                })
                 .body(String.class);
         return parseUserInfo(userInfoJson);
     }
@@ -60,6 +64,9 @@ public class KakaoHttpAuthClient implements KakaoAuthClient {
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(form)
                 .retrieve()
+                .onStatus(HttpStatusCode::isError, (req, res) -> {
+                    throw new RunvasException(ErrorCode.UNAUTHORIZED, "Kakao authentication failed");
+                })
                 .body(String.class);
         return parseAccessToken(tokenJson);
     }
@@ -67,7 +74,7 @@ public class KakaoHttpAuthClient implements KakaoAuthClient {
     static String parseAccessToken(String json) {
         try {
             String token = OBJECT_MAPPER.readTree(json).path("access_token").asText();
-            if (token == null || token.isBlank()) {
+            if (token.isBlank()) {
                 throw new RunvasException(ErrorCode.UNAUTHORIZED, "Kakao authentication failed");
             }
             return token;
