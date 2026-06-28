@@ -66,7 +66,13 @@ public class KakaoHttpAuthClient implements KakaoAuthClient {
 
     static String parseAccessToken(String json) {
         try {
-            return OBJECT_MAPPER.readTree(json).path("access_token").asText();
+            String token = OBJECT_MAPPER.readTree(json).path("access_token").asText();
+            if (token == null || token.isBlank()) {
+                throw new RunvasException(ErrorCode.UNAUTHORIZED, "Kakao authentication failed");
+            }
+            return token;
+        } catch (RunvasException e) {
+            throw e;
         } catch (Exception exception) {
             throw new RunvasException(ErrorCode.UNAUTHORIZED, "Kakao authentication failed");
         }
