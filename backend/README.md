@@ -32,3 +32,11 @@ Runvas 서버 API 구현을 관리하는 디렉토리입니다.
 ## Optional Environment
 
 - `KAKAO_CLIENT_SECRET`
+
+## Implemented MVP APIs
+
+- `POST /api/auth/kakao`
+- `GET /api/me`
+
+`POST /api/auth/kakao` exchanges a Kakao authorization code on the backend and returns a Runvas JWT.
+The Kakao access token and provider user ID are never returned in API responses.
