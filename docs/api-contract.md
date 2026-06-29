@@ -151,6 +151,49 @@
 | `post.tags` | 최대 10개 |
 | `comment.body` | 1-1000자 |
 
+## Routing APIs
+
+### POST /routes/pedestrian
+
+두 지점 사이의 보행자 경로를 조회합니다. T-Map 보행자 경로 탐색 API를 백엔드에서만 호출하고
+(클라이언트에 키를 노출하지 않기 위해), 좌표 쌍 단위로 결과를 캐싱해 외부 API 호출량(무료 한도
+1,000회/일)을 아낀다. 외부 API 호출이 실패하면 두 지점을 잇는 직선 2점을 반환한다.
+
+#### Auth
+
+`Required`
+
+#### Request Body
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `start` | GeoPoint | Y | 출발 지점 |
+| `end` | GeoPoint | Y | 도착 지점 |
+
+```json
+{
+  "start": { "latitude": 37.5665, "longitude": 126.978 },
+  "end": { "latitude": 37.567, "longitude": 126.979 }
+}
+```
+
+#### Response: 200 OK
+
+```json
+{
+  "path": [
+    { "latitude": 37.5665, "longitude": 126.978, "sequence": 0 },
+    { "latitude": 37.5667, "longitude": 126.9785, "sequence": 1 },
+    { "latitude": 37.567, "longitude": 126.979, "sequence": 2 }
+  ]
+}
+```
+
+#### Errors
+
+- `400 VALIDATION_ERROR`: `start`/`end` 누락
+- `401 UNAUTHORIZED`: 로그인하지 않음
+
 ## Course APIs
 
 ### POST /courses
@@ -168,6 +211,7 @@
 | `title` | string | Y | 코스 제목 |
 | `description` | string \| null | N | 코스 설명 |
 | `path` | RoutePoint[] | Y | 실제 보행 경로 폴리라인 좌표 목록 |
+| `waypoints` | RoutePoint[] | Y | 사용자가 지도에서 실제로 탭한 지점 (`path`와 별개, 포인트 개수 표시·코스 수정에 사용) |
 | `distanceMeters` | number | Y | 경로 탐색 API 또는 지도 폴리라인 기준 총 거리 |
 | `estimatedDurationSeconds` | number | Y | 경로 탐색 API 또는 모바일 표시 기준 예상 소요 시간 |
 | `bounds` | GeoBounds | Y | `path`를 포함하는 최소 지도 영역 |
@@ -179,6 +223,18 @@
   "title": "Heart Run in Seoul",
   "description": "A heart-shaped running route near the river.",
   "path": [
+    {
+      "latitude": 37.5665,
+      "longitude": 126.978,
+      "sequence": 0
+    },
+    {
+      "latitude": 37.567,
+      "longitude": 126.979,
+      "sequence": 1
+    }
+  ],
+  "waypoints": [
     {
       "latitude": 37.5665,
       "longitude": 126.978,
@@ -217,6 +273,18 @@
     "title": "Heart Run in Seoul",
     "description": "A heart-shaped running route near the river.",
     "path": [
+      {
+        "latitude": 37.5665,
+        "longitude": 126.978,
+        "sequence": 0
+      },
+      {
+        "latitude": 37.567,
+        "longitude": 126.979,
+        "sequence": 1
+      }
+    ],
+    "waypoints": [
       {
         "latitude": 37.5665,
         "longitude": 126.978,
@@ -321,6 +389,56 @@
 
 - `400 VALIDATION_ERROR`: bounds 값 오류, `limit` 범위 초과, 지원하지 않는 `sort`
 
+### GET /courses/mine
+
+현재 로그인한 사용자가 작성한 코스 목록을 조회합니다. `GET /courses`와 달리 `visibility`
+필터가 없어 `PRIVATE` 코스도 포함됩니다(본인 것이므로). bounds 파라미터가 필요 없고,
+개인 목록이라 페이지네이션은 제공하지 않습니다.
+
+#### Auth
+
+`Required`
+
+#### Response: 200 OK
+
+목록 응답에는 `path`를 포함하지 않습니다 (`GET /courses`와 동일한 모양). 상세 화면 진입 시
+`GET /courses/{courseId}`를 호출합니다.
+
+```json
+{
+  "courses": [
+    {
+      "id": "course_123",
+      "authorId": "user_123",
+      "title": "Heart Run in Seoul",
+      "description": "A heart-shaped running route near the river.",
+      "distanceMeters": 1240,
+      "estimatedDurationSeconds": 480,
+      "bounds": {
+        "southWest": {
+          "latitude": 37.5665,
+          "longitude": 126.978
+        },
+        "northEast": {
+          "latitude": 37.567,
+          "longitude": 126.979
+        }
+      },
+      "visibility": "PRIVATE",
+      "tags": [],
+      "likeCount": 0,
+      "likedByMe": false,
+      "createdAt": "2026-06-22T08:00:00Z",
+      "updatedAt": "2026-06-22T08:00:00Z"
+    }
+  ]
+}
+```
+
+#### Errors
+
+- `401 UNAUTHORIZED`: 로그인하지 않음
+
 ### GET /courses/{courseId}
 
 코스 상세 정보를 조회합니다.
@@ -345,6 +463,18 @@
     "title": "Heart Run in Seoul",
     "description": "A heart-shaped running route near the river.",
     "path": [
+      {
+        "latitude": 37.5665,
+        "longitude": 126.978,
+        "sequence": 0
+      },
+      {
+        "latitude": 37.567,
+        "longitude": 126.979,
+        "sequence": 1
+      }
+    ],
+    "waypoints": [
       {
         "latitude": 37.5665,
         "longitude": 126.978,
@@ -392,7 +522,8 @@
 
 작성자 본인만 수정할 수 있습니다. 전송한 필드만 수정합니다.
 단, `path`와 `tags`는 부분 수정이 아니라 전체 교체 방식입니다.
-`path`를 전송하는 경우 `distanceMeters`, `estimatedDurationSeconds`, `bounds`도 함께 전송해야 합니다.
+`path`를 전송하는 경우 `waypoints`, `distanceMeters`, `estimatedDurationSeconds`, `bounds`도
+함께 전송해야 합니다.
 
 #### Auth
 
@@ -411,6 +542,7 @@
 | `title` | string | N | 코스 제목 |
 | `description` | string \| null | N | 코스 설명 |
 | `path` | RoutePoint[] | N | 전체 실제 보행 경로 폴리라인 좌표 목록 |
+| `waypoints` | RoutePoint[] | N | `path`가 바뀐 경우 함께 전송하는 사용자가 탭한 지점 |
 | `distanceMeters` | number | N | 경로가 바뀐 경우 함께 전송하는 총 거리 |
 | `estimatedDurationSeconds` | number | N | 경로가 바뀐 경우 함께 전송하는 예상 소요 시간 |
 | `bounds` | GeoBounds | N | 경로가 바뀐 경우 함께 전송하는 최소 지도 영역 |

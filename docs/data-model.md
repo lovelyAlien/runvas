@@ -12,7 +12,8 @@
 | `authorId` | string | Y | 생성자 사용자 ID |
 | `title` | string | Y | 코스 제목 |
 | `description` | string | N | 코스 설명 |
-| `path` | RoutePoint[] | Y | 경로 좌표 목록 |
+| `path` | RoutePoint[] | Y | 경로 좌표 목록 (보행 경로 탐색 API 응답의 상세 좌표 — 지도 폴리라인용) |
+| `waypoints` | RoutePoint[] | Y | 사용자가 지도에서 실제로 탭한 지점. `path`보다 적고, 코스 수정/포인트 개수 표시에 쓴다 |
 | `distanceMeters` | number | Y | 경로 탐색 API 또는 지도 폴리라인 기준 총 거리, 미터 단위 |
 | `estimatedDurationSeconds` | number | Y | 경로 탐색 API 또는 모바일 표시 기준 예상 소요 시간, 초 단위 |
 | `bounds` | GeoBounds | Y | `path`를 포함하는 최소 지도 영역 |

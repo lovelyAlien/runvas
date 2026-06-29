@@ -1,0 +1,7 @@
+build/
+.gradle/
+.omc/
+*.iml
+.idea/
+out/
+application-local.yml

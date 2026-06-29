@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: runvas-backend
+  jackson:
+    time-zone: UTC
+    serialization:
+      write-dates-as-timestamps: false
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/runvas}
     username: ${DATABASE_USERNAME:runvas}
@@ -17,6 +21,12 @@ spring:
         format_sql: true
   flyway:
     enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  cache:
+    type: redis
 
 runvas:
   jwt:
@@ -27,3 +37,5 @@ runvas:
     user-info-uri: ${KAKAO_USER_INFO_URI:https://kapi.kakao.com/v2/user/me}
     rest-api-key: ${KAKAO_REST_API_KEY:}
     client-secret: ${KAKAO_CLIENT_SECRET:}
+  tmap:
+    app-key: ${TMAP_APP_KEY:}
