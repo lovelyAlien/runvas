@@ -1,5 +1,6 @@
 package com.runvas.global.error;
 
+import com.runvas.backend.common.ApiException;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +37,17 @@ public class GlobalExceptionHandler {
         ErrorCode code = exception.errorCode();
         return ResponseEntity.status(code.status())
                 .body(ErrorResponse.of(code, exception.getMessage(), List.of()));
+    }
+
+    @ExceptionHandler(ApiException.class)
+    ResponseEntity<ErrorResponse> handleApi(ApiException exception) {
+        com.runvas.backend.common.ErrorCode apiCode = exception.getErrorCode();
+        ErrorCode code = ErrorCode.valueOf(apiCode.name());
+        List<FieldErrorDetail> details = exception.getDetails().stream()
+                .map(d -> new FieldErrorDetail(d.field(), d.message()))
+                .toList();
+        return ResponseEntity.status(code.status())
+                .body(ErrorResponse.of(code, exception.getMessage(), details));
     }
 
     @ExceptionHandler(Exception.class)

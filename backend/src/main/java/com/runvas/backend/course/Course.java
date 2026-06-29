@@ -13,7 +13,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.LinkedHashSet;
@@ -46,16 +45,14 @@ public class Course {
 	@Column(length = 500)
 	private String description;
 
-	@Lob
 	@Convert(converter = RoutePointListConverter.class)
-	@Column(nullable = false, columnDefinition = "LONGTEXT")
+	@Column(nullable = false, columnDefinition = "TEXT")
 	private List<RoutePoint> path;
 
 	// 사용자가 지도에서 실제로 탭한 지점 — path(보행 경로 탐색 API 응답의 상세 좌표)와 별개로
 	// 보관해서 "포인트 개수" 표시와 향후 코스 수정에 쓴다 (docs/data-model.md 참고).
-	@Lob
 	@Convert(converter = RoutePointListConverter.class)
-	@Column(nullable = false, columnDefinition = "LONGTEXT")
+	@Column(nullable = false, columnDefinition = "TEXT")
 	private List<RoutePoint> waypoints;
 
 	@Column(nullable = false)

@@ -59,6 +59,17 @@ public class User {
         return user;
     }
 
+    public static User createDevUser(String nickname) {
+        User user = new User();
+        user.provider = AuthProvider.DEV;
+        user.providerUserId = nickname;
+        user.email = null;
+        user.nickname = nickname;
+        user.profileImageUrl = null;
+        user.bio = null;
+        return user;
+    }
+
     @PrePersist
     void prePersist() {
         Instant now = Instant.now();

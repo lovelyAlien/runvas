@@ -1,7 +1,10 @@
 package com.runvas.backend.community;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.time.Instant;
@@ -31,7 +34,11 @@ public class Like {
 	@NoArgsConstructor(access = AccessLevel.PROTECTED)
 	public static class LikeId implements Serializable {
 		private String userId;
+
+		@Enumerated(EnumType.STRING)
+		@Column(name = "target_type")
 		private LikeTargetType targetType;
+
 		private String targetId;
 
 		public LikeId(String userId, LikeTargetType targetType, String targetId) {

@@ -3,6 +3,7 @@ package com.runvas.global.security;
 import com.runvas.auth.service.JwtProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -28,7 +29,13 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/kakao").permitAll()
+                        .requestMatchers("/api/auth/kakao", "/api/auth/dev-login").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/courses", "/api/courses/{courseId}").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/routes/pedestrian").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/courses/mine").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/courses").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/api/courses/{courseId}").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/courses/{courseId}").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider, errorResponseWriter),
