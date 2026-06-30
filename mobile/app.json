@@ -3,6 +3,7 @@
     "name": "Runvas",
     "slug": "runvas-mobile",
     "version": "1.0.0",
+    "scheme": "runvas",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -19,7 +20,10 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -30,7 +34,8 @@
         {
           "locationWhenInUsePermission": "러닝 코스 생성을 위해 현재 위치가 필요합니다."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }
