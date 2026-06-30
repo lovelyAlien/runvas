@@ -1,33 +1,17 @@
 #!/usr/bin/env bash
-# 백엔드 + Expo 개발 서버를 동시에 시작합니다.
+# 백엔드 개발 서버를 시작합니다 (PostgreSQL + Redis + Spring Boot).
 #
 # 사전 조건:
 #   - Docker Desktop 실행 중
 #   - backend/.env 파일 존재 (backend/.env.example 참고)
-#   - mobile/.env 파일 존재
 #
 # 사용법:
-#   ./scripts/dev.sh                        # 기본 (runvas/mobile)
-#   ./scripts/dev.sh --mobile <경로>        # 다른 mobile 디렉터리 (예: git worktree)
+#   ./scripts/backend.sh
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_DIR="$REPO_ROOT/backend"
-MOBILE_DIR="$REPO_ROOT/mobile"
-
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --mobile)
-      MOBILE_DIR="$(cd "$2" && pwd)"
-      shift 2
-      ;;
-    *)
-      echo "알 수 없는 인수: $1" >&2
-      exit 1
-      ;;
-  esac
-done
 
 # ── 사전 조건 확인 ────────────────────────────────────────────────
 
@@ -53,23 +37,8 @@ check_backend_env() {
   fi
 }
 
-check_mobile_env() {
-  if [[ ! -f "$MOBILE_DIR/.env" ]]; then
-    echo "❌  $MOBILE_DIR/.env 파일이 없습니다."
-    local original="$REPO_ROOT/mobile/.env"
-    if [[ -f "$original" && "$MOBILE_DIR" != "$REPO_ROOT/mobile" ]]; then
-      echo "   원본 .env를 심볼릭 링크로 연결하려면:"
-      echo "   ln -s $original $MOBILE_DIR/.env"
-    else
-      echo "   .env.example을 참고해 .env를 만들어 주세요."
-    fi
-    exit 1
-  fi
-}
-
 check_docker
 check_backend_env
-check_mobile_env
 
 # ── Docker Compose로 인프라 시작 ──────────────────────────────────
 
@@ -89,7 +58,7 @@ PIDS=()
 
 cleanup() {
   echo -e "\n종료 중..."
-  for pid in "${PIDS[@]:-}"; do
+  for pid in "${PIDS[@]+"${PIDS[@]}"}"; do
     pkill -P "$pid" 2>/dev/null || true
     kill "$pid" 2>/dev/null || true
   done
@@ -112,14 +81,9 @@ echo "▶  백엔드 시작  ($BACKEND_DIR)"
 ) &
 PIDS+=($!)
 
-# ── Expo 시작 ─────────────────────────────────────────────────────
-
-echo "▶  Expo 시작    ($MOBILE_DIR)"
-(cd "$MOBILE_DIR" && npx expo start 2>&1 | sed 's/^/[expo]    /') &
-PIDS+=($!)
-
 echo ""
-echo "두 서버가 시작됐습니다. 종료하려면 Ctrl+C"
+echo "백엔드가 시작됐습니다. 종료하려면 Ctrl+C"
+echo "Expo는 별도 터미널에서 실행하세요: ./scripts/mobile.sh"
 echo ""
 
 wait "${PIDS[@]}"
