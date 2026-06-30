@@ -5,7 +5,7 @@ import { Colors } from '../constants/theme';
 
 // App.tsx 루트에서 단 한 번만 렌더링한다 — 화면마다 각자 모달을 띄우지 않는다.
 export default function LoginPromptModal() {
-  const { isLoginModalVisible, closeLoginModal, mockLogin, isLoggingIn, loginError } = useAuth();
+  const { isLoginModalVisible, closeLoginModal, kakaoLogin, isLoggingIn, loginError } = useAuth();
 
   return (
     <Modal visible={isLoginModalVisible} transparent animationType="fade">
@@ -18,19 +18,16 @@ export default function LoginPromptModal() {
 
           {loginError && <Text style={styles.errorText}>{loginError}</Text>}
 
-          {/* 백엔드 카카오 로그인이 아직 없어 DevAuthController(/auth/dev-login)로 실제 JWT를
-              발급받는다. 항상 같은 고정 닉네임으로 로그인해 저장한 코스가 한 계정에 모이게 한다.
-              실제 SDK 연동 시 "카카오 로그인" 버튼으로 교체한다. */}
           <TouchableOpacity
             style={styles.kakaoButton}
-            onPress={() => mockLogin()}
+            onPress={kakaoLogin}
             activeOpacity={0.8}
             disabled={isLoggingIn}
           >
             {isLoggingIn ? (
               <ActivityIndicator size="small" color={Colors.gray900} />
             ) : (
-              <Text style={styles.kakaoButtonLabel}>테스트 로그인</Text>
+              <Text style={styles.kakaoButtonLabel}>카카오 로그인</Text>
             )}
           </TouchableOpacity>
 

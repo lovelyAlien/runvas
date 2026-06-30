@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
@@ -12,6 +13,7 @@ import SavedRoutesScreen from './src/screens/SavedRoutesScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import CourseDetailScreen from './src/screens/CourseDetailScreen';
 import LoginPromptModal from './src/components/LoginPromptModal';
+import KakaoLoginWebView from './src/components/KakaoLoginWebView';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { RootTabParamList, RootStackParamList } from './src/navigation/types';
 import { Colors } from './src/constants/theme';
@@ -90,20 +92,34 @@ function RootTabs() {
   );
 }
 
+// AuthProvider 내부에서 isInitializing을 소비해 초기화 완료 전 NavigationContainer 렌더를 막는다.
+function AppContent() {
+  const { isInitializing } = useAuth();
+
+  if (isInitializing) {
+    return <View style={{ flex: 1, backgroundColor: '#fff' }} />;
+  }
+
+  return (
+    <SafeAreaProvider>
+      <StatusBar style="dark" translucent={false} backgroundColor={Colors.white} />
+      <NavigationContainer ref={navigationRef}>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Tabs" component={RootTabs} />
+          <Stack.Screen name="CourseDetail" component={CourseDetailScreen} />
+        </Stack.Navigator>
+        <NewUserRedirectWatcher />
+      </NavigationContainer>
+      <LoginPromptModal />
+      <KakaoLoginWebView />
+    </SafeAreaProvider>
+  );
+}
+
 export default function App() {
   return (
     <AuthProvider>
-      <SafeAreaProvider>
-        <StatusBar style="dark" translucent={false} backgroundColor={Colors.white} />
-        <NavigationContainer ref={navigationRef}>
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Tabs" component={RootTabs} />
-            <Stack.Screen name="CourseDetail" component={CourseDetailScreen} />
-          </Stack.Navigator>
-          <NewUserRedirectWatcher />
-        </NavigationContainer>
-        <LoginPromptModal />
-      </SafeAreaProvider>
+      <AppContent />
     </AuthProvider>
   );
 }

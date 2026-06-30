@@ -1,45 +1,89 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import * as SecureStore from 'expo-secure-store';
 import { User } from '../types';
-import { devLogin } from '../services/authApi';
+import { postAuthKakao } from '../services/authApi';
+import { KAKAO_REDIRECT_URI } from '../components/KakaoLoginWebView';
 
-// 백엔드 카카오 로그인(POST /auth/kakao)이 아직 없어 DevAuthController(/auth/dev-login)로
-// 실제 JWT를 받아 흐름을 구현한다. 테스트 계정은 고정 닉네임 하나로 통일했다 — 매번 다른
-// 사용자로 로그인되면 저장한 코스도 계정마다 흩어져 "저장 → 다시 보기" 테스트가 안 됐다.
-// 카카오 SDK 연동 시 mockLogin 본문을 postAuthKakao() 호출로 교체하고, accessToken은
-// expo-secure-store에 저장한다 (지금은 메모리에만 보관).
+const KAKAO_REST_API_KEY = process.env.EXPO_PUBLIC_KAKAO_APP_KEY ?? '';
+const TOKEN_KEY = 'runvas_access_token';
+const USER_KEY = 'runvas_user';
+
 interface AuthContextValue {
   user: User | null;
   accessToken: string | null;
+  isInitializing: boolean;
   isLoginModalVisible: boolean;
   isLoggingIn: boolean;
   loginError: string | null;
-  mockLogin: () => Promise<void>;
+  isKakaoWebViewVisible: boolean;
+  kakaoLogin: () => void;
   logout: () => void;
   requireAuth: () => boolean;
   closeLoginModal: () => void;
   consumeNewUserRedirect: () => boolean;
+  submitKakaoCode: (code: string) => Promise<void>;
+  cancelKakaoLogin: (errorMsg?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const FIXED_DEV_NICKNAME = 'demo_user';
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [isLoginModalVisible, setIsLoginModalVisible] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [isKakaoWebViewVisible, setIsKakaoWebViewVisible] = useState(false);
   const [pendingNewUserRedirect, setPendingNewUserRedirect] = useState(false);
 
-  const mockLogin = useCallback(async () => {
-    setIsLoggingIn(true);
+  useEffect(() => {
+    (async () => {
+      try {
+        const [storedToken, storedUser] = await Promise.all([
+          SecureStore.getItemAsync(TOKEN_KEY),
+          SecureStore.getItemAsync(USER_KEY),
+        ]);
+        if (storedToken && storedUser) {
+          setAccessToken(storedToken);
+          setUser(JSON.parse(storedUser) as User);
+        }
+      } catch {
+        // 복원 실패 시 비로그인 상태 유지
+      } finally {
+        setIsInitializing(false);
+      }
+    })();
+  }, []);
+
+  const kakaoLogin = useCallback(() => {
+    if (!KAKAO_REST_API_KEY) {
+      setLoginError('EXPO_PUBLIC_KAKAO_APP_KEY가 설정되지 않았습니다.');
+      return;
+    }
     setLoginError(null);
+    setIsLoggingIn(true);
+    setIsKakaoWebViewVisible(true);
+  }, []);
+
+  const submitKakaoCode = useCallback(async (code: string) => {
+    setIsKakaoWebViewVisible(false);
     try {
-      const response = await devLogin(FIXED_DEV_NICKNAME);
-      setUser(response.user);
-      setAccessToken(response.accessToken);
-      setPendingNewUserRedirect(response.isNewUser);
+      const result = await postAuthKakao(code, KAKAO_REDIRECT_URI);
+      await Promise.all([
+        SecureStore.setItemAsync(TOKEN_KEY, result.accessToken),
+        SecureStore.setItemAsync(USER_KEY, JSON.stringify(result.user)),
+      ]);
+      setUser(result.user);
+      setAccessToken(result.accessToken);
+      setPendingNewUserRedirect(result.isNewUser);
       setIsLoginModalVisible(false);
     } catch (e: unknown) {
       setLoginError(e instanceof Error ? e.message : '로그인에 실패했습니다.');
@@ -48,7 +92,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const cancelKakaoLogin = useCallback((errorMsg?: string) => {
+    setIsKakaoWebViewVisible(false);
+    setIsLoggingIn(false);
+    if (errorMsg) setLoginError(errorMsg);
+  }, []);
+
   const logout = useCallback(() => {
+    SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {});
+    SecureStore.deleteItemAsync(USER_KEY).catch(() => {});
     setUser(null);
     setAccessToken(null);
     setPendingNewUserRedirect(false);
@@ -74,27 +126,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user,
       accessToken,
+      isInitializing,
       isLoginModalVisible,
       isLoggingIn,
       loginError,
-      mockLogin,
+      isKakaoWebViewVisible,
+      kakaoLogin,
       logout,
       requireAuth,
       closeLoginModal,
       consumeNewUserRedirect,
+      submitKakaoCode,
+      cancelKakaoLogin,
     }),
     [
       user,
       accessToken,
+      isInitializing,
       isLoginModalVisible,
       isLoggingIn,
       loginError,
-      mockLogin,
+      isKakaoWebViewVisible,
+      kakaoLogin,
       logout,
       requireAuth,
       closeLoginModal,
       consumeNewUserRedirect,
-    ]
+      submitKakaoCode,
+      cancelKakaoLogin,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
