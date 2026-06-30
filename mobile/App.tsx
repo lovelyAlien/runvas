@@ -13,6 +13,7 @@ import SavedRoutesScreen from './src/screens/SavedRoutesScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import CourseDetailScreen from './src/screens/CourseDetailScreen';
 import LoginPromptModal from './src/components/LoginPromptModal';
+import KakaoLoginWebView from './src/components/KakaoLoginWebView';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { RootTabParamList, RootStackParamList } from './src/navigation/types';
 import { Colors } from './src/constants/theme';
@@ -110,6 +111,7 @@ function AppContent() {
         <NewUserRedirectWatcher />
       </NavigationContainer>
       <LoginPromptModal />
+      <KakaoLoginWebView />
     </SafeAreaProvider>
   );
 }

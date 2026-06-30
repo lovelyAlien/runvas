@@ -7,21 +7,13 @@ import React, {
   useState,
 } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import {
-  makeRedirectUri,
-  ResponseType,
-  useAuthRequest,
-} from 'expo-auth-session';
 import { User } from '../types';
 import { postAuthKakao } from '../services/authApi';
+import { KAKAO_REDIRECT_URI } from '../components/KakaoLoginWebView';
 
 const KAKAO_REST_API_KEY = process.env.EXPO_PUBLIC_KAKAO_APP_KEY ?? '';
 const TOKEN_KEY = 'runvas_access_token';
 const USER_KEY = 'runvas_user';
-const KAKAO_DISCOVERY = {
-  authorizationEndpoint: 'https://kauth.kakao.com/oauth/authorize',
-};
-const redirectUri = makeRedirectUri();
 
 interface AuthContextValue {
   user: User | null;
@@ -30,11 +22,14 @@ interface AuthContextValue {
   isLoginModalVisible: boolean;
   isLoggingIn: boolean;
   loginError: string | null;
-  kakaoLogin: () => Promise<void>;
+  isKakaoWebViewVisible: boolean;
+  kakaoLogin: () => void;
   logout: () => void;
   requireAuth: () => boolean;
   closeLoginModal: () => void;
   consumeNewUserRedirect: () => boolean;
+  submitKakaoCode: (code: string) => Promise<void>;
+  cancelKakaoLogin: (errorMsg?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -46,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoginModalVisible, setIsLoginModalVisible] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [isKakaoWebViewVisible, setIsKakaoWebViewVisible] = useState(false);
   const [pendingNewUserRedirect, setPendingNewUserRedirect] = useState(false);
 
   useEffect(() => {
@@ -67,41 +63,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  const [request, , promptAsync] = useAuthRequest(
-    {
-      clientId: KAKAO_REST_API_KEY,
-      usePKCE: false,
-      responseType: ResponseType.Code,
-      scopes: ['profile_nickname', 'account_email'],
-      redirectUri,
-    },
-    KAKAO_DISCOVERY,
-  );
-
-  const kakaoLogin = useCallback(async () => {
+  const kakaoLogin = useCallback(() => {
     if (!KAKAO_REST_API_KEY) {
       setLoginError('EXPO_PUBLIC_KAKAO_APP_KEY가 설정되지 않았습니다.');
       return;
     }
-    if (!request) return;
-    setIsLoggingIn(true);
     setLoginError(null);
+    setIsLoggingIn(true);
+    setIsKakaoWebViewVisible(true);
+  }, []);
+
+  const submitKakaoCode = useCallback(async (code: string) => {
+    setIsKakaoWebViewVisible(false);
     try {
-      const response = await promptAsync();
-      if (response.type === 'dismiss' || response.type === 'cancel') return;
-      if (response.type === 'error') {
-        throw new Error(response.error?.message ?? '카카오 인증에 실패했습니다.');
-      }
-      if (response.type !== 'success') return;
-
-      const { code } = response.params;
-      const result = await postAuthKakao(code, redirectUri);
-
+      const result = await postAuthKakao(code, KAKAO_REDIRECT_URI);
       await Promise.all([
         SecureStore.setItemAsync(TOKEN_KEY, result.accessToken),
         SecureStore.setItemAsync(USER_KEY, JSON.stringify(result.user)),
       ]);
-
       setUser(result.user);
       setAccessToken(result.accessToken);
       setPendingNewUserRedirect(result.isNewUser);
@@ -111,7 +90,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoggingIn(false);
     }
-  }, [request, promptAsync]);
+  }, []);
+
+  const cancelKakaoLogin = useCallback((errorMsg?: string) => {
+    setIsKakaoWebViewVisible(false);
+    setIsLoggingIn(false);
+    if (errorMsg) setLoginError(errorMsg);
+  }, []);
 
   const logout = useCallback(() => {
     SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {});
@@ -145,11 +130,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoginModalVisible,
       isLoggingIn,
       loginError,
+      isKakaoWebViewVisible,
       kakaoLogin,
       logout,
       requireAuth,
       closeLoginModal,
       consumeNewUserRedirect,
+      submitKakaoCode,
+      cancelKakaoLogin,
     }),
     [
       user,
@@ -158,11 +146,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoginModalVisible,
       isLoggingIn,
       loginError,
+      isKakaoWebViewVisible,
       kakaoLogin,
       logout,
       requireAuth,
       closeLoginModal,
       consumeNewUserRedirect,
+      submitKakaoCode,
+      cancelKakaoLogin,
     ],
   );
 
