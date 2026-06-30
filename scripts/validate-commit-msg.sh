@@ -42,7 +42,7 @@ if printf '%s\n' "$subject" | grep -Eiq '(codex|claude|generated-by|co-authored-
   exit 1
 fi
 
-if [ "$(sed -n '2p' "$message_file")" != "" ] && [ -n "$(sed -n '2p' "$message_file")" ]; then
+if [ -n "$(sed -n '2p' "$message_file")" ]; then
   echo "Commit body must be separated from the subject by one blank line." >&2
   exit 1
 fi
