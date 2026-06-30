@@ -57,12 +57,10 @@ export interface CreateCourseRequestBody {
 
 // docs/data-model.md User와 1:1 대응. providerUserId는 API 응답에 절대 노출되지 않는 내부
 // 저장값이라 모바일 타입에는 포함하지 않는다.
-// 'DEV'는 docs/api-contract.md 계약이 아니라 백엔드 DevAuthController(개발용 로그인)가
-// 발급하는 값. 카카오 SDK 연동 후에는 'DEV' 분기와 devLogin 호출부를 함께 제거한다.
 export interface User {
   id: string;
   email: string | null;
-  provider: 'KAKAO' | 'DEV';
+  provider: 'KAKAO';
   nickname: string;
   profileImageUrl: string | null;
   bio: string | null;

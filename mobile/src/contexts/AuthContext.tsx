@@ -79,6 +79,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const kakaoLogin = useCallback(async () => {
+    if (!KAKAO_REST_API_KEY) {
+      setLoginError('EXPO_PUBLIC_KAKAO_APP_KEY가 설정되지 않았습니다.');
+      return;
+    }
     if (!request) return;
     setIsLoggingIn(true);
     setLoginError(null);

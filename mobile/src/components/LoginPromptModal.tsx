@@ -3,6 +3,7 @@ import { Modal, View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } fr
 import { useAuth } from '../contexts/AuthContext';
 import { Colors } from '../constants/theme';
 
+// App.tsx 루트에서 단 한 번만 렌더링한다 — 화면마다 각자 모달을 띄우지 않는다.
 export default function LoginPromptModal() {
   const { isLoginModalVisible, closeLoginModal, kakaoLogin, isLoggingIn, loginError } = useAuth();
 
@@ -19,7 +20,7 @@ export default function LoginPromptModal() {
 
           <TouchableOpacity
             style={styles.kakaoButton}
-            onPress={() => kakaoLogin()}
+            onPress={kakaoLogin}
             activeOpacity={0.8}
             disabled={isLoggingIn}
           >
