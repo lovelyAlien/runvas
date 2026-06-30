@@ -70,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setLoginError(null);
     setIsLoggingIn(true);
+    setIsLoginModalVisible(false);
     setIsKakaoWebViewVisible(true);
   }, []);
 
@@ -96,6 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsKakaoWebViewVisible(false);
     setIsLoggingIn(false);
     if (errorMsg) setLoginError(errorMsg);
+    setIsLoginModalVisible(true);
   }, []);
 
   const logout = useCallback(() => {
