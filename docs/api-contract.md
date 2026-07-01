@@ -95,6 +95,7 @@
   "nickname": "Seoul Runner",
   "profileImageUrl": null,
   "bio": "Drawing routes around Seoul.",
+  "runningPaceSecPerKm": 360,
   "createdAt": "2026-06-22T08:00:00Z",
   "updatedAt": "2026-06-22T08:00:00Z"
 }
@@ -146,6 +147,7 @@
 | --- | --- |
 | `nickname` | 2-30자 |
 | `bio` | 0-160자 또는 `null` |
+| `runningPaceSecPerKm` | 120-900 (2:00/km ~ 15:00/km). 기본값 360 (6:00/km) |
 | `post.title` | 1-80자 |
 | `post.body` | 1-5000자 |
 | `post.tags` | 최대 10개 |
@@ -904,12 +906,14 @@ MVP에서는 refresh token을 응답하지 않습니다.
 | `nickname` | string | N | 공개 닉네임 |
 | `profileImageUrl` | string \| null | N | 공개 프로필 이미지 URL |
 | `bio` | string \| null | N | 공개 소개 |
+| `runningPaceSecPerKm` | number | N | 달리기 페이스 (초/km). 120-900 범위 |
 
 ```json
 {
   "nickname": "Seoul Runner",
   "profileImageUrl": "https://example.com/profile.png",
-  "bio": "Drawing routes around Seoul."
+  "bio": "Drawing routes around Seoul.",
+  "runningPaceSecPerKm": 300
 }
 ```
 

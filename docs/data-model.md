@@ -103,6 +103,7 @@ MVP에서 사용자는 본인이 생성한 코스의 아래 필드를 수정할 
 | `nickname` | string | Y | 공개 닉네임 |
 | `profileImageUrl` | string | N | 공개 프로필 이미지 URL |
 | `bio` | string | N | 공개 소개 |
+| `runningPaceSecPerKm` | number | N | 달리기 페이스 (초/km). 기본값 360 (6:00/km). 본인에게만 노출 |
 | `createdAt` | string | Y | ISO 8601 생성 시각 |
 | `updatedAt` | string | Y | ISO 8601 수정 시각 |
 
