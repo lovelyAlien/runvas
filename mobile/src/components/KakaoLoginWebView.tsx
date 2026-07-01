@@ -11,14 +11,12 @@ import {
 import { WebView } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview';
 import { useAuth } from '../contexts/AuthContext';
+import { KAKAO_REDIRECT_URI, KAKAO_REST_API_KEY } from '../config/auth';
 import { Colors } from '../constants/theme';
 
 // Expo Go에서 카카오 OAuth를 쓸 때 redirect_uri는 고정 URI를 사용해야 합니다.
 // expo-auth-session이 생성하는 exp:// URI는 IP가 가변이라 카카오 콘솔에 등록할 수 없습니다.
 // 카카오 개발자 콘솔 > 카카오 로그인 > Redirect URI 에 이 값을 그대로 등록하세요.
-export const KAKAO_REDIRECT_URI = 'http://localhost/oauth/kakao/callback';
-
-const KAKAO_REST_API_KEY = process.env.EXPO_PUBLIC_KAKAO_APP_KEY ?? '';
 
 function buildKakaoAuthUrl(): string {
   const params = new URLSearchParams({

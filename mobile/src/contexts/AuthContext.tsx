@@ -9,9 +9,9 @@ import React, {
 import * as SecureStore from 'expo-secure-store';
 import { User } from '../types';
 import { postAuthKakao, postAuthLogout } from '../services/authApi';
-import { KAKAO_REDIRECT_URI } from '../components/KakaoLoginWebView';
+import { KAKAO_REDIRECT_URI, KAKAO_REST_API_KEY } from '../config/auth';
+import { shouldRestoreStoredSession } from '../utils/authSession';
 
-const KAKAO_REST_API_KEY = process.env.EXPO_PUBLIC_KAKAO_APP_KEY ?? '';
 const TOKEN_KEY = 'runvas_access_token';
 const USER_KEY = 'runvas_user';
 
@@ -51,9 +51,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           SecureStore.getItemAsync(TOKEN_KEY),
           SecureStore.getItemAsync(USER_KEY),
         ]);
-        if (storedToken && storedUser) {
+
+        if (storedToken && storedUser && shouldRestoreStoredSession(storedToken, storedUser)) {
           setAccessToken(storedToken);
           setUser(JSON.parse(storedUser) as User);
+        } else if (storedToken || storedUser) {
+          await Promise.all([
+            SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {}),
+            SecureStore.deleteItemAsync(USER_KEY).catch(() => {}),
+          ]);
         }
       } catch {
         // 복원 실패 시 비로그인 상태 유지
