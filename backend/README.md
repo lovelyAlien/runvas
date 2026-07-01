@@ -28,6 +28,7 @@ Runvas 서버 API 구현을 관리하는 디렉토리입니다.
 - `DATABASE_PASSWORD`
 - `JWT_SECRET`
 - `KAKAO_REST_API_KEY`
+- `TMAP_APP_KEY`
 
 ## Optional Environment
 
