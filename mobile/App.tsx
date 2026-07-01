@@ -56,6 +56,7 @@ function RootTabs() {
         name="Map"
         component={MapScreen}
         options={{
+          tabBarLabel: '지도',
           tabBarIcon: ({ color, size }) => <Ionicons name="map-outline" size={size} color={color} />,
         }}
       />
@@ -63,6 +64,7 @@ function RootTabs() {
         name="Board"
         component={BoardScreen}
         options={{
+          tabBarLabel: '게시판',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubbles-outline" size={size} color={color} />
           ),
@@ -73,6 +75,7 @@ function RootTabs() {
         component={SavedRoutesScreen}
         listeners={gatedTabPressListener(requireAuth)}
         options={{
+          tabBarLabel: '내 코스',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bookmark-outline" size={size} color={color} />
           ),
@@ -83,6 +86,7 @@ function RootTabs() {
         component={ProfileScreen}
         listeners={gatedTabPressListener(requireAuth)}
         options={{
+          tabBarLabel: '프로필',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
           ),
