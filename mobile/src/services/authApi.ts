@@ -1,5 +1,6 @@
 import { AuthResponse } from '../types';
 import { parseApiErrorMessage } from '../utils/apiError';
+import { isLogoutStatusAccepted } from '../utils/authSession';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 
@@ -38,7 +39,7 @@ export async function postAuthLogout(accessToken: string): Promise<void> {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
-  if (!response.ok) {
+  if (!isLogoutStatusAccepted(response.status)) {
     throw new Error(await parseApiErrorMessage(response));
   }
 }
