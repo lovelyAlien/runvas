@@ -1,7 +1,6 @@
 package com.runvas.global.security;
 
 import com.runvas.auth.service.JwtProvider;
-import com.runvas.global.error.ErrorCode;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -17,11 +16,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
-    private final SecurityErrorResponseWriter errorResponseWriter;
 
-    public JwtAuthenticationFilter(JwtProvider jwtProvider, SecurityErrorResponseWriter errorResponseWriter) {
+    public JwtAuthenticationFilter(JwtProvider jwtProvider) {
         this.jwtProvider = jwtProvider;
-        this.errorResponseWriter = errorResponseWriter;
     }
 
     @Override
@@ -37,9 +34,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         new UsernamePasswordAuthenticationToken(principal, token, List.of());
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (JwtException | IllegalArgumentException exception) {
+                // 토큰이 무효(만료/위조)해도 요청 자체를 막지 않는다 — permitAll 라우트는 비로그인으로
+                // 통과해야 하고, 인증이 필요한 라우트는 SecurityContext가 비어있으므로 이후
+                // authorizeHttpRequests가 RunvasAuthenticationEntryPoint를 통해 401을 반환한다.
                 SecurityContextHolder.clearContext();
-                errorResponseWriter.write(response, ErrorCode.UNAUTHORIZED);
-                return;
             }
         }
         filterChain.doFilter(request, response);
