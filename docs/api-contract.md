@@ -838,6 +838,28 @@ MVP에서는 refresh token을 응답하지 않습니다.
 - `400 VALIDATION_ERROR`: 필수 필드 누락, `provider`가 `KAKAO`가 아님
 - `401 UNAUTHORIZED`: 카카오 인증 실패
 
+### POST /auth/logout
+
+로그아웃하고, 요청에 사용된 `accessToken`을 서버에서 무효화합니다.
+무효화 범위는 로그아웃에 사용된 토큰 하나입니다 (동일 사용자의 다른 기기 로그인은 유지됩니다).
+
+#### Auth
+
+`Required`
+
+#### Request Body
+
+없음. 토큰은 `Authorization` 헤더에서 가져옵니다.
+
+#### Response: 204 No Content
+
+응답 본문이 없습니다.
+
+#### Errors
+
+- `401 UNAUTHORIZED`: 로그인하지 않았거나 토큰이 유효하지 않음. 이미 로그아웃된(무효화된) 토큰으로
+  재요청한 경우도 동일하게 처리합니다.
+
 ### GET /me
 
 현재 로그인한 사용자를 조회합니다.

@@ -52,4 +52,14 @@ public class JwtProvider {
                 .getSubject();
         return UUID.fromString(subject);
     }
+
+    public Instant getExpiration(String token) {
+        Date expiration = Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .getExpiration();
+        return expiration.toInstant();
+    }
 }

@@ -1,6 +1,7 @@
 package com.runvas.global.security;
 
 import com.runvas.auth.service.JwtProvider;
+import com.runvas.auth.service.TokenBlacklistService;
 import io.jsonwebtoken.JwtException;
 import java.util.Map;
 import java.util.UUID;
@@ -38,6 +39,9 @@ class SecurityConfigTest {
 
     @MockBean
     JwtProvider jwtProvider;
+
+    @MockBean
+    TokenBlacklistService tokenBlacklistService;
 
     @AfterEach
     void clearSecurityContext() {
@@ -78,6 +82,23 @@ class SecurityConfigTest {
                         .header("Authorization", "Bearer valid-token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value(userId.toString()));
+    }
+
+    @Test
+    void blacklistedTokenReturnsUnauthorizedEnvelopeAndClearsContext() throws Exception {
+        UUID userId = UUID.randomUUID();
+        when(jwtProvider.parseUserId("blacklisted-token")).thenReturn(userId);
+        when(tokenBlacklistService.isBlacklisted("blacklisted-token")).thenReturn(true);
+
+        mockMvc.perform(get("/test/protected")
+                        .header("Authorization", "Bearer blacklisted-token"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.error.message").value("Authentication is required"))
+                .andExpect(jsonPath("$.error.details.length()").value(0));
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 
     @RestController
