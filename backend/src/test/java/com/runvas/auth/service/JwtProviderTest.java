@@ -1,6 +1,7 @@
 package com.runvas.auth.service;
 
 import io.jsonwebtoken.JwtException;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -39,5 +40,18 @@ class JwtProviderTest {
         assertThatThrownBy(() -> new JwtProvider("too-short", 3600))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("JWT secret must be at least 32 bytes");
+    }
+
+    @Test
+    void returnsTokenExpirationInstant() {
+        JwtProvider jwtProvider = new JwtProvider("dev-secret-dev-secret-dev-secret-dev-secret", 3600);
+        UUID userId = UUID.randomUUID();
+        Instant beforeCreate = Instant.now();
+
+        String token = jwtProvider.createAccessToken(userId);
+        Instant expiration = jwtProvider.getExpiration(token);
+
+        assertThat(expiration).isAfter(beforeCreate.plusSeconds(3599));
+        assertThat(expiration).isBefore(beforeCreate.plusSeconds(3601));
     }
 }
