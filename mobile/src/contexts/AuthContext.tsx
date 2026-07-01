@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { User } from '../types';
-import { postAuthKakao } from '../services/authApi';
+import { postAuthKakao, postAuthLogout } from '../services/authApi';
 import { KAKAO_REDIRECT_URI } from '../components/KakaoLoginWebView';
 
 const KAKAO_REST_API_KEY = process.env.EXPO_PUBLIC_KAKAO_APP_KEY ?? '';
@@ -24,7 +24,7 @@ interface AuthContextValue {
   loginError: string | null;
   isKakaoWebViewVisible: boolean;
   kakaoLogin: () => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   requireAuth: () => boolean;
   closeLoginModal: () => void;
   consumeNewUserRedirect: () => boolean;
@@ -100,13 +100,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoginModalVisible(true);
   }, []);
 
-  const logout = useCallback(() => {
-    SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {});
-    SecureStore.deleteItemAsync(USER_KEY).catch(() => {});
+  const logout = useCallback(async () => {
+    if (accessToken) {
+      await postAuthLogout(accessToken);
+    }
+    await Promise.all([
+      SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {}),
+      SecureStore.deleteItemAsync(USER_KEY).catch(() => {}),
+    ]);
     setUser(null);
     setAccessToken(null);
     setPendingNewUserRedirect(false);
-  }, []);
+  }, [accessToken]);
 
   const requireAuth = useCallback((): boolean => {
     if (user) return true;
