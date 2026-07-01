@@ -2,3 +2,6 @@ backend/.gradle/
 backend/build/
 backend/bin/
 backend/.env
+.claude/
+.superpowers/
+.vscode/
