@@ -16,7 +16,6 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, JwtProvider jwtProvider,
-                                            SecurityErrorResponseWriter errorResponseWriter,
                                             RunvasAuthenticationEntryPoint authenticationEntryPoint,
                                             RunvasAccessDeniedHandler accessDeniedHandler) throws Exception {
         return http
@@ -38,7 +37,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/courses/{courseId}").authenticated()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(new JwtAuthenticationFilter(jwtProvider, errorResponseWriter),
+                .addFilterBefore(new JwtAuthenticationFilter(jwtProvider),
                         UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
