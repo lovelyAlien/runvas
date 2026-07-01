@@ -1,6 +1,7 @@
 package com.runvas.global.security;
 
 import com.runvas.auth.service.JwtProvider;
+import com.runvas.auth.service.TokenBlacklistService;
 import com.runvas.global.error.ErrorCode;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -17,10 +18,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
+    private final TokenBlacklistService tokenBlacklistService;
     private final SecurityErrorResponseWriter errorResponseWriter;
 
-    public JwtAuthenticationFilter(JwtProvider jwtProvider, SecurityErrorResponseWriter errorResponseWriter) {
+    public JwtAuthenticationFilter(JwtProvider jwtProvider, TokenBlacklistService tokenBlacklistService,
+                                    SecurityErrorResponseWriter errorResponseWriter) {
         this.jwtProvider = jwtProvider;
+        this.tokenBlacklistService = tokenBlacklistService;
         this.errorResponseWriter = errorResponseWriter;
     }
 
@@ -32,6 +36,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = authorization.substring("Bearer ".length());
             try {
                 UUID userId = jwtProvider.parseUserId(token);
+                if (tokenBlacklistService.isBlacklisted(token)) {
+                    SecurityContextHolder.clearContext();
+                    errorResponseWriter.write(response, ErrorCode.UNAUTHORIZED);
+                    return;
+                }
                 RunvasPrincipal principal = new RunvasPrincipal(userId);
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(principal, token, List.of());

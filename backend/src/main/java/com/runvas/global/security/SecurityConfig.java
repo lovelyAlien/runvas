@@ -1,6 +1,7 @@
 package com.runvas.global.security;
 
 import com.runvas.auth.service.JwtProvider;
+import com.runvas.auth.service.TokenBlacklistService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -16,6 +17,7 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, JwtProvider jwtProvider,
+                                            TokenBlacklistService tokenBlacklistService,
                                             SecurityErrorResponseWriter errorResponseWriter,
                                             RunvasAuthenticationEntryPoint authenticationEntryPoint,
                                             RunvasAccessDeniedHandler accessDeniedHandler) throws Exception {
@@ -38,7 +40,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/courses/{courseId}").authenticated()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(new JwtAuthenticationFilter(jwtProvider, errorResponseWriter),
+                .addFilterBefore(new JwtAuthenticationFilter(jwtProvider, tokenBlacklistService, errorResponseWriter),
                         UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
