@@ -44,7 +44,7 @@ export default function MapScreen({ navigation }: Props) {
   } = useRoute();
 
   const { getCurrentLocation } = useLocation();
-  const { user, accessToken, requireAuth } = useAuth();
+  const { accessToken, requireAuth } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [isRouting, setIsRouting] = useState(false); // 경로 탐색 중 여부
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
@@ -61,15 +61,8 @@ export default function MapScreen({ navigation }: Props) {
         return;
       }
 
-      // 두 번째 이후: 로그인 시 백엔드 경유 보행로 API, 비로그인 시 직선 좌표로 구간 연결
+      // 두 번째 이후: 보행로 API는 비로그인 사용자도 호출 가능 (docs/api-contract.md Auth: None)
       const prevWaypoint = waypoints[waypoints.length - 1];
-      if (!user || !accessToken) {
-        const straightSegment = [prevWaypoint, coord];
-        addSegment(coord, straightSegment);
-        mapRef.current?.addWaypoint(coord, waypoints.length + 1);
-        mapRef.current?.addRouteSegment(straightSegment);
-        return;
-      }
 
       setIsRouting(true);
       try {
@@ -89,7 +82,7 @@ export default function MapScreen({ navigation }: Props) {
         setIsRouting(false);
       }
     },
-    [waypoints, isRouting, user, accessToken, addFirstPoint, addSegment]
+    [waypoints, isRouting, accessToken, addFirstPoint, addSegment]
   );
 
   const handleLocate = async () => {
