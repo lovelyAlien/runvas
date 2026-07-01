@@ -64,15 +64,40 @@ export interface User {
   nickname: string;
   profileImageUrl: string | null;
   bio: string | null;
+  runningPaceSecPerKm: number;
   createdAt: string;
   updatedAt: string;
 }
+
+// UI 전용 — 페이스 옵션 선택에서만 사용. docs/api-contract.md 제한값: 120-900초/km.
+export type RunningPace = 240 | 270 | 300 | 330 | 360 | 390 | 420 | 480;
+
+export interface PaceOption {
+  paceSecPerKm: RunningPace;
+  label: string;
+}
+
+// 대표 페이스 프리셋
+export type PacePreset = '초보' | '중수' | '고수';
 
 // docs/api-contract.md POST /auth/kakao 응답과 동일한 모양 (DevAuthController도 같은 모양으로 응답).
 export interface AuthResponse {
   accessToken: string;
   user: User;
   isNewUser: boolean;
+}
+
+// docs/api-contract.md GET /me, PATCH /me 응답 형식.
+export interface MeResponse {
+  user: User;
+}
+
+// docs/api-contract.md PATCH /me 요청 본문 (모든 필드 선택).
+export interface UpdateMeRequest {
+  nickname?: string;
+  profileImageUrl?: string | null;
+  bio?: string | null;
+  runningPaceSecPerKm?: number;
 }
 
 // docs/api-contract.md 공통 에러 응답 형식.

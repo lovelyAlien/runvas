@@ -16,7 +16,7 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import Header from '../components/Header';
 import KakaoMapView, { KakaoMapViewRef } from '../components/KakaoMapView';
 import RouteStatsBar from '../components/RouteStatsBar';
-import { useRoute } from '../hooks/useRoute';
+import { useRoute, DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
 import { useLocation } from '../hooks/useLocation';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchPedestrianRoute } from '../services/routingApi';
@@ -24,12 +24,18 @@ import { exportGpx } from '../utils/exportGpx';
 import { postCourse, buildCreateCourseRequest } from '../services/courseApi';
 import { Colors } from '../constants/theme';
 import { Coordinate } from '../types';
+import { formatPace } from '../utils/format';
 import { RootTabParamList } from '../navigation/types';
 
 type Props = BottomTabScreenProps<RootTabParamList, 'Map'>;
 
 export default function MapScreen({ navigation }: Props) {
   const mapRef = useRef<KakaoMapViewRef>(null);
+  const { accessToken, requireAuth, user } = useAuth();
+  const { getCurrentLocation } = useLocation();
+
+  const selectedPace = user?.runningPaceSecPerKm ?? DEFAULT_PACE_SEC_PER_KM;
+
   const {
     waypoints,
     routeCoords,
@@ -41,10 +47,8 @@ export default function MapScreen({ navigation }: Props) {
     toRoutePoints,
     toWaypointPoints,
     getBounds,
-  } = useRoute();
+  } = useRoute(selectedPace);
 
-  const { getCurrentLocation } = useLocation();
-  const { accessToken, requireAuth } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [isRouting, setIsRouting] = useState(false); // 경로 탐색 중 여부
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
@@ -210,7 +214,12 @@ export default function MapScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <RouteStatsBar stats={stats} onExport={handleExportGpx} isExporting={isExporting} />
+      <RouteStatsBar
+        stats={stats}
+        onExport={handleExportGpx}
+        isExporting={isExporting}
+        selectedPaceLabel={formatPace(selectedPace)}
+      />
 
       <Modal visible={isSaveModalOpen} transparent animationType="fade">
         <View style={styles.modalOverlay}>

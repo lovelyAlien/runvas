@@ -30,6 +30,7 @@ interface AuthContextValue {
   consumeNewUserRedirect: () => boolean;
   submitKakaoCode: (code: string) => Promise<void>;
   cancelKakaoLogin: (errorMsg?: string) => void;
+  updateUser: (updatedUser: User) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -135,6 +136,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return true;
   }, [pendingNewUserRedirect]);
 
+  const updateUser = useCallback(async (updatedUser: User): Promise<void> => {
+    setUser(updatedUser);
+    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(updatedUser));
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
@@ -151,6 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       consumeNewUserRedirect,
       submitKakaoCode,
       cancelKakaoLogin,
+      updateUser,
     }),
     [
       user,
@@ -167,6 +174,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       consumeNewUserRedirect,
       submitKakaoCode,
       cancelKakaoLogin,
+      updateUser,
     ],
   );
 
