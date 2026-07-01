@@ -3,7 +3,10 @@ import { StyleSheet } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { Coordinate, GeoBounds } from '../types';
 
-const KAKAO_APP_KEY = process.env.EXPO_PUBLIC_KAKAO_APP_KEY ?? '';
+// 카카오 로그인용 REST API 키(EXPO_PUBLIC_KAKAO_APP_KEY)와는 다른 키다.
+// 카카오 지도 JS SDK(dapi.kakao.com/v2/maps/sdk.js)는 JavaScript 키만 인식하며,
+// REST API 키를 넣으면 지도 타일이 그려지지 않고 빈 화면으로 남는다.
+const KAKAO_JS_KEY = process.env.EXPO_PUBLIC_KAKAO_JS_KEY ?? '';
 
 export interface KakaoMapViewRef {
   moveToLocation: (coord: Coordinate) => void;
@@ -265,7 +268,7 @@ const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
       <WebView
         ref={webViewRef}
         style={styles.map}
-        source={{ html: buildMapHtml(KAKAO_APP_KEY) }}
+        source={{ html: buildMapHtml(KAKAO_JS_KEY) }}
         originWhitelist={['*']}
         javaScriptEnabled
         onMessage={handleMessage}
