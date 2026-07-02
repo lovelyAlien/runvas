@@ -27,6 +27,22 @@
 - GPX 다운로드 기능은 `docs/gpx-export.md`를 기준으로 구현합니다.
 - 백엔드와 모바일이 같은 예시 요청과 응답으로 동작하는지 확인한 뒤 기능을 완료로 봅니다.
 
+## Codex 하이브리드 실행
+
+`superpowers:subagent-driven-development`로 기능을 구현할 때, implementer 서브에이전트 디스패치는
+작업 성격에 따라 Claude와 Codex(`codex:codex-rescue`)로 나눠서 위임합니다. 이 스킬의 "Model
+Selection" 기준(기계적 작업 vs 통합/판단 작업)을 Codex 위임 여부 판단에도 그대로 적용합니다.
+
+- **`codex:codex-rescue`로 위임**: 1-2개 파일, 스펙이 명확하고 통합 판단이 필요 없는 기계적 작업.
+  task brief 파일 경로를 프롬프트에 넘기고, 커밋 메시지에 도구/저작자 표시(`Co-Authored-By`,
+  `codex`, `claude` 등)를 넣지 말라고 매번 명시적으로 지시합니다.
+- **Claude 서브에이전트가 계속 담당**: 여러 파일에 걸친 통합 작업, 설계 판단이나 폭넓은 코드베이스
+  이해가 필요한 작업. 최종 whole-branch 리뷰는 항상 Claude(가장 강력한 모델)가 담당합니다.
+- 위임 대상과 무관하게 task-reviewer(스펙 준수 + 코드 품질 검증)는 항상 Claude 서브에이전트가
+  수행합니다. Codex가 완료로 보고해도 이 리뷰 게이트를 생략하지 않습니다.
+- 이 저장소의 Git 작업 규칙(아래, 특히 커밋 훅과 커밋 메시지 형식)은 Codex에 위임한 작업에도
+  동일하게 적용됩니다.
+
 ## Git 작업 규칙
 
 - 새 클론이나 워크트리에서 처음 작업을 시작할 때는 `sh scripts/setup-git-hooks.sh`를 먼저
