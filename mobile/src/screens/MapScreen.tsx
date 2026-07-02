@@ -16,20 +16,28 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import Header from '../components/Header';
 import KakaoMapView, { KakaoMapViewRef } from '../components/KakaoMapView';
 import RouteStatsBar from '../components/RouteStatsBar';
-import { useRoute } from '../hooks/useRoute';
+import PaceSelector from '../components/PaceSelector';
+import { useRoute, DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
 import { useLocation } from '../hooks/useLocation';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchPedestrianRoute } from '../services/routingApi';
 import { exportGpx } from '../utils/exportGpx';
 import { postCourse, buildCreateCourseRequest } from '../services/courseApi';
+import { patchMe } from '../services/authApi';
 import { Colors } from '../constants/theme';
 import { Coordinate } from '../types';
+import { formatPace } from '../utils/format';
 import { RootTabParamList } from '../navigation/types';
 
 type Props = BottomTabScreenProps<RootTabParamList, 'Map'>;
 
 export default function MapScreen({ navigation }: Props) {
   const mapRef = useRef<KakaoMapViewRef>(null);
+  const { accessToken, requireAuth, user, updateUser } = useAuth();
+  const { getCurrentLocation } = useLocation();
+
+  const selectedPace = user?.runningPaceSecPerKm ?? DEFAULT_PACE_SEC_PER_KM;
+
   const {
     waypoints,
     routeCoords,
@@ -41,14 +49,14 @@ export default function MapScreen({ navigation }: Props) {
     toRoutePoints,
     toWaypointPoints,
     getBounds,
-  } = useRoute();
+  } = useRoute(selectedPace);
 
-  const { getCurrentLocation } = useLocation();
-  const { accessToken, requireAuth } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [isRouting, setIsRouting] = useState(false); // 경로 탐색 중 여부
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [routeTitle, setRouteTitle] = useState('');
+  const [isPaceSelectorOpen, setIsPaceSelectorOpen] = useState(false);
+  const [isSavingPace, setIsSavingPace] = useState(false);
 
   const handleMapPress = useCallback(
     async (coord: Coordinate) => {
@@ -131,6 +139,20 @@ export default function MapScreen({ navigation }: Props) {
     }
   };
 
+  const handlePaceConfirm = async (paceSecPerKm: number) => {
+    if (!accessToken || !user) { requireAuth(); return; }
+    setIsSavingPace(true);
+    try {
+      const result = await patchMe({ runningPaceSecPerKm: paceSecPerKm }, accessToken);
+      await updateUser(result.user);
+      setIsPaceSelectorOpen(false);
+    } catch (e: unknown) {
+      Alert.alert('저장 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+    } finally {
+      setIsSavingPace(false);
+    }
+  };
+
   const handleOpenSaveModal = () => {
     if (!requireAuth()) return;
     const bounds = getBounds();
@@ -210,7 +232,21 @@ export default function MapScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <RouteStatsBar stats={stats} onExport={handleExportGpx} isExporting={isExporting} />
+      <RouteStatsBar
+        stats={stats}
+        onExport={handleExportGpx}
+        isExporting={isExporting}
+        selectedPaceLabel={formatPace(selectedPace)}
+        onPacePress={() => { if (!requireAuth()) return; setIsPaceSelectorOpen(true); }}
+      />
+
+      <PaceSelector
+        visible={isPaceSelectorOpen}
+        currentPace={selectedPace}
+        onConfirm={handlePaceConfirm}
+        onClose={() => setIsPaceSelectorOpen(false)}
+        isSaving={isSavingPace}
+      />
 
       <Modal visible={isSaveModalOpen} transparent animationType="fade">
         <View style={styles.modalOverlay}>

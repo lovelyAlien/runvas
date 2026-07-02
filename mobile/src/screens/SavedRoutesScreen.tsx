@@ -10,6 +10,7 @@ import { getMyCourses, deleteCourse } from '../services/courseApi';
 import { formatDistance, formatDuration } from '../utils/format';
 import { useAuthGate } from '../hooks/useAuthGate';
 import { useAuth } from '../contexts/AuthContext';
+import { DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
 import { Colors } from '../constants/theme';
 import { CourseSummary } from '../types';
 import { RootTabParamList, RootStackParamList } from '../navigation/types';
@@ -22,7 +23,13 @@ type Props = CompositeScreenProps<
 export default function SavedRoutesScreen({ navigation }: Props) {
   const [routes, setRoutes] = useState<CourseSummary[]>([]);
   const { requireAuth } = useAuthGate();
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
+
+  const userPace = user?.runningPaceSecPerKm ?? DEFAULT_PACE_SEC_PER_KM;
+
+  function estimatedDuration(distanceMeters: number): number {
+    return Math.round((distanceMeters / 1000) * userPace);
+  }
 
   // tabPress 가드가 막지 못하는 명령형 진입(딥링크 등)에 대한 방어 가드.
   useFocusEffect(
@@ -76,7 +83,7 @@ export default function SavedRoutesScreen({ navigation }: Props) {
               <Text style={styles.rowTitle}>{item.title}</Text>
               <Text style={styles.rowMeta}>
                 {formatDistance(item.distanceMeters)} ·{' '}
-                {formatDuration(item.estimatedDurationSeconds)} ·{' '}
+                {formatDuration(estimatedDuration(item.distanceMeters))} ·{' '}
                 {new Date(item.createdAt).toLocaleDateString()}
               </Text>
             </View>

@@ -1,3 +1,10 @@
+// 360 → "6:00/km", 270 → "4:30/km"
+export function formatPace(secondsPerKm: number): string {
+  const minutes = Math.floor(secondsPerKm / 60);
+  const seconds = secondsPerKm % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}/km`;
+}
+
 export function formatDistance(meters: number): string {
   if (meters < 1000) return `${meters}m`;
   return `${(meters / 1000).toFixed(2)}km`;

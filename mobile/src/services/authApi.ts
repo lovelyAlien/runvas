@@ -1,4 +1,4 @@
-import { AuthResponse } from '../types';
+import { AuthResponse, MeResponse, UpdateMeRequest } from '../types';
 import { parseApiErrorMessage } from '../utils/apiError';
 import { isLogoutStatusAccepted } from '../utils/authSession';
 
@@ -27,6 +27,27 @@ export async function postAuthKakao(
   }
 
   return (await response.json()) as AuthResponse;
+}
+
+export async function patchMe(body: UpdateMeRequest, accessToken: string): Promise<MeResponse> {
+  if (!API_BASE_URL) {
+    throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/me`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiErrorMessage(response));
+  }
+
+  return (await response.json()) as MeResponse;
 }
 
 export async function postAuthLogout(accessToken: string): Promise<void> {

@@ -2,9 +2,9 @@ import { useState, useCallback, useMemo } from 'react';
 import { getDistance } from 'geolib';
 import { Coordinate, RouteStats, RoutePoint, GeoBounds } from '../types';
 
-const RUNNING_PACE_MIN_PER_KM = 6; // 6분/km 기준
+export const DEFAULT_PACE_SEC_PER_KM = 360; // 6:00/km
 
-export function useRoute() {
+export function useRoute(paceSecPerKm: number = DEFAULT_PACE_SEC_PER_KM) {
   // 사용자가 탭한 웨이포인트 (마커 표시용)
   const [waypoints, setWaypoints] = useState<Coordinate[]>([]);
   // 각 구간의 실제 도보 경로 좌표 (T-MAP 응답, 폴리라인용)
@@ -47,9 +47,9 @@ export function useRoute() {
     for (let i = 1; i < routeCoords.length; i++) {
       total += getDistance(routeCoords[i - 1], routeCoords[i]);
     }
-    const estimatedDurationSeconds = Math.round((total / 1000) * RUNNING_PACE_MIN_PER_KM * 60);
+    const estimatedDurationSeconds = Math.round((total / 1000) * paceSecPerKm);
     return { distanceMeters: total, estimatedDurationSeconds, pointCount: waypoints.length };
-  }, [routeCoords, waypoints.length]);
+  }, [routeCoords, waypoints.length, paceSecPerKm]);
 
   // GPX 내보내기·코스 저장(POST /api/courses)의 path에 필요한 RoutePoint[] (sequence 0부터 연속).
   const toRoutePoints = useCallback((): RoutePoint[] => {

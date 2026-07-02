@@ -15,9 +15,11 @@ interface Props {
   stats: RouteStats;
   onExport: () => void;
   isExporting: boolean;
+  selectedPaceLabel?: string;
+  onPacePress?: () => void;
 }
 
-export default function RouteStatsBar({ stats, onExport, isExporting }: Props) {
+export default function RouteStatsBar({ stats, onExport, isExporting, selectedPaceLabel, onPacePress }: Props) {
   const canExport = stats.pointCount >= 2;
 
   return (
@@ -27,6 +29,21 @@ export default function RouteStatsBar({ stats, onExport, isExporting }: Props) {
         <Divider />
         <StatItem label="예상 시간" value={formatDuration(stats.estimatedDurationSeconds)} />
         <Divider />
+        {selectedPaceLabel !== undefined && (
+          <>
+            <TouchableOpacity
+              onPress={onPacePress}
+              activeOpacity={onPacePress ? 0.7 : 1}
+              style={styles.statItem}
+            >
+              <Text style={styles.label}>페이스</Text>
+              <Text style={[styles.value, onPacePress ? styles.paceValue : null]}>
+                {selectedPaceLabel}
+              </Text>
+            </TouchableOpacity>
+            <Divider />
+          </>
+        )}
         <StatItem label="포인트" value={`${stats.pointCount}개`} />
       </View>
 
@@ -98,6 +115,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: Colors.gray900,
+  },
+  paceValue: {
+    color: Colors.primary,
   },
   divider: {
     width: 1,

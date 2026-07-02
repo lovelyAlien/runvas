@@ -1,16 +1,27 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthGate } from '../hooks/useAuthGate';
+import { patchMe } from '../services/authApi';
+import PaceSelector from '../components/PaceSelector';
+import { DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
+import { formatPace } from '../utils/format';
 import { Colors } from '../constants/theme';
 
-// tabPress 가드가 명령형 진입(딥링크 등)까지는 막지 못하므로, 화면 진입 시에도 한 번 더
-// requireAuth()를 호출하는 방어 가드를 둔다 (Critic 리뷰 반영).
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser, accessToken } = useAuth();
   const { requireAuth } = useAuthGate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isPaceSelectorOpen, setIsPaceSelectorOpen] = useState(false);
+  const [isSavingPace, setIsSavingPace] = useState(false);
 
   useEffect(() => {
     requireAuth();
@@ -36,12 +47,41 @@ export default function ProfileScreen() {
     ]);
   }, [logout]);
 
+  const handlePaceConfirm = async (paceSecPerKm: number) => {
+    if (!accessToken) return;
+    setIsSavingPace(true);
+    try {
+      const result = await patchMe({ runningPaceSecPerKm: paceSecPerKm }, accessToken);
+      await updateUser(result.user);
+      setIsPaceSelectorOpen(false);
+    } catch (e: unknown) {
+      Alert.alert('저장 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+    } finally {
+      setIsSavingPace(false);
+    }
+  };
+
+  const currentPace = user?.runningPaceSecPerKm ?? DEFAULT_PACE_SEC_PER_KM;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         {user ? (
           <>
             <Text style={styles.nickname}>{user.nickname}</Text>
+
+            <TouchableOpacity
+              style={styles.paceRow}
+              activeOpacity={0.7}
+              onPress={() => setIsPaceSelectorOpen(true)}
+            >
+              <View style={styles.paceInfo}>
+                <Text style={styles.paceLabel}>달리기 페이스</Text>
+                <Text style={styles.paceValue}>{formatPace(currentPace)}</Text>
+              </View>
+              <Text style={styles.paceChevron}>›</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.logoutButton, isLoggingOut && styles.logoutButtonDisabled]}
               activeOpacity={0.8}
@@ -59,6 +99,14 @@ export default function ProfileScreen() {
           <Text style={styles.emptyText}>로그인이 필요합니다.</Text>
         )}
       </View>
+
+      <PaceSelector
+        visible={isPaceSelectorOpen}
+        currentPace={currentPace}
+        onConfirm={handlePaceConfirm}
+        onClose={() => setIsPaceSelectorOpen(false)}
+        isSaving={isSavingPace}
+      />
     </SafeAreaView>
   );
 }
@@ -77,6 +125,36 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: Colors.gray900,
+    marginBottom: 24,
+  },
+  paceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '80%',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.gray50,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  paceInfo: {
+    gap: 2,
+  },
+  paceLabel: {
+    fontSize: 12,
+    color: Colors.gray400,
+    fontWeight: '500',
+  },
+  paceValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  paceChevron: {
+    fontSize: 22,
+    color: Colors.gray300,
+    fontWeight: '300',
   },
   emptyText: {
     color: Colors.gray400,

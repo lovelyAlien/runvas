@@ -9,6 +9,7 @@ public record UserResponse(
         String nickname,
         String profileImageUrl,
         String bio,
+        int runningPaceSecPerKm,
         String createdAt,
         String updatedAt
 ) {
@@ -20,6 +21,7 @@ public record UserResponse(
                 user.getNickname(),
                 user.getProfileImageUrl(),
                 user.getBio(),
+                user.getRunningPaceSecPerKm(),
                 user.getCreatedAt().toString(),
                 user.getUpdatedAt().toString()
         );

@@ -40,6 +40,9 @@ public class User {
     private String bio;
 
     @Column(nullable = false)
+    private int runningPaceSecPerKm = 360;
+
+    @Column(nullable = false)
     private Instant createdAt;
 
     @Column(nullable = false)
@@ -89,6 +92,14 @@ public class User {
     public String getNickname() { return nickname; }
     public String getProfileImageUrl() { return profileImageUrl; }
     public String getBio() { return bio; }
+    public int getRunningPaceSecPerKm() { return runningPaceSecPerKm; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    public void updateProfile(String nickname, String profileImageUrl, String bio, Integer runningPaceSecPerKm) {
+        if (nickname != null) this.nickname = nickname;
+        if (profileImageUrl != null) this.profileImageUrl = profileImageUrl;
+        if (bio != null) this.bio = bio;
+        if (runningPaceSecPerKm != null) this.runningPaceSecPerKm = runningPaceSecPerKm;
+    }
 }
