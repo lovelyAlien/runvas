@@ -37,7 +37,9 @@ EOF
   exit 1
 fi
 
-if printf '%s\n' "$subject" | grep -Eiq '(codex|claude|generated-by|co-authored-by)'; then
+attribution_pattern='(generated-by|co-authored-by|written by codex|written by claude|via codex|via claude)'
+
+if printf '%s\n' "$subject" | grep -Eiq "$attribution_pattern"; then
   echo "Commit subject must not include tool or authorship attribution." >&2
   exit 1
 fi
@@ -47,7 +49,7 @@ if [ -n "$(sed -n '2p' "$message_file")" ]; then
   exit 1
 fi
 
-if grep -Eiq '(generated-by|co-authored-by|written by codex|written by claude)' "$message_file"; then
+if grep -Eiq "$attribution_pattern" "$message_file"; then
   echo "Commit message must not include tool or authorship attribution." >&2
   exit 1
 fi
