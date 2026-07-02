@@ -13,6 +13,7 @@ export interface KakaoMapViewRef {
   addWaypoint: (coord: Coordinate, index: number) => void; // 마커만 추가
   addRouteSegment: (coords: Coordinate[]) => void; // 실제 경로 폴리라인 추가
   fitBounds: (bounds: GeoBounds) => void; // 카메라를 주어진 영역에 맞춤 (저장된 코스 보기용)
+  getBounds: () => Promise<GeoBounds>; // 현재 지도에 보이는 영역 조회 (코스 조회 버튼용)
   undoLast: () => void;
   clearMap: () => void;
 }
@@ -186,6 +187,18 @@ function buildMapHtml(appKey: string): string {
         var llBounds = new kakao.maps.LatLngBounds(sw, ne);
         map.setBounds(llBounds);
 
+      } else if (msg.type === 'GET_BOUNDS') {
+        var currentBounds = map.getBounds();
+        var boundsSw = currentBounds.getSouthWest();
+        var boundsNe = currentBounds.getNorthEast();
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'BOUNDS_RESULT',
+          swLat: boundsSw.getLat(),
+          swLng: boundsSw.getLng(),
+          neLat: boundsNe.getLat(),
+          neLng: boundsNe.getLng()
+        }));
+
       } else if (msg.type === 'CLEAR') {
         waypointMarkers.forEach(function(m) { m.setMap(null); });
         waypointMarkers = [];
@@ -221,6 +234,7 @@ function buildMapHtml(appKey: string): string {
 const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
   ({ onMapPress, onMapReady }, ref) => {
     const webViewRef = useRef<WebView>(null);
+    const boundsResolverRef = useRef<((bounds: GeoBounds) => void) | null>(null);
 
     const postMessage = (msg: object) => {
       webViewRef.current?.postMessage(JSON.stringify(msg));
@@ -245,6 +259,12 @@ const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
           neLng: bounds.northEast.longitude,
         });
       },
+      getBounds: () => {
+        return new Promise<GeoBounds>((resolve) => {
+          boundsResolverRef.current = resolve;
+          postMessage({ type: 'GET_BOUNDS' });
+        });
+      },
       undoLast: () => {
         postMessage({ type: 'UNDO_LAST' });
       },
@@ -260,6 +280,12 @@ const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
           onMapPress({ latitude: data.latitude, longitude: data.longitude });
         } else if (data.type === 'MAP_READY') {
           onMapReady?.();
+        } else if (data.type === 'BOUNDS_RESULT') {
+          boundsResolverRef.current?.({
+            southWest: { latitude: data.swLat, longitude: data.swLng },
+            northEast: { latitude: data.neLat, longitude: data.neLng },
+          });
+          boundsResolverRef.current = null;
         }
       } catch (_) {}
     };
