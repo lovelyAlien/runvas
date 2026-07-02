@@ -664,3 +664,149 @@ Expected: `200`
 git add mobile/docs/implementations/map-course-search.md
 git commit -m "docs(mobile): 지도 범위 기반 코스 조회 구현 기록 추가"
 ```
+
+---
+
+### Task 7: MapScreen 저장 모달에 공개/비공개 선택 추가
+
+Task 6 수동 검증 중 발견: Map 화면에서 코스를 저장하면 `buildCreateCourseRequest`가 `visibility`를
+받지 못해 항상 `'PRIVATE'`로 저장된다 (`mobile/src/services/courseApi.ts:39`,
+`mobile/src/screens/MapScreen.tsx` `handleConfirmSave`). `GET /courses`(코스 조회 기능이 쓰는 API)는
+`docs/api-contract.md` 기준 공개 코스만 반환하므로, 지금 앱으로는 "코스 조회"가 찾을 수 있는
+코스를 만들 방법이 전혀 없다. `visibility` 필드는 `docs/api-contract.md`의 `POST /courses` 요청
+본문에 이미 정의된 필드이므로 `docs/` 변경 없이 모바일 UI만 추가하면 된다.
+
+**Files:**
+- Modify: `mobile/src/screens/MapScreen.tsx`
+
+**Interfaces:**
+- Consumes: `CourseVisibility` 타입 (`../types`), 기존 `buildCreateCourseRequest`의 `visibility?: CourseVisibility` 파라미터 (`courseApi.ts:23,39` — 이미 지원되지만 지금까지 호출부에서 넘긴 적이 없다)
+- Produces: 없음 (화면 조립)
+
+- [ ] **Step 1: `CourseVisibility` 타입 import 추가**
+
+`mobile/src/screens/MapScreen.tsx:28`을 교체:
+
+```ts
+import { Coordinate, CourseSummary, CourseVisibility } from '../types';
+```
+
+- [ ] **Step 2: 공개 여부 상태 추가**
+
+`mobile/src/screens/MapScreen.tsx:58`(`const [routeTitle, setRouteTitle] = useState('');` 바로
+뒤)에 추가:
+
+```ts
+  const [routeVisibility, setRouteVisibility] = useState<CourseVisibility>('PRIVATE');
+```
+
+- [ ] **Step 3: 모달 열 때 기본값으로 초기화**
+
+`mobile/src/screens/MapScreen.tsx`의 `handleOpenSaveModal` 안, `setRouteTitle('');` 바로 뒤에
+추가:
+
+```ts
+    setRouteVisibility('PRIVATE');
+```
+
+- [ ] **Step 4: 저장 요청에 `visibility` 전달**
+
+`handleConfirmSave`의 `buildCreateCourseRequest({...})` 호출에서 `bounds,` 줄 바로 뒤에 추가:
+
+```ts
+          visibility: routeVisibility,
+```
+
+- [ ] **Step 5: 저장 모달에 공개/비공개 토글 UI 추가**
+
+저장 모달의 `<TextInput style={styles.modalInput} ... autoFocus />` 바로 뒤, `<View style={styles.modalActions}>` 앞에 추가:
+
+```tsx
+            <View style={styles.visibilityToggle}>
+              <TouchableOpacity
+                style={[
+                  styles.visibilityOption,
+                  routeVisibility === 'PRIVATE' && styles.visibilityOptionSelected,
+                ]}
+                onPress={() => setRouteVisibility('PRIVATE')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.visibilityOptionLabel,
+                    routeVisibility === 'PRIVATE' && styles.visibilityOptionLabelSelected,
+                  ]}
+                >
+                  비공개
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.visibilityOption,
+                  routeVisibility === 'PUBLIC' && styles.visibilityOptionSelected,
+                ]}
+                onPress={() => setRouteVisibility('PUBLIC')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.visibilityOptionLabel,
+                    routeVisibility === 'PUBLIC' && styles.visibilityOptionLabelSelected,
+                  ]}
+                >
+                  공개
+                </Text>
+              </TouchableOpacity>
+            </View>
+```
+
+- [ ] **Step 6: 토글 스타일 추가**
+
+`mobile/src/screens/MapScreen.tsx`의 `modalInput: { ... },` 스타일 정의 바로 뒤에 추가:
+
+```ts
+  visibilityToggle: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  visibilityOption: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.gray100,
+    alignItems: 'center',
+  },
+  visibilityOptionSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  visibilityOptionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.gray500,
+  },
+  visibilityOptionLabelSelected: {
+    color: Colors.white,
+  },
+```
+
+- [ ] **Step 7: 타입 체크로 확인**
+
+Run: `cd mobile && npx tsc --noEmit`
+Expected: 에러 없음
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add mobile/src/screens/MapScreen.tsx
+git commit -m "feat(mobile): 코스 저장 모달에 공개/비공개 선택 토글 추가"
+```
+
+- [ ] **Step 9: 수동 검증 재개**
+
+이 태스크 완료 후, 저장 모달에서 "공개"를 선택해 코스를 하나 저장하고, Task 6 Step 2의 체크리스트
+4/5/6번(코스 선택 시 지도 표시, 사용자가 그리던 경로와 분리, 새 코스 선택 시 미리보기 교체)을
+사용자가 직접 확인한다. 확인 결과를 반영해 `mobile/docs/implementations/map-course-search.md`를
+최종 커밋한다 (Task 6 Step 3/4가 아직 커밋 전이었다면 이 시점에 함께 정리).
