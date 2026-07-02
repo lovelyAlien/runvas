@@ -1,7 +1,7 @@
 import React, { useRef, useImperativeHandle, forwardRef } from 'react';
 import { StyleSheet } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
-import { Coordinate, GeoBounds } from '../types';
+import { Coordinate, GeoBounds, RoutePoint } from '../types';
 
 // 카카오 로그인용 REST API 키(EXPO_PUBLIC_KAKAO_APP_KEY)와는 다른 키다.
 // 카카오 지도 JS SDK(dapi.kakao.com/v2/maps/sdk.js)는 JavaScript 키만 인식하며,
@@ -14,6 +14,7 @@ export interface KakaoMapViewRef {
   addRouteSegment: (coords: Coordinate[]) => void; // 실제 경로 폴리라인 추가
   fitBounds: (bounds: GeoBounds) => void; // 카메라를 주어진 영역에 맞춤 (저장된 코스 보기용)
   getBounds: () => Promise<GeoBounds>; // 현재 지도에 보이는 영역 조회 (코스 조회 버튼용)
+  showCourse: (path: RoutePoint[], bounds: GeoBounds) => void; // 조회한 공개 코스를 지도에 미리보기로 표시
   undoLast: () => void;
   clearMap: () => void;
 }
@@ -110,6 +111,7 @@ function buildMapHtml(appKey: string): string {
     var currentLocationOverlay; // 현재 위치 표시용 핀
     var segmentPolylines = []; // 각 구간별 폴리라인
     var routePolyline;         // 전체 경로 폴리라인
+    var previewPolyline;       // 코스 조회로 선택한 공개 코스 미리보기 폴리라인 (사용자가 그리는 경로와 별개)
 
     kakao.maps.load(function() {
       var container = document.getElementById('map');
@@ -199,6 +201,27 @@ function buildMapHtml(appKey: string): string {
           neLng: boundsNe.getLng()
         }));
 
+      } else if (msg.type === 'SHOW_COURSE') {
+        if (previewPolyline) {
+          previewPolyline.setMap(null);
+          previewPolyline = null;
+        }
+        var previewPath = msg.coords.map(function(c) {
+          return new kakao.maps.LatLng(c.latitude, c.longitude);
+        });
+        previewPolyline = new kakao.maps.Polyline({
+          path: previewPath,
+          strokeWeight: 5,
+          strokeColor: '#F97316',
+          strokeOpacity: 0.9,
+          strokeStyle: 'shortdash'
+        });
+        previewPolyline.setMap(map);
+
+        var previewSw = new kakao.maps.LatLng(msg.bounds.swLat, msg.bounds.swLng);
+        var previewNe = new kakao.maps.LatLng(msg.bounds.neLat, msg.bounds.neLng);
+        map.setBounds(new kakao.maps.LatLngBounds(previewSw, previewNe));
+
       } else if (msg.type === 'CLEAR') {
         waypointMarkers.forEach(function(m) { m.setMap(null); });
         waypointMarkers = [];
@@ -263,6 +286,18 @@ const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
         return new Promise<GeoBounds>((resolve) => {
           boundsResolverRef.current = resolve;
           postMessage({ type: 'GET_BOUNDS' });
+        });
+      },
+      showCourse: (path: RoutePoint[], bounds: GeoBounds) => {
+        postMessage({
+          type: 'SHOW_COURSE',
+          coords: path.map((p) => ({ latitude: p.latitude, longitude: p.longitude })),
+          bounds: {
+            swLat: bounds.southWest.latitude,
+            swLng: bounds.southWest.longitude,
+            neLat: bounds.northEast.latitude,
+            neLng: bounds.northEast.longitude,
+          },
         });
       },
       undoLast: () => {
