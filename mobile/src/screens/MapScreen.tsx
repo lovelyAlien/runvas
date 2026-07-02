@@ -26,7 +26,7 @@ import { exportGpx } from '../utils/exportGpx';
 import { postCourse, buildCreateCourseRequest, getCourse, getCourses } from '../services/courseApi';
 import { patchMe } from '../services/authApi';
 import { Colors } from '../constants/theme';
-import { Coordinate, CourseSummary } from '../types';
+import { Coordinate, CourseSummary, CourseVisibility } from '../types';
 import { formatPace } from '../utils/format';
 import { RootTabParamList } from '../navigation/types';
 
@@ -56,6 +56,7 @@ export default function MapScreen({ navigation }: Props) {
   const [isRouting, setIsRouting] = useState(false); // 경로 탐색 중 여부
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [routeTitle, setRouteTitle] = useState('');
+  const [routeVisibility, setRouteVisibility] = useState<CourseVisibility>('PRIVATE');
   const [isPaceSelectorOpen, setIsPaceSelectorOpen] = useState(false);
   const [isSavingPace, setIsSavingPace] = useState(false);
   const [isCourseSheetOpen, setIsCourseSheetOpen] = useState(false);
@@ -191,6 +192,7 @@ export default function MapScreen({ navigation }: Props) {
       return;
     }
     setRouteTitle('');
+    setRouteVisibility('PRIVATE');
     setIsSaveModalOpen(true);
   };
 
@@ -210,6 +212,7 @@ export default function MapScreen({ navigation }: Props) {
           distanceMeters: stats.distanceMeters,
           estimatedDurationSeconds: stats.estimatedDurationSeconds,
           bounds,
+          visibility: routeVisibility,
         }),
         accessToken
       );
@@ -303,6 +306,42 @@ export default function MapScreen({ navigation }: Props) {
               onChangeText={setRouteTitle}
               autoFocus
             />
+            <View style={styles.visibilityToggle}>
+              <TouchableOpacity
+                style={[
+                  styles.visibilityOption,
+                  routeVisibility === 'PRIVATE' && styles.visibilityOptionSelected,
+                ]}
+                onPress={() => setRouteVisibility('PRIVATE')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.visibilityOptionLabel,
+                    routeVisibility === 'PRIVATE' && styles.visibilityOptionLabelSelected,
+                  ]}
+                >
+                  비공개
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.visibilityOption,
+                  routeVisibility === 'PUBLIC' && styles.visibilityOptionSelected,
+                ]}
+                onPress={() => setRouteVisibility('PUBLIC')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.visibilityOptionLabel,
+                    routeVisibility === 'PUBLIC' && styles.visibilityOptionLabelSelected,
+                  ]}
+                >
+                  공개
+                </Text>
+              </TouchableOpacity>
+            </View>
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.modalCancelButton}
@@ -409,6 +448,31 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     color: Colors.gray900,
+  },
+  visibilityToggle: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  visibilityOption: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.gray100,
+    alignItems: 'center',
+  },
+  visibilityOptionSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  visibilityOptionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.gray500,
+  },
+  visibilityOptionLabelSelected: {
+    color: Colors.white,
   },
   modalActions: {
     flexDirection: 'row',
