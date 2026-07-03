@@ -113,3 +113,27 @@ export async function deleteCourse(courseId: string, accessToken: string): Promi
     throw new Error(await parseApiErrorMessage(response));
   }
 }
+
+export async function getCourses(bounds: GeoBounds, accessToken?: string): Promise<CourseSummary[]> {
+  if (!API_BASE_URL) {
+    throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
+  }
+
+  const params = new URLSearchParams({
+    swLat: String(bounds.southWest.latitude),
+    swLng: String(bounds.southWest.longitude),
+    neLat: String(bounds.northEast.latitude),
+    neLng: String(bounds.northEast.longitude),
+  });
+
+  const response = await fetch(`${API_BASE_URL}/api/courses?${params.toString()}`, {
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiErrorMessage(response));
+  }
+
+  const { courses } = (await response.json()) as { courses: CourseSummary[] };
+  return courses;
+}

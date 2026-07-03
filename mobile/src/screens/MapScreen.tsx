@@ -15,6 +15,7 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
 import Header from '../components/Header';
 import KakaoMapView, { KakaoMapViewRef } from '../components/KakaoMapView';
+import CourseSearchSheet from '../components/CourseSearchSheet';
 import RouteStatsBar from '../components/RouteStatsBar';
 import PaceSelector from '../components/PaceSelector';
 import { useRoute, DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
@@ -22,10 +23,10 @@ import { useLocation } from '../hooks/useLocation';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchPedestrianRoute } from '../services/routingApi';
 import { exportGpx } from '../utils/exportGpx';
-import { postCourse, buildCreateCourseRequest } from '../services/courseApi';
+import { postCourse, buildCreateCourseRequest, getCourse, getCourses } from '../services/courseApi';
 import { patchMe } from '../services/authApi';
 import { Colors } from '../constants/theme';
-import { Coordinate } from '../types';
+import { Coordinate, CourseSummary, CourseVisibility } from '../types';
 import { formatPace } from '../utils/format';
 import { RootTabParamList } from '../navigation/types';
 
@@ -55,8 +56,12 @@ export default function MapScreen({ navigation }: Props) {
   const [isRouting, setIsRouting] = useState(false); // 경로 탐색 중 여부
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [routeTitle, setRouteTitle] = useState('');
+  const [routeVisibility, setRouteVisibility] = useState<CourseVisibility>('PRIVATE');
   const [isPaceSelectorOpen, setIsPaceSelectorOpen] = useState(false);
   const [isSavingPace, setIsSavingPace] = useState(false);
+  const [isCourseSheetOpen, setIsCourseSheetOpen] = useState(false);
+  const [nearbyCourses, setNearbyCourses] = useState<CourseSummary[]>([]);
+  const [isLoadingCourses, setIsLoadingCourses] = useState(false);
 
   const handleMapPress = useCallback(
     async (coord: Coordinate) => {
@@ -100,6 +105,32 @@ export default function MapScreen({ navigation }: Props) {
       return;
     }
     mapRef.current?.moveToLocation(coord);
+  };
+
+  const handleOpenCourseSearch = async () => {
+    if (!mapRef.current) return;
+    setIsLoadingCourses(true);
+    setIsCourseSheetOpen(true);
+    try {
+      const bounds = await mapRef.current.getBounds();
+      const courses = await getCourses(bounds, accessToken ?? undefined);
+      setNearbyCourses(courses);
+    } catch (e: unknown) {
+      Alert.alert('조회 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+      setIsCourseSheetOpen(false);
+    } finally {
+      setIsLoadingCourses(false);
+    }
+  };
+
+  const handleSelectCourse = async (courseId: string) => {
+    setIsCourseSheetOpen(false);
+    try {
+      const course = await getCourse(courseId, accessToken ?? undefined);
+      mapRef.current?.showCourse(course.path, course.bounds);
+    } catch (e: unknown) {
+      Alert.alert('불러오기 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+    }
   };
 
   const handleUndo = () => {
@@ -161,6 +192,7 @@ export default function MapScreen({ navigation }: Props) {
       return;
     }
     setRouteTitle('');
+    setRouteVisibility('PRIVATE');
     setIsSaveModalOpen(true);
   };
 
@@ -180,6 +212,7 @@ export default function MapScreen({ navigation }: Props) {
           distanceMeters: stats.distanceMeters,
           estimatedDurationSeconds: stats.estimatedDurationSeconds,
           bounds,
+          visibility: routeVisibility,
         }),
         accessToken
       );
@@ -206,6 +239,11 @@ export default function MapScreen({ navigation }: Props) {
 
       <View style={styles.mapContainer}>
         <KakaoMapView ref={mapRef} onMapPress={handleMapPress} />
+
+        {/* 우측 상단 코스 조회 버튼 */}
+        <View style={styles.topRightButtons}>
+          <FAB icon="search" onPress={handleOpenCourseSearch} disabled={isLoadingCourses} />
+        </View>
 
         {/* 경로 탐색 중 오버레이 */}
         {isRouting && (
@@ -248,6 +286,14 @@ export default function MapScreen({ navigation }: Props) {
         isSaving={isSavingPace}
       />
 
+      <CourseSearchSheet
+        visible={isCourseSheetOpen}
+        courses={nearbyCourses}
+        isLoading={isLoadingCourses}
+        onSelectCourse={handleSelectCourse}
+        onClose={() => setIsCourseSheetOpen(false)}
+      />
+
       <Modal visible={isSaveModalOpen} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -260,6 +306,42 @@ export default function MapScreen({ navigation }: Props) {
               onChangeText={setRouteTitle}
               autoFocus
             />
+            <View style={styles.visibilityToggle}>
+              <TouchableOpacity
+                style={[
+                  styles.visibilityOption,
+                  routeVisibility === 'PRIVATE' && styles.visibilityOptionSelected,
+                ]}
+                onPress={() => setRouteVisibility('PRIVATE')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.visibilityOptionLabel,
+                    routeVisibility === 'PRIVATE' && styles.visibilityOptionLabelSelected,
+                  ]}
+                >
+                  비공개
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.visibilityOption,
+                  routeVisibility === 'PUBLIC' && styles.visibilityOptionSelected,
+                ]}
+                onPress={() => setRouteVisibility('PUBLIC')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.visibilityOptionLabel,
+                    routeVisibility === 'PUBLIC' && styles.visibilityOptionLabelSelected,
+                  ]}
+                >
+                  공개
+                </Text>
+              </TouchableOpacity>
+            </View>
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.modalCancelButton}
@@ -318,6 +400,11 @@ const styles = StyleSheet.create({
     bottom: 16,
     gap: 10,
   },
+  topRightButtons: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+  },
   fab: {
     width: 46,
     height: 46,
@@ -361,6 +448,31 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     color: Colors.gray900,
+  },
+  visibilityToggle: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  visibilityOption: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.gray100,
+    alignItems: 'center',
+  },
+  visibilityOptionSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  visibilityOptionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.gray500,
+  },
+  visibilityOptionLabelSelected: {
+    color: Colors.white,
   },
   modalActions: {
     flexDirection: 'row',
