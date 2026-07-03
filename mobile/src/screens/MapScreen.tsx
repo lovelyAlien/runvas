@@ -15,7 +15,7 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
 import Header from '../components/Header';
 import KakaoMapView, { KakaoMapViewRef } from '../components/KakaoMapView';
-import CourseSearchSheet from '../components/CourseSearchSheet';
+import CourseSearchSheet, { CourseSearchSheetRef } from '../components/CourseSearchSheet';
 import RouteStatsBar from '../components/RouteStatsBar';
 import PaceSelector from '../components/PaceSelector';
 import { useRoute, DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
@@ -26,7 +26,7 @@ import { exportGpx } from '../utils/exportGpx';
 import { postCourse, buildCreateCourseRequest, getCourse, getCourses } from '../services/courseApi';
 import { patchMe } from '../services/authApi';
 import { Colors } from '../constants/theme';
-import { Coordinate, CourseSummary, CourseVisibility } from '../types';
+import { Coordinate, Course, CourseSummary, CourseVisibility } from '../types';
 import { formatPace } from '../utils/format';
 import { RootTabParamList } from '../navigation/types';
 
@@ -34,6 +34,7 @@ type Props = BottomTabScreenProps<RootTabParamList, 'Map'>;
 
 export default function MapScreen({ navigation }: Props) {
   const mapRef = useRef<KakaoMapViewRef>(null);
+  const courseSheetRef = useRef<CourseSearchSheetRef>(null);
   const { accessToken, requireAuth, user, updateUser } = useAuth();
   const { getCurrentLocation } = useLocation();
 
@@ -62,10 +63,13 @@ export default function MapScreen({ navigation }: Props) {
   const [isCourseSheetOpen, setIsCourseSheetOpen] = useState(false);
   const [nearbyCourses, setNearbyCourses] = useState<CourseSummary[]>([]);
   const [isLoadingCourses, setIsLoadingCourses] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [selectedCourseDetail, setSelectedCourseDetail] = useState<Course | null>(null);
 
   const handleMapPress = useCallback(
     async (coord: Coordinate) => {
       if (isRouting) return; // 이미 경로 탐색 중이면 무시
+      if (isCourseSheetOpen) return; // 코스 탐색 중에는 지도 탭이 내 경로에 웨이포인트를 추가하지 않게 한다
 
       // 첫 번째 포인트: 마커만 추가
       if (waypoints.length === 0) {
@@ -95,7 +99,7 @@ export default function MapScreen({ navigation }: Props) {
         setIsRouting(false);
       }
     },
-    [waypoints, isRouting, accessToken, addFirstPoint, addSegment]
+    [waypoints, isRouting, isCourseSheetOpen, accessToken, addFirstPoint, addSegment]
   );
 
   const handleLocate = async () => {
@@ -111,6 +115,10 @@ export default function MapScreen({ navigation }: Props) {
     if (!mapRef.current) return;
     setIsLoadingCourses(true);
     setIsCourseSheetOpen(true);
+    setSelectedCourseId(null);
+    setSelectedCourseDetail(null);
+    mapRef.current.clearCoursePreview();
+    courseSheetRef.current?.expand();
     try {
       const bounds = await mapRef.current.getBounds();
       const courses = await getCourses(bounds, accessToken ?? undefined);
@@ -123,14 +131,32 @@ export default function MapScreen({ navigation }: Props) {
     }
   };
 
-  const handleSelectCourse = async (courseId: string) => {
+  const handleCloseCourseSearch = () => {
     setIsCourseSheetOpen(false);
+    setSelectedCourseId(null);
+    setSelectedCourseDetail(null);
+    mapRef.current?.clearCoursePreview();
+  };
+
+  // 목록에서 코스를 선택: 현재 지도 범위를 유지한 채 경로만 미리보기로 그린다 (카메라 이동 없음).
+  const handleSelectCourse = async (courseId: string) => {
+    setSelectedCourseId(courseId);
     try {
       const course = await getCourse(courseId, accessToken ?? undefined);
-      mapRef.current?.showCourse(course.path, course.bounds);
+      setSelectedCourseDetail(course);
+      mapRef.current?.previewCourse(course.path);
     } catch (e: unknown) {
       Alert.alert('불러오기 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+      setSelectedCourseId(null);
+      setSelectedCourseDetail(null);
     }
+  };
+
+  // "상세 보기" 버튼: 선택된 코스의 좌표로 카메라를 이동하고 경로 순서(웨이포인트 번호)를 표시한다.
+  const handleViewCourseDetail = (courseId: string) => {
+    if (!selectedCourseDetail || selectedCourseDetail.id !== courseId) return;
+    mapRef.current?.fitBounds(selectedCourseDetail.bounds);
+    mapRef.current?.showCourseWaypoints(selectedCourseDetail.waypoints);
   };
 
   const handleUndo = () => {
@@ -240,17 +266,17 @@ export default function MapScreen({ navigation }: Props) {
       <View style={styles.mapContainer}>
         <KakaoMapView ref={mapRef} onMapPress={handleMapPress} />
 
-        {/* 우측 상단 코스 조회 버튼 */}
-        <View style={styles.topRightButtons}>
-          <FAB icon="search" onPress={handleOpenCourseSearch} disabled={isLoadingCourses} />
-        </View>
-
         {/* 경로 탐색 중 오버레이 */}
         {isRouting && (
           <View style={styles.routingOverlay}>
             <ActivityIndicator size="large" color={Colors.primary} />
           </View>
         )}
+
+        {/* 좌측 하단 코스 조회 버튼 */}
+        <View style={styles.bottomLeftButtons}>
+          <FAB icon="search" onPress={handleOpenCourseSearch} disabled={isLoadingCourses} />
+        </View>
 
         {/* 우측 플로팅 버튼 */}
         <View style={styles.floatingButtons}>
@@ -268,6 +294,17 @@ export default function MapScreen({ navigation }: Props) {
             color={Colors.danger}
           />
         </View>
+
+        <CourseSearchSheet
+          ref={courseSheetRef}
+          visible={isCourseSheetOpen}
+          courses={nearbyCourses}
+          isLoading={isLoadingCourses}
+          selectedCourseId={selectedCourseId}
+          onSelectCourse={handleSelectCourse}
+          onViewDetail={handleViewCourseDetail}
+          onClose={handleCloseCourseSearch}
+        />
       </View>
 
       <RouteStatsBar
@@ -284,14 +321,6 @@ export default function MapScreen({ navigation }: Props) {
         onConfirm={handlePaceConfirm}
         onClose={() => setIsPaceSelectorOpen(false)}
         isSaving={isSavingPace}
-      />
-
-      <CourseSearchSheet
-        visible={isCourseSheetOpen}
-        courses={nearbyCourses}
-        isLoading={isLoadingCourses}
-        onSelectCourse={handleSelectCourse}
-        onClose={() => setIsCourseSheetOpen(false)}
       />
 
       <Modal visible={isSaveModalOpen} transparent animationType="fade">
@@ -400,10 +429,10 @@ const styles = StyleSheet.create({
     bottom: 16,
     gap: 10,
   },
-  topRightButtons: {
+  bottomLeftButtons: {
     position: 'absolute',
-    right: 16,
-    top: 16,
+    left: 16,
+    bottom: 16,
   },
   fab: {
     width: 46,
