@@ -83,6 +83,13 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
         <View style={styles.headerSpacer} />
       </View>
 
+      {course.startAddress && (
+        <View style={styles.addressBar}>
+          <Ionicons name="location-outline" size={13} color={Colors.gray500} />
+          <Text style={styles.addressText} numberOfLines={1}>{course.startAddress}</Text>
+        </View>
+      )}
+
       <View style={styles.mapContainer}>
         <KakaoMapView ref={mapRef} onMapPress={() => {}} onMapReady={handleMapReady} />
       </View>
@@ -129,6 +136,20 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 24,
+  },
+  addressBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.gray100,
+  },
+  addressText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.gray500,
   },
   mapContainer: {
     flex: 1,

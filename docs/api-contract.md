@@ -311,6 +311,7 @@
         "longitude": 126.979
       }
     },
+    "startAddress": "서울특별시 중구 을지로 1가",
     "visibility": "PUBLIC",
     "tags": ["heart", "city"],
     "likeCount": 0,
@@ -320,6 +321,8 @@
   }
 }
 ```
+
+> `startAddress`는 요청에 포함하지 않습니다. 백엔드가 저장 시 `path[0]` 좌표로 T-Map 역지오코딩을 호출해 채웁니다. 역지오코딩 실패 시 `null`을 저장합니다.
 
 #### Errors
 
@@ -374,6 +377,7 @@
           "longitude": 126.979
         }
       },
+      "startAddress": "서울특별시 중구 을지로 1가",
       "visibility": "PUBLIC",
       "tags": ["heart", "city"],
       "likeCount": 12,

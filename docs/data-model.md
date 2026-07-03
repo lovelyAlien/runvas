@@ -17,6 +17,7 @@
 | `distanceMeters` | number | Y | 경로 탐색 API 또는 지도 폴리라인 기준 총 거리, 미터 단위 |
 | `estimatedDurationSeconds` | number | Y | 경로 탐색 API 또는 모바일 표시 기준 예상 소요 시간, 초 단위 |
 | `bounds` | GeoBounds | Y | `path`를 포함하는 최소 지도 영역 |
+| `startAddress` | string \| null | N | 출발지 주소. 저장 시 백엔드가 `path[0]` 좌표로 T-Map 역지오코딩 호출해 채운다. 역지오코딩 실패 시 `null` |
 | `visibility` | CourseVisibility | Y | 공개 범위 |
 | `tags` | string[] | Y | 검색/분류용 태그 |
 | `likeCount` | number | Y | 코스 좋아요 수 |

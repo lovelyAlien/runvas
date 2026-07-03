@@ -86,6 +86,12 @@ export default function SavedRoutesScreen({ navigation }: Props) {
                 {formatDuration(estimatedDuration(item.distanceMeters))} ·{' '}
                 {new Date(item.createdAt).toLocaleDateString()}
               </Text>
+              {item.startAddress && (
+                <Text style={styles.rowAddress} numberOfLines={1}>
+                  <Ionicons name="location-outline" size={11} color={Colors.gray400} />{' '}
+                  {item.startAddress}
+                </Text>
+              )}
             </View>
             <TouchableOpacity onPress={() => handleDelete(item)} activeOpacity={0.7}>
               <Ionicons name="trash-outline" size={20} color={Colors.danger} />
@@ -150,5 +156,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.gray500,
     marginTop: 4,
+  },
+  rowAddress: {
+    fontSize: 11,
+    color: Colors.gray400,
+    marginTop: 2,
   },
 });

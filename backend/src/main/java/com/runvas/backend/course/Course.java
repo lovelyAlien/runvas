@@ -85,6 +85,9 @@ public class Course {
 	@Column(nullable = false)
 	private Integer likeCount = 0;
 
+	@Column
+	private String startAddress;
+
 	@Column(nullable = false)
 	private Instant createdAt = Instant.now();
 

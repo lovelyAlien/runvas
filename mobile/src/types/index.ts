@@ -27,6 +27,7 @@ export interface Course {
   distanceMeters: number;
   estimatedDurationSeconds: number;
   bounds: GeoBounds;
+  startAddress: string | null;
   visibility: CourseVisibility;
   tags: string[];
   likeCount: number;
@@ -119,6 +120,7 @@ export interface CourseSummary {
   distanceMeters: number;
   estimatedDurationSeconds: number;
   bounds: GeoBounds;
+  startAddress: string | null;
   visibility: CourseVisibility;
   tags: string[];
   likeCount: number;
