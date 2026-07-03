@@ -283,8 +283,15 @@ const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
         });
       },
       getBounds: () => {
-        return new Promise<GeoBounds>((resolve) => {
-          boundsResolverRef.current = resolve;
+        return new Promise<GeoBounds>((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            boundsResolverRef.current = null;
+            reject(new Error('지도 범위를 가져오지 못했습니다.'));
+          }, 5000);
+          boundsResolverRef.current = (bounds) => {
+            clearTimeout(timeoutId);
+            resolve(bounds);
+          };
           postMessage({ type: 'GET_BOUNDS' });
         });
       },
