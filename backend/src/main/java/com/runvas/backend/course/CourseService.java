@@ -4,6 +4,7 @@ import com.runvas.backend.auth.CurrentUserProvider;
 import com.runvas.backend.common.ApiException;
 import com.runvas.backend.common.ErrorCode;
 import com.runvas.backend.common.PageInfo;
+import com.runvas.backend.common.RoutePoint;
 import com.runvas.backend.community.Like;
 import com.runvas.backend.community.LikeRepository;
 import com.runvas.backend.community.LikeTargetType;
@@ -11,6 +12,7 @@ import com.runvas.backend.course.dto.CourseResponse;
 import com.runvas.backend.course.dto.CourseSummaryResponse;
 import com.runvas.backend.course.dto.CreateCourseRequest;
 import com.runvas.backend.course.dto.UpdateCourseRequest;
+import com.runvas.backend.routing.TmapReverseGeocodingClient;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
@@ -30,6 +32,7 @@ public class CourseService {
 	private final LikeRepository likeRepository;
 	private final CourseValidator courseValidator;
 	private final CurrentUserProvider currentUserProvider;
+	private final TmapReverseGeocodingClient reverseGeocodingClient;
 
 	@Transactional
 	public CourseResponse create(CreateCourseRequest request) {
@@ -48,6 +51,7 @@ public class CourseService {
 				request.visibility(),
 				request.tags() == null ? Set.of() : request.tags());
 
+		course.setStartAddress(resolveStartAddress(request.path()));
 		courseRepository.save(course);
 		return CourseResponse.from(course, false);
 	}
@@ -131,6 +135,7 @@ public class CourseService {
 			course.setDistanceMeters(request.distanceMeters());
 			course.setEstimatedDurationSeconds(request.estimatedDurationSeconds());
 			course.applyBounds(request.bounds());
+			course.setStartAddress(resolveStartAddress(request.path()));
 		}
 
 		course.setUpdatedAt(Instant.now());
@@ -142,6 +147,12 @@ public class CourseService {
 		Course course = findCourseOrThrow(courseId);
 		requireAuthor(course);
 		courseRepository.delete(course);
+	}
+
+	private String resolveStartAddress(List<RoutePoint> path) {
+		if (path == null || path.isEmpty()) return null;
+		RoutePoint start = path.get(0);
+		return reverseGeocodingClient.fetchAddress(start.latitude(), start.longitude());
 	}
 
 	private Course findCourseOrThrow(String courseId) {
