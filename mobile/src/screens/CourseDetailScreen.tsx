@@ -18,7 +18,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'CourseDetail'>;
 
 export default function CourseDetailScreen({ route, navigation }: Props) {
   const { courseId } = route.params;
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const mapRef = useRef<KakaoMapViewRef>(null);
   const [course, setCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -80,7 +80,16 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {course.title}
         </Text>
-        <View style={styles.headerSpacer} />
+        {user?.id === course.authorId ? (
+          <TouchableOpacity
+            onPress={() => navigation.navigate('CourseEdit', { courseId })}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="pencil-outline" size={22} color={Colors.gray900} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
 
       {course.startAddress && (

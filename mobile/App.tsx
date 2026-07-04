@@ -15,6 +15,7 @@ import CourseDetailScreen from './src/screens/CourseDetailScreen';
 import PostCreateScreen from './src/screens/PostCreateScreen';
 import PostDetailScreen from './src/screens/PostDetailScreen';
 import CourseBoardScreen from './src/screens/CourseBoardScreen';
+import CourseEditScreen from './src/screens/CourseEditScreen';
 import LoginPromptModal from './src/components/LoginPromptModal';
 import KakaoLoginWebView from './src/components/KakaoLoginWebView';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
@@ -117,6 +118,7 @@ function AppContent() {
           <Stack.Screen name="PostCreate" component={PostCreateScreen} />
           <Stack.Screen name="PostDetail" component={PostDetailScreen} />
           <Stack.Screen name="CourseBoard" component={CourseBoardScreen} />
+          <Stack.Screen name="CourseEdit" component={CourseEditScreen} />
         </Stack.Navigator>
         <NewUserRedirectWatcher />
       </NavigationContainer>
