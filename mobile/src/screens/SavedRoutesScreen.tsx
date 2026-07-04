@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Alert, TextInput, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, CompositeScreenProps } from '@react-navigation/native';
@@ -25,6 +25,7 @@ type Props = CompositeScreenProps<
 
 export default function SavedRoutesScreen({ navigation }: Props) {
   const [routes, setRoutes] = useState<CourseSummary[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [previewCourseId, setPreviewCourseId] = useState<string | null>(null);
   const handleClosePreview = useCallback(() => setPreviewCourseId(null), []);
   const { requireAuth } = useAuthGate();
@@ -72,8 +73,30 @@ export default function SavedRoutesScreen({ navigation }: Props) {
         <Text style={styles.headerTitle}>저장한 코스</Text>
       </View>
 
+      <View style={styles.searchBar}>
+        <Ionicons name="search-outline" size={16} color={Colors.gray400} />
+        <TextInput
+          style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="코스 이름 검색"
+          placeholderTextColor={Colors.gray400}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')} activeOpacity={0.7}>
+            <Ionicons name="close-circle" size={16} color={Colors.gray400} />
+          </TouchableOpacity>
+        )}
+      </View>
+
       <FlatList
-        data={routes}
+        data={routes.filter((r) =>
+          searchQuery.trim()
+            ? r.title.toLowerCase().includes(searchQuery.trim().toLowerCase())
+            : true
+        )}
         keyExtractor={(item) => item.id}
         initialNumToRender={4}
         maxToRenderPerBatch={2}
@@ -185,5 +208,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.gray400,
     marginTop: 2,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: Colors.gray50,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.gray100,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.gray900,
+    paddingVertical: 0,
   },
 });
