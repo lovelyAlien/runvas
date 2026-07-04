@@ -35,10 +35,10 @@ public class CourseController {
 
 	@GetMapping
 	public Map<String, Object> list(
-			@RequestParam double swLat,
-			@RequestParam double swLng,
-			@RequestParam double neLat,
-			@RequestParam double neLng,
+			@RequestParam(required = false) Double swLat,
+			@RequestParam(required = false) Double swLng,
+			@RequestParam(required = false) Double neLat,
+			@RequestParam(required = false) Double neLng,
 			@RequestParam(required = false) Integer limit,
 			@RequestParam(required = false) String cursor,
 			@RequestParam(required = false) String q,

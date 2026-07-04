@@ -29,7 +29,8 @@ import { useLocation } from '../hooks/useLocation';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchPedestrianRoute } from '../services/routingApi';
 import { exportGpx } from '../utils/exportGpx';
-import { postCourse, buildCreateCourseRequest, getCourse, getCourses } from '../services/courseApi';
+import { postCourse, buildCreateCourseRequest, getCourse, getCourses, searchPublicCourses } from '../services/courseApi';
+import CourseSearchBar from '../components/CourseSearchBar';
 import { patchMe } from '../services/authApi';
 import { Colors } from '../constants/theme';
 import { Coordinate, Course, CourseSummary, CourseVisibility } from '../types';
@@ -80,6 +81,20 @@ export default function MapScreen({ navigation }: Props) {
   const [isCourseSheetCollapsed, setIsCourseSheetCollapsed] = useState(false);
   const searchButtonBottom = useRef(new Animated.Value(FLOATING_BUTTONS_DEFAULT_BOTTOM)).current;
   const sheetContentHeightRef = useRef(0);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  const handleSearchCourse = useCallback(
+    (q: string) => searchPublicCourses(q, accessToken ?? undefined),
+    [accessToken]
+  );
+
+  const handleSelectSearchResult = useCallback(
+    (courseId: string) => {
+      setIsSearchOpen(false);
+      navigation.navigate('CourseDetail', { courseId });
+    },
+    [navigation]
+  );
 
   // 탐색 버튼은 시트가 열려 있는 동안 사라지지 않고, 시트의 실시간 위치(드래그 중에도)를 그대로
   // 따라다닌다. translateY는 native driver로도 움직이므로, addListener로 JS 쪽 값을 동기화한다.
@@ -324,11 +339,20 @@ export default function MapScreen({ navigation }: Props) {
           </View>
         )}
 
-        {/* 좌측 하단 코스 조회 버튼 — 시트가 열려 있는 동안 사라지지 않고, 시트가 펼쳐지고
+        {/* 좌측 하단 코스 조회/이름 검색 버튼 — 시트가 열려 있는 동안 사라지지 않고, 시트가 펼쳐지고
             접히는 움직임을 그대로 따라다닌다. */}
         <Animated.View style={[styles.bottomLeftButtons, { bottom: searchButtonBottom }]}>
           <FAB icon="search" onPress={handleOpenCourseSearch} disabled={isLoadingCourses} />
+          <FAB icon="search-outline" onPress={() => setIsSearchOpen(true)} />
         </Animated.View>
+
+        {isSearchOpen && (
+          <CourseSearchBar
+            onClose={() => setIsSearchOpen(false)}
+            onSelectCourse={handleSelectSearchResult}
+            onSearch={handleSearchCourse}
+          />
+        )}
 
         {/* 우측 플로팅 버튼 — 코스 탐색 시트가 닫혀 있을 때만 보이는 '내 경로' 도구 모음.
             시트가 열려 있는 동안은 맥락에 안 맞으므로(펼침/접힘 모두) 완전히 숨긴다. */}
@@ -510,6 +534,7 @@ const styles = StyleSheet.create({
   bottomLeftButtons: {
     position: 'absolute',
     left: 16,
+    gap: 10,
   },
   fab: {
     width: 46,

@@ -78,20 +78,30 @@ public class CourseService {
 
 	// getById()/listMine()과 같은 이유로 필요 — tags 지연 로딩 컬렉션을 트랜잭션 안에서 복사해야 한다.
 	@Transactional(readOnly = true)
-	public ListResult list(double swLat, double swLng, double neLat, double neLng, Integer limit, String q, String tag) {
+	public ListResult list(Double swLat, Double swLng, Double neLat, Double neLng, Integer limit, String q, String tag) {
 		int effectiveLimit = limit == null ? DEFAULT_LIMIT : Math.min(limit, MAX_LIMIT);
 		if (limit != null && limit > MAX_LIMIT) {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "limit must be at most " + MAX_LIMIT);
 		}
 
+		boolean hasBounds = swLat != null && swLng != null && neLat != null && neLng != null;
+		boolean partialBounds = (swLat != null || swLng != null || neLat != null || neLng != null) && !hasBounds;
+		if (partialBounds) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "bounds parameters must all be provided together");
+		}
+		if (!hasBounds && (q == null || q.isBlank())) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "either bounds or q must be provided");
+		}
+
 		String currentUserId = currentUserProvider.currentUserIdOrNull();
 
-		List<CourseSummaryResponse> courses = courseRepository
-				.findPublicCoursesWithinBounds(swLat, swLng, neLat, neLng)
-				.stream()
-				.filter(course -> q == null || course.getTitle().contains(q))
+		List<Course> candidates = hasBounds
+				? courseRepository.findPublicCoursesWithinBounds(swLat, swLng, neLat, neLng)
+				: courseRepository.findPublicCoursesByTitle(q);
+
+		List<CourseSummaryResponse> courses = candidates.stream()
+				.filter(course -> !hasBounds || q == null || course.getTitle().contains(q))
 				.filter(course -> tag == null || course.getTags().contains(tag))
-				.sorted(Comparator.comparing(Course::getCreatedAt).reversed())
 				.limit(effectiveLimit)
 				.map(course -> CourseSummaryResponse.from(course, isLikedByCurrentUser(course.getId(), currentUserId)))
 				.toList();
