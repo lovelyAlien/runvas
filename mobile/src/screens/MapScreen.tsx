@@ -24,7 +24,8 @@ import { useLocation } from '../hooks/useLocation';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchPedestrianRoute } from '../services/routingApi';
 import { exportGpx } from '../utils/exportGpx';
-import { postCourse, buildCreateCourseRequest, getPublicCourses } from '../services/courseApi';
+import { postCourse, buildCreateCourseRequest, getPublicCourses, searchPublicCourses } from '../services/courseApi';
+import CourseSearchBar from '../components/CourseSearchBar';
 import { patchMe } from '../services/authApi';
 import { Colors } from '../constants/theme';
 import { Coordinate, GeoBounds } from '../types';
@@ -64,6 +65,7 @@ export default function MapScreen({ navigation }: Props) {
   const [isSavingPace, setIsSavingPace] = useState(false);
   const [isBrowseMode, setIsBrowseMode] = useState(false);
   const [isFetchingCourses, setIsFetchingCourses] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const boundsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -116,6 +118,19 @@ export default function MapScreen({ navigation }: Props) {
   const toggleBrowseMode = useCallback(() => {
     setIsBrowseMode((prev) => !prev);
   }, []);
+
+  const handleSearchCourse = useCallback(
+    (q: string) => searchPublicCourses(q, accessToken ?? undefined),
+    [accessToken]
+  );
+
+  const handleSelectSearchResult = useCallback(
+    (courseId: string) => {
+      setIsSearchOpen(false);
+      navigation.navigate('CourseDetail', { courseId });
+    },
+    [navigation]
+  );
 
   // isBrowseMode 변화에 따른 지도 상태 동기화 + 언마운트 시 타이머 정리
   useEffect(() => {
@@ -286,11 +301,19 @@ export default function MapScreen({ navigation }: Props) {
           </View>
         )}
 
+        {isSearchOpen && (
+          <CourseSearchBar
+            onClose={() => setIsSearchOpen(false)}
+            onSelectCourse={handleSelectSearchResult}
+            onSearch={handleSearchCourse}
+          />
+        )}
+
         <View style={styles.floatingButtons}>
           <FAB
-            icon={isBrowseMode ? 'pencil' : 'search'}
-            onPress={toggleBrowseMode}
-            color={isBrowseMode ? Colors.primary : Colors.gray500}
+            icon="search"
+            onPress={() => setIsSearchOpen(true)}
+            color={Colors.gray500}
           />
           <FAB icon="locate" onPress={handleLocate} />
           {!isBrowseMode && (

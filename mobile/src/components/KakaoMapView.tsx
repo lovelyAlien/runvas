@@ -316,6 +316,18 @@ function buildMapHtml(appKey: string): string {
 
       } else if (msg.type === 'SET_BROWSE_MODE') {
         isBrowseMode = msg.enabled;
+        if (msg.enabled && map) {
+          var modeBounds = map.getBounds();
+          var modeSw = modeBounds.getSouthWest();
+          var modeNe = modeBounds.getNorthEast();
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'MAP_BOUNDS_CHANGE',
+            swLat: modeSw.getLat(),
+            swLng: modeSw.getLng(),
+            neLat: modeNe.getLat(),
+            neLng: modeNe.getLng()
+          }));
+        }
 
       } else if (msg.type === 'SHOW_PUBLIC_COURSES') {
         publicCourseOverlays.forEach(function(o) { o.setMap(null); });
