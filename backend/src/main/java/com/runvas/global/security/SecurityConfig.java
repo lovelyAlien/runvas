@@ -37,6 +37,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/courses").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/api/courses/{courseId}").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/courses/{courseId}").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/likes/{targetType}/{targetId}").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/likes/{targetType}/{targetId}").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider, tokenBlacklistService),
