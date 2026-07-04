@@ -8,18 +8,30 @@ import { Coordinate, GeoBounds } from '../types';
 // REST API 키를 넣으면 지도 타일이 그려지지 않고 빈 화면으로 남는다.
 const KAKAO_JS_KEY = process.env.EXPO_PUBLIC_KAKAO_JS_KEY ?? '';
 
+export interface PublicCourseMarker {
+  id: string;
+  title: string;
+  centerLat: number;
+  centerLng: number;
+}
+
 export interface KakaoMapViewRef {
   moveToLocation: (coord: Coordinate) => void;
-  addWaypoint: (coord: Coordinate, index: number) => void; // 마커만 추가
-  addRouteSegment: (coords: Coordinate[]) => void; // 실제 경로 폴리라인 추가
-  fitBounds: (bounds: GeoBounds) => void; // 카메라를 주어진 영역에 맞춤 (저장된 코스 보기용)
+  addWaypoint: (coord: Coordinate, index: number) => void;
+  addRouteSegment: (coords: Coordinate[]) => void;
+  fitBounds: (bounds: GeoBounds) => void;
   undoLast: () => void;
   clearMap: () => void;
+  showPublicCourses: (courses: PublicCourseMarker[]) => void;
+  clearPublicCourses: () => void;
+  setBrowseMode: (enabled: boolean) => void;
 }
 
 interface Props {
   onMapPress: (coord: Coordinate) => void;
-  onMapReady?: () => void; // 지도가 로드 완료된 뒤에만 안전하게 메시지를 보낼 수 있다
+  onMapReady?: () => void;
+  onBoundsChange?: (bounds: GeoBounds) => void;
+  onCourseMarkerPress?: (courseId: string) => void;
 }
 
 function buildMapHtml(appKey: string): string {
@@ -96,6 +108,52 @@ function buildMapHtml(appKey: string): string {
       font-weight: 800;
       line-height: 1;
     }
+    .course-marker-pin {
+      width: 28px;
+      height: 28px;
+      border-radius: 50% 50% 50% 0;
+      background: #ea580c;
+      border: 3px solid #fff;
+      box-shadow: 0 4px 12px rgba(234,88,12,0.4);
+      transform: rotate(-45deg);
+      cursor: pointer;
+    }
+    .course-bubble {
+      background: #fff;
+      border: 1.5px solid #ea580c;
+      border-radius: 8px;
+      padding: 6px 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 12px;
+      max-width: 180px;
+    }
+    .course-bubble-title {
+      font-weight: 700;
+      color: #111;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .course-bubble-btn {
+      display: block;
+      padding: 3px 8px;
+      background: #ea580c;
+      color: #fff;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+    .course-wrapper {
+      position: relative;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      justify-content: center;
+    }
   </style>
 </head>
 <body>
@@ -105,10 +163,13 @@ function buildMapHtml(appKey: string): string {
   </script>
   <script>
     var map;
-    var waypointMarkers = []; // 사용자가 탭한 마커
-    var currentLocationOverlay; // 현재 위치 표시용 핀
-    var segmentPolylines = []; // 각 구간별 폴리라인
-    var routePolyline;         // 전체 경로 폴리라인
+    var waypointMarkers = [];
+    var currentLocationOverlay;
+    var segmentPolylines = [];
+    var routePolyline;
+    var publicCourseOverlays = [];
+    var activeBubbleOverlay = null;
+    var isBrowseMode = false;
 
     kakao.maps.load(function() {
       var container = document.getElementById('map');
@@ -125,8 +186,8 @@ function buildMapHtml(appKey: string): string {
       });
       routePolyline.setMap(map);
 
-      // 지도 탭 → RN으로 좌표 전송
       kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
+        if (isBrowseMode) return;
         var latlng = mouseEvent.latLng;
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'MAP_PRESS',
@@ -135,16 +196,60 @@ function buildMapHtml(appKey: string): string {
         }));
       });
 
-      // 지도 로드 완료 알림 — RN이 이걸 받기 전에 보낸 메시지는 map이 아직 없어 무시될 수 있다.
+      // 지도 이동 완료 후 현재 범위를 RN으로 전달
+      kakao.maps.event.addListener(map, 'idle', function() {
+        var bounds = map.getBounds();
+        var sw = bounds.getSouthWest();
+        var ne = bounds.getNorthEast();
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'MAP_BOUNDS_CHANGE',
+          swLat: sw.getLat(),
+          swLng: sw.getLng(),
+          neLat: ne.getLat(),
+          neLng: ne.getLng()
+        }));
+      });
+
       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MAP_READY' }));
     });
+
+    function closeActiveBubble() {
+      if (activeBubbleOverlay) {
+        activeBubbleOverlay.setMap(null);
+        activeBubbleOverlay = null;
+      }
+    }
+
+    function onCourseMarkerClick(courseId, courseTitle, lat, lng) {
+      closeActiveBubble();
+      var latlng = new kakao.maps.LatLng(lat, lng);
+      var safeTitle = courseTitle.length > 20 ? courseTitle.substring(0, 20) + '...' : courseTitle;
+      var content =
+        '<div class="course-bubble">' +
+          '<div class="course-bubble-title">' + safeTitle + '</div>' +
+          '<div class="course-bubble-btn" onclick="onBubbleDetailClick(\\\'' + courseId + '\\\')">자세히 보기</div>' +
+        '</div>';
+      activeBubbleOverlay = new kakao.maps.CustomOverlay({
+        position: latlng,
+        yAnchor: 3.2,
+        content: content
+      });
+      activeBubbleOverlay.setMap(map);
+    }
+
+    function onBubbleDetailClick(courseId) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'COURSE_MARKER_PRESS',
+        courseId: courseId
+      }));
+    }
 
     function handleRNMessage(data) {
       var msg = JSON.parse(data);
 
       if (msg.type === 'ADD_WAYPOINT') {
         var latlng = new kakao.maps.LatLng(msg.latitude, msg.longitude);
-        var idx = msg.index; // 1-based
+        var idx = msg.index;
         var colorClass = idx === 1 ? 'start' : 'mid';
         var overlay = new kakao.maps.CustomOverlay({
           position: latlng,
@@ -155,13 +260,10 @@ function buildMapHtml(appKey: string): string {
         waypointMarkers.push(overlay);
 
       } else if (msg.type === 'ADD_ROUTE_SEGMENT') {
-        // T-MAP에서 받은 상세 경로 좌표로 폴리라인 추가
-        var coords = msg.coords; // [{latitude, longitude}, ...]
+        var coords = msg.coords;
         var segPath = coords.map(function(c) {
           return new kakao.maps.LatLng(c.latitude, c.longitude);
         });
-
-        // 새 구간 폴리라인 생성
         var seg = new kakao.maps.Polyline({
           path: segPath,
           strokeWeight: 5,
@@ -173,10 +275,8 @@ function buildMapHtml(appKey: string): string {
         segmentPolylines.push(seg);
 
       } else if (msg.type === 'UNDO_LAST') {
-        // 마지막 마커 제거
         var lastMarker = waypointMarkers.pop();
         if (lastMarker) lastMarker.setMap(null);
-        // 마지막 구간 폴리라인 제거
         var lastSeg = segmentPolylines.pop();
         if (lastSeg) lastSeg.setMap(null);
 
@@ -196,17 +296,38 @@ function buildMapHtml(appKey: string): string {
         var currentLatLng = new kakao.maps.LatLng(msg.latitude, msg.longitude);
         map.setCenter(currentLatLng);
         map.setLevel(3);
-
-        if (currentLocationOverlay) {
-          currentLocationOverlay.setMap(null);
-        }
-
+        if (currentLocationOverlay) currentLocationOverlay.setMap(null);
         currentLocationOverlay = new kakao.maps.CustomOverlay({
           position: currentLatLng,
           yAnchor: 1,
           content: '<div class="current-location-wrapper"><div class="current-location-pin"></div><div class="current-location-label">내 위치</div></div>'
         });
         currentLocationOverlay.setMap(map);
+
+      } else if (msg.type === 'SET_BROWSE_MODE') {
+        isBrowseMode = msg.enabled;
+
+      } else if (msg.type === 'SHOW_PUBLIC_COURSES') {
+        publicCourseOverlays.forEach(function(o) { o.setMap(null); });
+        publicCourseOverlays = [];
+        closeActiveBubble();
+
+        msg.courses.forEach(function(course) {
+          var latlng = new kakao.maps.LatLng(course.centerLat, course.centerLng);
+          var escapedTitle = course.title.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          var pinOverlay = new kakao.maps.CustomOverlay({
+            position: latlng,
+            yAnchor: 1,
+            content: '<div class="course-wrapper"><div class="course-marker-pin" onclick="onCourseMarkerClick(\\\'' + course.id + '\\\', \\\'' + escapedTitle + '\\\', ' + course.centerLat + ', ' + course.centerLng + ')"></div></div>'
+          });
+          pinOverlay.setMap(map);
+          publicCourseOverlays.push(pinOverlay);
+        });
+
+      } else if (msg.type === 'CLEAR_PUBLIC_COURSES') {
+        publicCourseOverlays.forEach(function(o) { o.setMap(null); });
+        publicCourseOverlays = [];
+        closeActiveBubble();
       }
     }
 
@@ -219,7 +340,7 @@ function buildMapHtml(appKey: string): string {
 }
 
 const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
-  ({ onMapPress, onMapReady }, ref) => {
+  ({ onMapPress, onMapReady, onBoundsChange, onCourseMarkerPress }, ref) => {
     const webViewRef = useRef<WebView>(null);
 
     const postMessage = (msg: object) => {
@@ -251,6 +372,15 @@ const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
       clearMap: () => {
         postMessage({ type: 'CLEAR' });
       },
+      showPublicCourses: (courses: PublicCourseMarker[]) => {
+        postMessage({ type: 'SHOW_PUBLIC_COURSES', courses });
+      },
+      clearPublicCourses: () => {
+        postMessage({ type: 'CLEAR_PUBLIC_COURSES' });
+      },
+      setBrowseMode: (enabled: boolean) => {
+        postMessage({ type: 'SET_BROWSE_MODE', enabled });
+      },
     }));
 
     const handleMessage = (event: WebViewMessageEvent) => {
@@ -260,6 +390,13 @@ const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
           onMapPress({ latitude: data.latitude, longitude: data.longitude });
         } else if (data.type === 'MAP_READY') {
           onMapReady?.();
+        } else if (data.type === 'MAP_BOUNDS_CHANGE') {
+          onBoundsChange?.({
+            southWest: { latitude: data.swLat, longitude: data.swLng },
+            northEast: { latitude: data.neLat, longitude: data.neLng },
+          });
+        } else if (data.type === 'COURSE_MARKER_PRESS') {
+          onCourseMarkerPress?.(data.courseId);
         }
       } catch (_) {}
     };

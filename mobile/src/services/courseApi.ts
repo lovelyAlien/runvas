@@ -115,6 +115,51 @@ export async function deleteCourse(courseId: string, accessToken: string): Promi
   }
 }
 
+export interface GetPublicCoursesParams {
+  swLat: number;
+  swLng: number;
+  neLat: number;
+  neLng: number;
+  limit?: number;
+}
+
+export interface PublicCoursesResult {
+  courses: CourseSummary[];
+  nextCursor: string | null;
+}
+
+export async function getPublicCourses(
+  params: GetPublicCoursesParams,
+  accessToken?: string
+): Promise<PublicCoursesResult> {
+  if (!API_BASE_URL) {
+    throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
+  }
+
+  const query = new URLSearchParams({
+    swLat: String(params.swLat),
+    swLng: String(params.swLng),
+    neLat: String(params.neLat),
+    neLng: String(params.neLng),
+    limit: String(params.limit ?? 50),
+  });
+
+  const headers: Record<string, string> = {};
+  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+  const response = await fetch(`${API_BASE_URL}/api/courses?${query}`, { headers });
+
+  if (!response.ok) {
+    throw new Error(await parseApiErrorMessage(response));
+  }
+
+  const data = (await response.json()) as {
+    courses: CourseSummary[];
+    pageInfo: { nextCursor: string | null };
+  };
+  return { courses: data.courses, nextCursor: data.pageInfo.nextCursor };
+}
+
 export async function patchCourse(
   courseId: string,
   body: UpdateCourseRequest,

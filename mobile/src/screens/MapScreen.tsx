@@ -12,9 +12,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { CompositeScreenProps } from '@react-navigation/native';
 
 import Header from '../components/Header';
-import KakaoMapView, { KakaoMapViewRef } from '../components/KakaoMapView';
+import KakaoMapView, { KakaoMapViewRef, PublicCourseMarker } from '../components/KakaoMapView';
 import RouteStatsBar from '../components/RouteStatsBar';
 import PaceSelector from '../components/PaceSelector';
 import { useRoute, DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
@@ -22,14 +24,17 @@ import { useLocation } from '../hooks/useLocation';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchPedestrianRoute } from '../services/routingApi';
 import { exportGpx } from '../utils/exportGpx';
-import { postCourse, buildCreateCourseRequest } from '../services/courseApi';
+import { postCourse, buildCreateCourseRequest, getPublicCourses } from '../services/courseApi';
 import { patchMe } from '../services/authApi';
 import { Colors } from '../constants/theme';
-import { Coordinate } from '../types';
+import { Coordinate, GeoBounds } from '../types';
 import { formatPace } from '../utils/format';
-import { RootTabParamList } from '../navigation/types';
+import { RootTabParamList, RootStackParamList } from '../navigation/types';
 
-type Props = BottomTabScreenProps<RootTabParamList, 'Map'>;
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<RootTabParamList, 'Map'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
 
 export default function MapScreen({ navigation }: Props) {
   const mapRef = useRef<KakaoMapViewRef>(null);
@@ -52,24 +57,85 @@ export default function MapScreen({ navigation }: Props) {
   } = useRoute(selectedPace);
 
   const [isExporting, setIsExporting] = useState(false);
-  const [isRouting, setIsRouting] = useState(false); // 경로 탐색 중 여부
+  const [isRouting, setIsRouting] = useState(false);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [routeTitle, setRouteTitle] = useState('');
   const [isPaceSelectorOpen, setIsPaceSelectorOpen] = useState(false);
   const [isSavingPace, setIsSavingPace] = useState(false);
+  const [isBrowseMode, setIsBrowseMode] = useState(false);
+  const [isFetchingCourses, setIsFetchingCourses] = useState(false);
+
+  const boundsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchPublicCourses = useCallback(
+    async (bounds: GeoBounds) => {
+      setIsFetchingCourses(true);
+      try {
+        const { courses } = await getPublicCourses(
+          {
+            swLat: bounds.southWest.latitude,
+            swLng: bounds.southWest.longitude,
+            neLat: bounds.northEast.latitude,
+            neLng: bounds.northEast.longitude,
+            limit: 50,
+          },
+          accessToken ?? undefined
+        );
+        const markers: PublicCourseMarker[] = courses.map((c) => ({
+          id: c.id,
+          title: c.title,
+          centerLat: (c.bounds.southWest.latitude + c.bounds.northEast.latitude) / 2,
+          centerLng: (c.bounds.southWest.longitude + c.bounds.northEast.longitude) / 2,
+        }));
+        mapRef.current?.showPublicCourses(markers);
+      } catch {
+        // 네트워크 오류 시 마커 표시 생략
+      } finally {
+        setIsFetchingCourses(false);
+      }
+    },
+    [accessToken]
+  );
+
+  const handleBoundsChange = useCallback(
+    (bounds: GeoBounds) => {
+      if (!isBrowseMode) return;
+      if (boundsTimerRef.current) clearTimeout(boundsTimerRef.current);
+      boundsTimerRef.current = setTimeout(() => fetchPublicCourses(bounds), 1000);
+    },
+    [isBrowseMode, fetchPublicCourses]
+  );
+
+  const handleCourseMarkerPress = useCallback(
+    (courseId: string) => {
+      navigation.navigate('CourseDetail', { courseId });
+    },
+    [navigation]
+  );
+
+  const toggleBrowseMode = useCallback(() => {
+    setIsBrowseMode((prev) => {
+      const next = !prev;
+      mapRef.current?.setBrowseMode(next);
+      if (!next) {
+        mapRef.current?.clearPublicCourses();
+        if (boundsTimerRef.current) clearTimeout(boundsTimerRef.current);
+      }
+      return next;
+    });
+  }, []);
 
   const handleMapPress = useCallback(
     async (coord: Coordinate) => {
-      if (isRouting) return; // 이미 경로 탐색 중이면 무시
+      if (isBrowseMode) return;
+      if (isRouting) return;
 
-      // 첫 번째 포인트: 마커만 추가
       if (waypoints.length === 0) {
         addFirstPoint(coord);
         mapRef.current?.addWaypoint(coord, 1);
         return;
       }
 
-      // 두 번째 이후: 보행로 API는 비로그인 사용자도 호출 가능 (docs/api-contract.md Auth: None)
       const prevWaypoint = waypoints[waypoints.length - 1];
 
       setIsRouting(true);
@@ -79,8 +145,6 @@ export default function MapScreen({ navigation }: Props) {
         mapRef.current?.addWaypoint(coord, waypoints.length + 1);
         mapRef.current?.addRouteSegment(segmentCoords);
       } catch (error: unknown) {
-        // 백엔드 호출 실패 시 직선으로 대체 (T-Map 자체 실패는 백엔드가 이미 직선으로 폴백함).
-        // 실패 원인이 안 보이면 디버깅이 안 되므로 콘솔에는 남긴다.
         console.error('보행로 API 호출 실패:', error);
         const straightSegment = [prevWaypoint, coord];
         addSegment(coord, straightSegment);
@@ -90,7 +154,7 @@ export default function MapScreen({ navigation }: Props) {
         setIsRouting(false);
       }
     },
-    [waypoints, isRouting, accessToken, addFirstPoint, addSegment]
+    [waypoints, isRouting, isBrowseMode, accessToken, addFirstPoint, addSegment]
   );
 
   const handleLocate = async () => {
@@ -132,8 +196,8 @@ export default function MapScreen({ navigation }: Props) {
     setIsExporting(true);
     try {
       await exportGpx(toRoutePoints());
-    } catch (e: any) {
-      Alert.alert('내보내기 실패', e.message ?? '알 수 없는 오류가 발생했습니다.');
+    } catch (e: unknown) {
+      Alert.alert('내보내기 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
       setIsExporting(false);
     }
@@ -183,8 +247,8 @@ export default function MapScreen({ navigation }: Props) {
         }),
         accessToken
       );
-    } catch (e: any) {
-      Alert.alert('저장 실패', e.message ?? '알 수 없는 오류가 발생했습니다.');
+    } catch (e: unknown) {
+      Alert.alert('저장 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
       return;
     }
 
@@ -193,6 +257,7 @@ export default function MapScreen({ navigation }: Props) {
   };
 
   const canSave = routeCoords.length >= 2;
+  const isLoading = isRouting || isFetchingCourses;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -205,30 +270,42 @@ export default function MapScreen({ navigation }: Props) {
       />
 
       <View style={styles.mapContainer}>
-        <KakaoMapView ref={mapRef} onMapPress={handleMapPress} />
+        <KakaoMapView
+          ref={mapRef}
+          onMapPress={handleMapPress}
+          onBoundsChange={handleBoundsChange}
+          onCourseMarkerPress={handleCourseMarkerPress}
+        />
 
-        {/* 경로 탐색 중 오버레이 */}
-        {isRouting && (
+        {isLoading && (
           <View style={styles.routingOverlay}>
             <ActivityIndicator size="large" color={Colors.primary} />
           </View>
         )}
 
-        {/* 우측 플로팅 버튼 */}
         <View style={styles.floatingButtons}>
+          <FAB
+            icon={isBrowseMode ? 'pencil' : 'search'}
+            onPress={toggleBrowseMode}
+            color={isBrowseMode ? Colors.primary : Colors.gray500}
+          />
           <FAB icon="locate" onPress={handleLocate} />
-          <FAB
-            icon="arrow-undo"
-            onPress={handleUndo}
-            disabled={waypoints.length === 0 || isRouting}
-          />
-          <FAB icon="save-outline" onPress={handleOpenSaveModal} disabled={!canSave} />
-          <FAB
-            icon="trash-outline"
-            onPress={handleClear}
-            disabled={waypoints.length === 0 || isRouting}
-            color={Colors.danger}
-          />
+          {!isBrowseMode && (
+            <>
+              <FAB
+                icon="arrow-undo"
+                onPress={handleUndo}
+                disabled={waypoints.length === 0 || isRouting}
+              />
+              <FAB icon="save-outline" onPress={handleOpenSaveModal} disabled={!canSave} />
+              <FAB
+                icon="trash-outline"
+                onPress={handleClear}
+                disabled={waypoints.length === 0 || isRouting}
+                color={Colors.danger}
+              />
+            </>
+          )}
         </View>
       </View>
 
@@ -299,91 +376,79 @@ function FAB({ icon, onPress, disabled, color = Colors.primary }: FABProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.white,
-  },
-  mapContainer: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: Colors.gray50 },
+  mapContainer: { flex: 1, position: 'relative' },
   routingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.4)',
-    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.45)',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   floatingButtons: {
     position: 'absolute',
     right: 16,
     bottom: 16,
     gap: 10,
+    alignItems: 'center',
   },
   fab: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.white,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
     elevation: 4,
   },
-  fabDisabled: {
-    backgroundColor: Colors.gray50,
-  },
+  fabDisabled: { opacity: 0.4 },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     padding: 24,
   },
   modalCard: {
     width: '100%',
     backgroundColor: Colors.white,
-    borderRadius: 14,
-    padding: 20,
+    borderRadius: 16,
+    padding: 24,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: Colors.gray900,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   modalInput: {
     borderWidth: 1,
     borderColor: Colors.gray100,
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
+    padding: 12,
+    fontSize: 15,
     color: Colors.gray900,
+    marginBottom: 20,
   },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-    marginTop: 16,
-  },
+  modalActions: { flexDirection: 'row', gap: 12 },
   modalCancelButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  modalCancelLabel: {
-    color: Colors.gray500,
-    fontWeight: '600',
-  },
-  modalSaveButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    flex: 1,
+    padding: 12,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.gray100,
+    alignItems: 'center',
   },
-  modalSaveLabel: {
-    color: Colors.white,
-    fontWeight: '700',
+  modalCancelLabel: { fontSize: 15, color: Colors.gray500 },
+  modalSaveButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
   },
+  modalSaveLabel: { fontSize: 15, fontWeight: '700', color: Colors.white },
 });
