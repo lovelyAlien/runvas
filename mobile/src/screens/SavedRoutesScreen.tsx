@@ -106,6 +106,13 @@ export default function SavedRoutesScreen({ navigation }: Props) {
               courseId={item.id}
               onPress={() => setPreviewCourseId(item.id)}
             />
+            <TouchableOpacity
+              onPress={() => navigation.navigate('CourseEdit', { courseId: item.id })}
+              activeOpacity={0.7}
+              style={styles.editButton}
+            >
+              <Ionicons name="pencil-outline" size={20} color={Colors.gray500} />
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => handleDelete(item)} activeOpacity={0.7} style={styles.deleteButton}>
               <Ionicons name="trash-outline" size={20} color={Colors.danger} />
             </TouchableOpacity>
@@ -157,6 +164,9 @@ const styles = StyleSheet.create({
   rowInfo: {
     flex: 1,
     marginRight: 8,
+  },
+  editButton: {
+    marginLeft: 12,
   },
   deleteButton: {
     marginLeft: 12,

@@ -12,6 +12,7 @@ import BoardScreen from './src/screens/BoardScreen';
 import SavedRoutesScreen from './src/screens/SavedRoutesScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import CourseDetailScreen from './src/screens/CourseDetailScreen';
+import CourseEditScreen from './src/screens/CourseEditScreen';
 import LoginPromptModal from './src/components/LoginPromptModal';
 import KakaoLoginWebView from './src/components/KakaoLoginWebView';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
@@ -111,6 +112,7 @@ function AppContent() {
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Tabs" component={RootTabs} />
           <Stack.Screen name="CourseDetail" component={CourseDetailScreen} />
+          <Stack.Screen name="CourseEdit" component={CourseEditScreen} />
         </Stack.Navigator>
         <NewUserRedirectWatcher />
       </NavigationContainer>

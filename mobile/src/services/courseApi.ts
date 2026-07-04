@@ -4,6 +4,7 @@ import {
   Course,
   CourseSummary,
   CreateCourseRequestBody,
+  UpdateCourseRequest,
   GeoBounds,
   RoutePoint,
   CourseVisibility,
@@ -112,4 +113,30 @@ export async function deleteCourse(courseId: string, accessToken: string): Promi
   if (!response.ok) {
     throw new Error(await parseApiErrorMessage(response));
   }
+}
+
+export async function patchCourse(
+  courseId: string,
+  body: UpdateCourseRequest,
+  accessToken: string
+): Promise<Course> {
+  if (!API_BASE_URL) {
+    throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/courses/${courseId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiErrorMessage(response));
+  }
+
+  const { course } = (await response.json()) as { course: Course };
+  return course;
 }

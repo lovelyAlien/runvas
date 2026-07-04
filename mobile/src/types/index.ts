@@ -93,6 +93,14 @@ export interface MeResponse {
   user: User;
 }
 
+// docs/api-contract.md PATCH /courses/{courseId} 요청 본문 (메타데이터만, 모든 필드 선택).
+export interface UpdateCourseRequest {
+  title?: string;
+  description?: string | null;
+  visibility?: CourseVisibility;
+  tags?: string[];
+}
+
 // docs/api-contract.md PATCH /me 요청 본문 (모든 필드 선택).
 export interface UpdateMeRequest {
   nickname?: string;
