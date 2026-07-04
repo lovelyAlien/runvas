@@ -109,6 +109,14 @@ export interface UpdateMeRequest {
   runningPaceSecPerKm?: number;
 }
 
+// docs/api-contract.md PUT/DELETE /likes/{targetType}/{targetId} 응답.
+export interface LikeResponse {
+  targetType: string;
+  targetId: string;
+  liked: boolean;
+  likeCount: number;
+}
+
 // docs/api-contract.md 공통 에러 응답 형식.
 export interface ApiErrorBody {
   error: {
