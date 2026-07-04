@@ -1,5 +1,6 @@
-import React, { useRef, useCallback, useState } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
 import {
+  Animated,
   View,
   TouchableOpacity,
   StyleSheet,
@@ -15,7 +16,10 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
 import Header from '../components/Header';
 import KakaoMapView, { KakaoMapViewRef } from '../components/KakaoMapView';
-import CourseSearchSheet, { CourseSearchSheetRef } from '../components/CourseSearchSheet';
+import CourseSearchSheet, {
+  CourseSearchSheetRef,
+  SHEET_HANDLE_HEIGHT,
+} from '../components/CourseSearchSheet';
 import RouteStatsBar from '../components/RouteStatsBar';
 import PaceSelector from '../components/PaceSelector';
 import { useRoute, DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
@@ -31,6 +35,9 @@ import { formatPace } from '../utils/format';
 import { RootTabParamList } from '../navigation/types';
 
 type Props = BottomTabScreenProps<RootTabParamList, 'Map'>;
+
+const FLOATING_BUTTONS_DEFAULT_BOTTOM = 16;
+const FLOATING_BUTTONS_SHEET_GAP = 12; // 시트 상단과 우측 FAB 스택 사이 여백
 
 export default function MapScreen({ navigation }: Props) {
   const mapRef = useRef<KakaoMapViewRef>(null);
@@ -65,6 +72,41 @@ export default function MapScreen({ navigation }: Props) {
   const [isLoadingCourses, setIsLoadingCourses] = useState(false);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedCourseDetail, setSelectedCourseDetail] = useState<Course | null>(null);
+  const [isCourseSheetCollapsed, setIsCourseSheetCollapsed] = useState(false);
+  const floatingButtonsBottom = useRef(new Animated.Value(FLOATING_BUTTONS_DEFAULT_BOTTOM)).current;
+  const searchButtonBottom = useRef(new Animated.Value(FLOATING_BUTTONS_DEFAULT_BOTTOM)).current;
+  const sheetContentHeightRef = useRef(0);
+
+  // 우측 FAB 스택(내 위치/되돌리기/저장/삭제)은 시트가 펼쳐진 동안 숨겨지므로(내 경로 도구라 맥락에
+  // 안 맞음), 보일 때 위치는 기본값 또는 접힌 시트 핸들 바로 위 두 가지뿐이다.
+  useEffect(() => {
+    const target =
+      isCourseSheetOpen && isCourseSheetCollapsed
+        ? SHEET_HANDLE_HEIGHT + FLOATING_BUTTONS_SHEET_GAP
+        : FLOATING_BUTTONS_DEFAULT_BOTTOM;
+    Animated.timing(floatingButtonsBottom, {
+      toValue: target,
+      duration: 220,
+      useNativeDriver: false, // bottom은 레이아웃 속성이라 네이티브 드라이버를 쓸 수 없다
+    }).start();
+  }, [isCourseSheetOpen, isCourseSheetCollapsed, floatingButtonsBottom]);
+
+  // 탐색 버튼은 시트가 열려 있는 동안 사라지지 않고, 시트의 실시간 위치(드래그 중에도)를 그대로
+  // 따라다닌다. translateY는 native driver로도 움직이므로, addListener로 JS 쪽 값을 동기화한다.
+  useEffect(() => {
+    if (!isCourseSheetOpen) {
+      searchButtonBottom.setValue(FLOATING_BUTTONS_DEFAULT_BOTTOM);
+      return;
+    }
+    const sheet = courseSheetRef.current;
+    if (!sheet) return;
+    const listenerId = sheet.translateY.addListener(({ value }) => {
+      const target =
+        SHEET_HANDLE_HEIGHT + sheetContentHeightRef.current + FLOATING_BUTTONS_SHEET_GAP - value;
+      searchButtonBottom.setValue(target);
+    });
+    return () => sheet.translateY.removeListener(listenerId);
+  }, [isCourseSheetOpen, searchButtonBottom]);
 
   const handleMapPress = useCallback(
     async (coord: Coordinate) => {
@@ -117,6 +159,8 @@ export default function MapScreen({ navigation }: Props) {
     setIsCourseSheetOpen(true);
     setSelectedCourseId(null);
     setSelectedCourseDetail(null);
+    setIsCourseSheetCollapsed(false);
+    sheetContentHeightRef.current = 0;
     mapRef.current.clearCoursePreview();
     courseSheetRef.current?.expand();
     try {
@@ -135,6 +179,7 @@ export default function MapScreen({ navigation }: Props) {
     setIsCourseSheetOpen(false);
     setSelectedCourseId(null);
     setSelectedCourseDetail(null);
+    setIsCourseSheetCollapsed(false);
     mapRef.current?.clearCoursePreview();
   };
 
@@ -273,27 +318,31 @@ export default function MapScreen({ navigation }: Props) {
           </View>
         )}
 
-        {/* 좌측 하단 코스 조회 버튼 */}
-        <View style={styles.bottomLeftButtons}>
+        {/* 좌측 하단 코스 조회 버튼 — 시트가 열려 있는 동안 사라지지 않고, 시트가 펼쳐지고
+            접히는 움직임을 그대로 따라다닌다. */}
+        <Animated.View style={[styles.bottomLeftButtons, { bottom: searchButtonBottom }]}>
           <FAB icon="search" onPress={handleOpenCourseSearch} disabled={isLoadingCourses} />
-        </View>
+        </Animated.View>
 
-        {/* 우측 플로팅 버튼 */}
-        <View style={styles.floatingButtons}>
-          <FAB icon="locate" onPress={handleLocate} />
-          <FAB
-            icon="arrow-undo"
-            onPress={handleUndo}
-            disabled={waypoints.length === 0 || isRouting}
-          />
-          <FAB icon="save-outline" onPress={handleOpenSaveModal} disabled={!canSave} />
-          <FAB
-            icon="trash-outline"
-            onPress={handleClear}
-            disabled={waypoints.length === 0 || isRouting}
-            color={Colors.danger}
-          />
-        </View>
+        {/* 우측 플로팅 버튼 — 시트가 펼쳐진 동안은 '내 경로' 도구라 맥락에 안 맞으므로 숨기고,
+            접혔을 때는 시트 상단(핸들) 바로 위로 떠오른다 */}
+        {(!isCourseSheetOpen || isCourseSheetCollapsed) && (
+          <Animated.View style={[styles.floatingButtons, { bottom: floatingButtonsBottom }]}>
+            <FAB icon="locate" onPress={handleLocate} />
+            <FAB
+              icon="arrow-undo"
+              onPress={handleUndo}
+              disabled={waypoints.length === 0 || isRouting}
+            />
+            <FAB icon="save-outline" onPress={handleOpenSaveModal} disabled={!canSave} />
+            <FAB
+              icon="trash-outline"
+              onPress={handleClear}
+              disabled={waypoints.length === 0 || isRouting}
+              color={Colors.danger}
+            />
+          </Animated.View>
+        )}
 
         <CourseSearchSheet
           ref={courseSheetRef}
@@ -304,6 +353,10 @@ export default function MapScreen({ navigation }: Props) {
           onSelectCourse={handleSelectCourse}
           onViewDetail={handleViewCourseDetail}
           onClose={handleCloseCourseSearch}
+          onCollapsedChange={setIsCourseSheetCollapsed}
+          onContentHeightChange={(height) => {
+            sheetContentHeightRef.current = height;
+          }}
         />
       </View>
 
@@ -416,6 +469,7 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     flex: 1,
+    overflow: 'hidden', // 코스 시트가 접힘 애니메이션으로 내려갈 때 이 경계 밖으로 새어나가지 않게 자른다
   },
   routingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -426,13 +480,11 @@ const styles = StyleSheet.create({
   floatingButtons: {
     position: 'absolute',
     right: 16,
-    bottom: 16,
     gap: 10,
   },
   bottomLeftButtons: {
     position: 'absolute',
     left: 16,
-    bottom: 16,
   },
   fab: {
     width: 46,

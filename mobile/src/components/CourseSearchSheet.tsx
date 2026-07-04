@@ -18,11 +18,15 @@ import { CourseSummary } from '../types';
 const DRAG_COLLAPSE_RATIO = 0.35;
 // 이 속도(px/ms) 이상으로 빠르게 튕기면 드래그 거리와 상관없이 방향대로 스냅한다.
 const FLICK_VELOCITY_THRESHOLD = 0.5;
+// handleArea 스타일(paddingVertical 10*2 + handleBar 4)과 반드시 일치해야 한다 — MapScreen이
+// 우측 FAB을 시트 상단 바로 위로 띄울 때 이 값을 기준으로 계산한다.
+export const SHEET_HANDLE_HEIGHT = 24;
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
 export interface CourseSearchSheetRef {
   expand: () => void; // 접혀 있는 시트를 다시 펼친다 (코스 탐색 FAB 재클릭 시 사용)
+  translateY: Animated.Value; // 시트의 현재 이동값 — 다른 UI(탐색 버튼 등)를 시트 위치에 실시간으로 맞춰 움직일 때 사용
 }
 
 interface Props {
@@ -33,10 +37,22 @@ interface Props {
   onSelectCourse: (courseId: string) => void;
   onViewDetail: (courseId: string) => void;
   onClose: () => void;
+  onCollapsedChange?: (collapsed: boolean) => void; // 접힘/펼침 스냅이 끝날 때마다 알림 (다른 UI를 시트 위치에 맞춰 움직일 때 사용)
+  onContentHeightChange?: (height: number) => void; // 콘텐츠(헤더+목록) 높이 측정값 전달
 }
 
 const CourseSearchSheet = forwardRef<CourseSearchSheetRef, Props>(function CourseSearchSheet(
-  { visible, courses, isLoading, selectedCourseId, onSelectCourse, onViewDetail, onClose },
+  {
+    visible,
+    courses,
+    isLoading,
+    selectedCourseId,
+    onSelectCourse,
+    onViewDetail,
+    onClose,
+    onCollapsedChange,
+    onContentHeightChange,
+  },
   ref
 ) {
   const translateY = useRef(new Animated.Value(0)).current;
@@ -47,29 +63,32 @@ const CourseSearchSheet = forwardRef<CourseSearchSheetRef, Props>(function Cours
   const snapTo = useCallback(
     (collapsed: boolean) => {
       isCollapsedRef.current = collapsed;
+      onCollapsedChange?.(collapsed);
       Animated.timing(translateY, {
         toValue: collapsed ? contentHeightRef.current : 0,
         duration: 220,
         useNativeDriver: true,
       }).start();
     },
-    [translateY]
+    [translateY, onCollapsedChange]
   );
 
   useImperativeHandle(ref, () => ({
     expand: () => snapTo(false),
+    translateY,
   }));
 
   const handleContentLayout = useCallback(
     (e: LayoutChangeEvent) => {
       const height = e.nativeEvent.layout.height;
       contentHeightRef.current = height;
+      onContentHeightChange?.(height);
       // 로딩 → 목록 전환 등으로 콘텐츠 높이가 바뀌면, 접힌 상태에서는 새 높이만큼 즉시 맞춰준다.
       if (isCollapsedRef.current) {
         translateY.setValue(height);
       }
     },
-    [translateY]
+    [translateY, onContentHeightChange]
   );
 
   const panResponder = useRef(
