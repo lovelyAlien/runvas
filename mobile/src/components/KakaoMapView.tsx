@@ -168,6 +168,7 @@ function buildMapHtml(appKey: string): string {
     var segmentPolylines = [];
     var routePolyline;
     var publicCourseOverlays = [];
+    var publicCourses = []; // 숫자 인덱스로만 참조 — 사용자 입력값을 onclick 속성에 직접 삽입하지 않기 위함
     var activeBubbleOverlay = null;
     var isBrowseMode = false;
 
@@ -220,28 +221,37 @@ function buildMapHtml(appKey: string): string {
       }
     }
 
-    function onCourseMarkerClick(courseId, courseTitle, lat, lng) {
+    function onCourseMarkerClick(index) {
+      var course = publicCourses[index];
+      if (!course) return;
       closeActiveBubble();
-      var latlng = new kakao.maps.LatLng(lat, lng);
-      var safeTitle = courseTitle.length > 20 ? courseTitle.substring(0, 20) + '...' : courseTitle;
-      var content =
-        '<div class="course-bubble">' +
-          '<div class="course-bubble-title">' + safeTitle + '</div>' +
-          '<div class="course-bubble-btn" onclick="onBubbleDetailClick(\\\'' + courseId + '\\\')">자세히 보기</div>' +
-        '</div>';
+      var latlng = new kakao.maps.LatLng(course.centerLat, course.centerLng);
+      var rawTitle = course.title.length > 20 ? course.title.substring(0, 20) + '...' : course.title;
+
+      // DOM 조작으로 말풍선 생성 — textContent 사용으로 사용자 입력값이 HTML로 파싱되지 않음
+      var bubble = document.createElement('div');
+      bubble.className = 'course-bubble';
+      var titleEl = document.createElement('div');
+      titleEl.className = 'course-bubble-title';
+      titleEl.textContent = rawTitle;
+      var btn = document.createElement('div');
+      btn.className = 'course-bubble-btn';
+      btn.textContent = '자세히 보기';
+      btn.onclick = function() {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'COURSE_MARKER_PRESS',
+          courseId: course.id
+        }));
+      };
+      bubble.appendChild(titleEl);
+      bubble.appendChild(btn);
+
       activeBubbleOverlay = new kakao.maps.CustomOverlay({
         position: latlng,
         yAnchor: 3.2,
-        content: content
+        content: bubble
       });
       activeBubbleOverlay.setMap(map);
-    }
-
-    function onBubbleDetailClick(courseId) {
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'COURSE_MARKER_PRESS',
-        courseId: courseId
-      }));
     }
 
     function handleRNMessage(data) {
@@ -310,15 +320,16 @@ function buildMapHtml(appKey: string): string {
       } else if (msg.type === 'SHOW_PUBLIC_COURSES') {
         publicCourseOverlays.forEach(function(o) { o.setMap(null); });
         publicCourseOverlays = [];
+        publicCourses = msg.courses; // 전역 배열에 저장, onclick에서 숫자 인덱스로만 참조
         closeActiveBubble();
 
-        msg.courses.forEach(function(course) {
+        msg.courses.forEach(function(course, i) {
           var latlng = new kakao.maps.LatLng(course.centerLat, course.centerLng);
-          var escapedTitle = course.title.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          // 인라인 onclick에 숫자만 삽입 — 사용자 입력값(title, id)은 HTML 속성에 직접 넣지 않음
           var pinOverlay = new kakao.maps.CustomOverlay({
             position: latlng,
             yAnchor: 1,
-            content: '<div class="course-wrapper"><div class="course-marker-pin" onclick="onCourseMarkerClick(\\\'' + course.id + '\\\', \\\'' + escapedTitle + '\\\', ' + course.centerLat + ', ' + course.centerLng + ')"></div></div>'
+            content: '<div class="course-wrapper"><div class="course-marker-pin" onclick="onCourseMarkerClick(' + i + ')"></div></div>'
           });
           pinOverlay.setMap(map);
           publicCourseOverlays.push(pinOverlay);

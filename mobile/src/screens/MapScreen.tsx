@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -88,8 +88,8 @@ export default function MapScreen({ navigation }: Props) {
           centerLng: (c.bounds.southWest.longitude + c.bounds.northEast.longitude) / 2,
         }));
         mapRef.current?.showPublicCourses(markers);
-      } catch {
-        // 네트워크 오류 시 마커 표시 생략
+      } catch (error: unknown) {
+        console.error('공개 코스 조회 실패:', error);
       } finally {
         setIsFetchingCourses(false);
       }
@@ -114,16 +114,19 @@ export default function MapScreen({ navigation }: Props) {
   );
 
   const toggleBrowseMode = useCallback(() => {
-    setIsBrowseMode((prev) => {
-      const next = !prev;
-      mapRef.current?.setBrowseMode(next);
-      if (!next) {
-        mapRef.current?.clearPublicCourses();
-        if (boundsTimerRef.current) clearTimeout(boundsTimerRef.current);
-      }
-      return next;
-    });
+    setIsBrowseMode((prev) => !prev);
   }, []);
+
+  // isBrowseMode 변화에 따른 지도 상태 동기화 + 언마운트 시 타이머 정리
+  useEffect(() => {
+    mapRef.current?.setBrowseMode(isBrowseMode);
+    if (!isBrowseMode) {
+      mapRef.current?.clearPublicCourses();
+    }
+    return () => {
+      if (boundsTimerRef.current) clearTimeout(boundsTimerRef.current);
+    };
+  }, [isBrowseMode]);
 
   const handleMapPress = useCallback(
     async (coord: Coordinate) => {
