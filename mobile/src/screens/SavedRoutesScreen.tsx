@@ -7,6 +7,7 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { getMyCourses, deleteCourse } from '../services/courseApi';
+import { evictCourse } from '../services/courseCache';
 import { formatDistance, formatDuration } from '../utils/format';
 import { useAuthGate } from '../hooks/useAuthGate';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,6 +15,8 @@ import { DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
 import { Colors } from '../constants/theme';
 import { CourseSummary } from '../types';
 import { RootTabParamList, RootStackParamList } from '../navigation/types';
+import CourseRouteSvg from '../components/CourseRouteSvg';
+import CoursePreviewModal from '../components/CoursePreviewModal';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<RootTabParamList, 'SavedRoutes'>,
@@ -22,6 +25,8 @@ type Props = CompositeScreenProps<
 
 export default function SavedRoutesScreen({ navigation }: Props) {
   const [routes, setRoutes] = useState<CourseSummary[]>([]);
+  const [previewCourseId, setPreviewCourseId] = useState<string | null>(null);
+  const handleClosePreview = useCallback(() => setPreviewCourseId(null), []);
   const { requireAuth } = useAuthGate();
   const { accessToken, user } = useAuth();
 
@@ -54,6 +59,7 @@ export default function SavedRoutesScreen({ navigation }: Props) {
         onPress: async () => {
           if (!accessToken) return;
           await deleteCourse(route.id, accessToken);
+          evictCourse(route.id);
           setRoutes((prev) => prev.filter((r) => r.id !== route.id));
         },
       },
@@ -69,6 +75,9 @@ export default function SavedRoutesScreen({ navigation }: Props) {
       <FlatList
         data={routes}
         keyExtractor={(item) => item.id}
+        initialNumToRender={4}
+        maxToRenderPerBatch={2}
+        windowSize={5}
         contentContainerStyle={routes.length === 0 && styles.emptyContainer}
         ListEmptyComponent={
           <Text style={styles.emptyText}>아직 저장한 코스가 없습니다.</Text>
@@ -93,12 +102,17 @@ export default function SavedRoutesScreen({ navigation }: Props) {
                 </Text>
               )}
             </View>
-            <TouchableOpacity onPress={() => handleDelete(item)} activeOpacity={0.7}>
+            <CourseRouteSvg
+              courseId={item.id}
+              onPress={() => setPreviewCourseId(item.id)}
+            />
+            <TouchableOpacity onPress={() => handleDelete(item)} activeOpacity={0.7} style={styles.deleteButton}>
               <Ionicons name="trash-outline" size={20} color={Colors.danger} />
             </TouchableOpacity>
           </TouchableOpacity>
         )}
       />
+      <CoursePreviewModal courseId={previewCourseId} onClose={handleClosePreview} />
     </SafeAreaView>
   );
 }
@@ -122,9 +136,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.gray900,
   },
-  headerSpacer: {
-    width: 24,
-  },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
@@ -145,7 +156,10 @@ const styles = StyleSheet.create({
   },
   rowInfo: {
     flex: 1,
-    marginRight: 12,
+    marginRight: 8,
+  },
+  deleteButton: {
+    marginLeft: 12,
   },
   rowTitle: {
     fontSize: 15,
