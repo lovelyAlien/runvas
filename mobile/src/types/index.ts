@@ -197,3 +197,17 @@ export interface CreatePostRequestBody {
 export interface CreateCommentRequestBody {
   body: string;
 }
+
+// docs/data-model.md CourseComment와 1:1 대응. PUBLIC 코스에만 존재할 수 있다.
+// parentCommentId가 null이면 최상위 댓글, 아니면 대댓글(2단계까지만 허용).
+export interface CourseComment {
+  id: string;
+  courseId: string;
+  parentCommentId: string | null;
+  author: PublicProfile;
+  body: string;
+  imageUrl: string | null;
+  replyCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
