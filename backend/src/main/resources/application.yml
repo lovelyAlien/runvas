@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT:8921}
 
 spring:
   application:
@@ -8,6 +8,10 @@ spring:
     time-zone: UTC
     serialization:
       write-dates-as-timestamps: false
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/runvas}
     username: ${DATABASE_USERNAME:runvas}
@@ -39,3 +43,6 @@ runvas:
     client-secret: ${KAKAO_CLIENT_SECRET:}
   tmap:
     app-key: ${TMAP_APP_KEY:}
+  upload:
+    dir: ${UPLOAD_DIR:./uploads}
+    base-url: ${UPLOAD_BASE_URL:http://localhost:8921}
