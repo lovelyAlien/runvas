@@ -363,7 +363,7 @@ export default function MapScreen({ navigation }: Props) {
   const canSave = routeCoords.length >= 2;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <Header
         pointCount={waypoints.length}
         isRouting={isRouting}
