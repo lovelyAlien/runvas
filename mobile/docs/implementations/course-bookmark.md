@@ -90,6 +90,38 @@ const handleBookmark = async () => {
 - `useFocusEffect`에서 `getMyCourses`와 `getBookmarkedCourses`를 함께 호출
 - 탭 바 UI: "내 코스" / "북마크" (active 탭은 `Colors.primary` 언더라인)
 - 북마크 탭 renderItem: 수정·삭제 버튼 없음, 날짜는 `bookmarkedAt` 기준
+- 날짜 표시는 "내 코스" 탭과 동일하게 접미사 없이 통일 (기존 "YYYY. MM. DD. 저장" → "YYYY. MM. DD.")
+
+### 6. 북마크 취소 기능 (후속 추가)
+
+북마크 탭에서 코스 편집 권한과 별개로, 자신이 북마크한 항목을 목록에서 바로 취소할 수 있어야 함
+(편집 권한과 북마크 취소는 서로 다른 동작 — 위 "북마크 탭 수정·삭제 없음" 결정과 충돌하지 않음).
+
+```tsx
+const handleRemoveBookmark = (route: BookmarkedCourseSummary) => {
+  Alert.alert('북마크 취소', `"${route.title}"의 북마크를 취소할까요?`, [
+    { text: '취소', style: 'cancel' },
+    {
+      text: '확인',
+      style: 'destructive',
+      onPress: async () => {
+        if (!accessToken) return;
+        const previous = bookmarkedRoutes;
+        setBookmarkedRoutes((prev) => prev.filter((r) => r.id !== route.id)); // Optimistic UI
+        try {
+          await deleteBookmark(route.id, accessToken);
+        } catch (e: unknown) {
+          setBookmarkedRoutes(previous); // 롤백
+          Alert.alert('오류', e instanceof Error ? e.message : '북마크 취소 중 오류가 발생했습니다.');
+        }
+      },
+    },
+  ]);
+};
+```
+
+- 북마크 탭 각 행 우측에 채워진 `bookmark` 아이콘 버튼 추가 → 탭하면 확인 Alert 후 취소
+- 삭제 확인 다이얼로그 패턴은 `handleDelete`(코스 삭제)와 동일하게 유지
 
 ## 테스트 결과
 
@@ -117,6 +149,9 @@ npx tsc --noEmit → TypeScript: No errors found
 - [ ] 북마크 탭 날짜 — `bookmarkedAt` 기준 "YYYY. MM. DD. 저장"
 - [ ] 검색어 입력 — 양쪽 탭 모두 필터링 동작
 - [ ] 북마크가 없을 때 — "북마크한 코스가 없습니다." 표시
+- [ ] 북마크 탭 항목의 북마크 아이콘 버튼 탭 → 확인 Alert 표시
+- [ ] Alert에서 "확인" 선택 → 목록에서 즉시 제거 (Optimistic UI)
+- [ ] 네트워크 실패 시 → 목록에 다시 표시(롤백), Alert 표시
 
 ## 변경 파일 요약
 
