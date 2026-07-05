@@ -941,11 +941,14 @@ MVP에서는 refresh token을 응답하지 않습니다.
 
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
+| `attachedCourseId` | string | N | 첨부된 코스 ID로 필터링 |
 | `q` | string | N | 제목 또는 본문 검색어 |
 | `tag` | string | N | 단일 태그 필터 |
 | `sort` | string | N | `createdAtDesc`, `popularDesc`. 기본 `createdAtDesc` |
 | `limit` | number | N | 기본 20, 최대 50 |
 | `cursor` | string | N | 다음 페이지 조회용 커서 |
+
+검색과 필터 조건이 함께 전달되면 서버는 모든 조건을 만족하는 게시글만 반환합니다.
 
 #### Response: 200 OK
 
