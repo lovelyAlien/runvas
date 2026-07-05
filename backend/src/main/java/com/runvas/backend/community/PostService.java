@@ -61,8 +61,8 @@ public class PostService {
 	@Transactional(readOnly = true)
 	public ListResult list(String attachedCourseId, String q, String tag, String sort, Integer limit) {
 		int effectiveLimit = limit == null ? DEFAULT_LIMIT : limit;
-		if (limit != null && limit > MAX_LIMIT) {
-			throw new ApiException(ErrorCode.VALIDATION_ERROR, "limit must be at most " + MAX_LIMIT);
+		if (limit != null && (limit < 1 || limit > MAX_LIMIT)) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "limit must be between 1 and " + MAX_LIMIT);
 		}
 		if (sort != null && !sort.equals("createdAtDesc") && !sort.equals("popularDesc")) {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "unsupported sort: " + sort);

@@ -45,8 +45,8 @@ public class CommentService {
 	public ListResult list(String postId, Integer limit) {
 		findPostOrThrow(postId);
 		int effectiveLimit = limit == null ? DEFAULT_LIMIT : limit;
-		if (limit != null && limit > MAX_LIMIT) {
-			throw new ApiException(ErrorCode.VALIDATION_ERROR, "limit must be at most " + MAX_LIMIT);
+		if (limit != null && (limit < 1 || limit > MAX_LIMIT)) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "limit must be between 1 and " + MAX_LIMIT);
 		}
 
 		List<CommentResponse> comments = commentRepository.findByPostIdOrderByCreatedAtAsc(postId).stream()

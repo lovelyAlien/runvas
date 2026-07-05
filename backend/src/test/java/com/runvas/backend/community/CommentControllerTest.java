@@ -169,4 +169,24 @@ class CommentControllerTest {
 		mockMvc.perform(get("/api/posts/" + postId))
 				.andExpect(jsonPath("$.post.commentCount").value(0));
 	}
+
+	@Test
+	void listRejectsNegativeLimit() throws Exception {
+		String accessToken = createUserAndToken("commenter6");
+		String postId = createPost(accessToken);
+
+		mockMvc.perform(get("/api/posts/" + postId + "/comments").param("limit", "-1"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+	}
+
+	@Test
+	void listRejectsZeroLimit() throws Exception {
+		String accessToken = createUserAndToken("commenter7");
+		String postId = createPost(accessToken);
+
+		mockMvc.perform(get("/api/posts/" + postId + "/comments").param("limit", "0"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+	}
 }

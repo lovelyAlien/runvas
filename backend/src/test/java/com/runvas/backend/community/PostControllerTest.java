@@ -252,4 +252,18 @@ class PostControllerTest {
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + otherToken))
 				.andExpect(status().isForbidden());
 	}
+
+	@Test
+	void listRejectsNegativeLimit() throws Exception {
+		mockMvc.perform(get("/api/posts").param("limit", "-1"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+	}
+
+	@Test
+	void listRejectsZeroLimit() throws Exception {
+		mockMvc.perform(get("/api/posts").param("limit", "0"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+	}
 }
