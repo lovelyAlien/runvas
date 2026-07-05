@@ -11,8 +11,10 @@ import {
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { CompositeScreenProps } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import Header from '../components/Header';
 import KakaoMapView, { KakaoMapViewRef } from '../components/KakaoMapView';
@@ -32,9 +34,12 @@ import { patchMe } from '../services/authApi';
 import { Colors } from '../constants/theme';
 import { Coordinate, Course, CourseSummary, CourseVisibility } from '../types';
 import { formatPace } from '../utils/format';
-import { RootTabParamList } from '../navigation/types';
+import { RootTabParamList, RootStackParamList } from '../navigation/types';
 
-type Props = BottomTabScreenProps<RootTabParamList, 'Map'>;
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<RootTabParamList, 'Map'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
 
 const FLOATING_BUTTONS_DEFAULT_BOTTOM = 16;
 const FLOATING_BUTTONS_SHEET_GAP = 12; // 시트 상단과 우측 FAB 스택 사이 여백
@@ -204,6 +209,22 @@ export default function MapScreen({ navigation }: Props) {
     mapRef.current?.showCourseWaypoints(selectedCourseDetail.waypoints);
   };
 
+  const handlePressWritePost = () => {
+    if (!requireAuth() || !selectedCourseDetail) return;
+    navigation.navigate('PostCreate', {
+      attachedCourseId: selectedCourseDetail.id,
+      attachedCourseTitle: selectedCourseDetail.title,
+    });
+  };
+
+  const handlePressCourseBoard = () => {
+    if (!selectedCourseDetail) return;
+    navigation.navigate('CourseBoard', {
+      courseId: selectedCourseDetail.id,
+      courseTitle: selectedCourseDetail.title,
+    });
+  };
+
   const handleUndo = () => {
     if (waypoints.length === 0) return;
     undoLast();
@@ -340,6 +361,23 @@ export default function MapScreen({ navigation }: Props) {
               onPress={handleClear}
               disabled={waypoints.length === 0 || isRouting}
               color={Colors.danger}
+            />
+          </Animated.View>
+        )}
+
+        {/* 코스 커뮤니티 액션 버튼 — 코스 탐색 시트가 열려 있는 동안(펼침/접힘 모두) 보이고,
+            좌측 탐색 버튼과 같은 방식으로 시트 상단 위치를 따라간다. 코스를 선택해야 눌린다. */}
+        {isCourseSheetOpen && (
+          <Animated.View style={[styles.floatingButtons, { bottom: searchButtonBottom }]}>
+            <FAB
+              icon="create-outline"
+              onPress={handlePressWritePost}
+              disabled={!selectedCourseDetail}
+            />
+            <FAB
+              icon="list-outline"
+              onPress={handlePressCourseBoard}
+              disabled={!selectedCourseDetail}
             />
           </Animated.View>
         )}
