@@ -20,6 +20,7 @@ import { putLike, deleteLike } from '../services/likeApi';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthGate } from '../hooks/useAuthGate';
 import { Colors } from '../constants/theme';
+import { formatDateYYYYMMDD } from '../utils/format';
 import { Post, Comment } from '../types';
 import { RootStackParamList } from '../navigation/types';
 
@@ -121,7 +122,7 @@ export default function PostDetailScreen({ route, navigation }: Props) {
           <View style={styles.postBody}>
             <Text style={styles.postTitle}>{post.title}</Text>
             <Text style={styles.postMeta}>
-              {post.author.nickname} · {new Date(post.createdAt).toLocaleDateString()}
+              {post.author.nickname} · {formatDateYYYYMMDD(new Date(post.createdAt))}
             </Text>
             {post.attachedCourseId && (
               <TouchableOpacity

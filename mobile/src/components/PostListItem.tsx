@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/theme';
+import { formatDateYYYYMMDD } from '../utils/format';
 import { Post } from '../types';
 
 interface Props {
@@ -26,7 +27,7 @@ export default function PostListItem({ post, onPress }: Props) {
       <View style={styles.metaRow}>
         <Text style={styles.metaText}>{post.author.nickname}</Text>
         <Text style={styles.metaDot}>·</Text>
-        <Text style={styles.metaText}>{new Date(post.createdAt).toLocaleDateString()}</Text>
+        <Text style={styles.metaText}>{formatDateYYYYMMDD(new Date(post.createdAt))}</Text>
         <Text style={styles.metaDot}>·</Text>
         <Ionicons name="heart-outline" size={12} color={Colors.gray400} />
         <Text style={styles.metaText}>{post.likeCount}</Text>
