@@ -331,7 +331,11 @@
 
 ### GET /courses
 
-공개 코스 목록을 조회합니다. **bounds 파라미터 없이 `q`만 전달하면 전체 공개 코스에서 제목 검색**을 수행합니다. bounds와 q를 함께 전달하면 범위 내에서 제목 필터를 추가로 적용합니다.
+공개 코스 목록을 조회합니다. 다음 세 가지 검색 모드를 지원합니다.
+
+- **bounds 검색**: `swLat`, `swLng`, `neLat`, `neLng` 4개 모두 제공 시 해당 범위 내 코스 조회. `q`나 `tag`와 함께 사용해 추가 필터 적용 가능.
+- **이름 검색**: bounds 없이 `q`만 전달 시 전체 공개 코스에서 제목 부분 일치 검색.
+- **태그 검색**: bounds/q 없이 `tag`만 전달 시 해당 태그를 포함하는 코스 검색 (대소문자 구분 없음, 정확 일치).
 
 #### Auth
 
@@ -348,10 +352,10 @@
 | `limit` | number | N | 기본 20, 최대 50 |
 | `cursor` | string | N | 다음 페이지 조회용 커서 |
 | `q` | string | N | 코스 제목 부분 일치 검색어. bounds 없이 단독 사용 가능 |
-| `tag` | string | N | 단일 태그 필터 |
+| `tag` | string | N | 단일 태그 필터. bounds/q 없이 단독 사용 가능 (정확 일치, 대소문자 구분 없음) |
 | `sort` | string | N | `createdAtDesc`, `distanceAsc`, `distanceDesc`, `popularDesc`. 기본 `createdAtDesc` |
 
-bounds 4개 중 일부만 전달하거나, bounds와 q를 모두 생략하면 `400 VALIDATION_ERROR`를 반환합니다.
+bounds 4개 중 일부만 전달하거나, bounds/q/tag를 모두 생략하면 `400 VALIDATION_ERROR`를 반환합니다.
 
 #### Response: 200 OK
 
@@ -394,7 +398,7 @@ bounds 4개 중 일부만 전달하거나, bounds와 q를 모두 생략하면 `4
 
 #### Errors
 
-- `400 VALIDATION_ERROR`: bounds 일부만 전달, bounds와 q 모두 생략, `limit` 범위 초과, 지원하지 않는 `sort`
+- `400 VALIDATION_ERROR`: bounds 일부만 전달, bounds/q/tag 모두 생략, `limit` 범위 초과, 지원하지 않는 `sort`
 
 ### GET /courses/mine
 
