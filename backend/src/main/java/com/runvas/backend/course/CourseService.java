@@ -94,8 +94,8 @@ public class CourseService {
 		if (partialBounds) {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "bounds parameters must all be provided together");
 		}
-		if (!hasBounds && (q == null || q.isBlank())) {
-			throw new ApiException(ErrorCode.VALIDATION_ERROR, "either bounds or q must be provided");
+		if (!hasBounds && (q == null || q.isBlank()) && (tag == null || tag.isBlank())) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "either bounds, q, or tag must be provided");
 		}
 		if (q != null && q.length() > 100) {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "q must be at most 100 characters");
@@ -105,7 +105,9 @@ public class CourseService {
 
 		List<Course> candidates = hasBounds
 				? courseRepository.findPublicCoursesWithinBounds(swLat, swLng, neLat, neLng)
-				: courseRepository.findPublicCoursesByTitle(q);
+				: (q != null && !q.isBlank())
+						? courseRepository.findPublicCoursesByTitle(q)
+						: courseRepository.findPublicCoursesByTag(tag);
 
 		List<CourseSummaryResponse> courses = candidates.stream()
 				.filter(course -> !hasBounds || q == null || course.getTitle().toLowerCase().contains(q.toLowerCase()))
