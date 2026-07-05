@@ -306,7 +306,7 @@ export default function MapScreen({ navigation }: Props) {
   const isLoading = isRouting || isFetchingCourses;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <Header
         pointCount={waypoints.length}
         isRouting={isRouting}
