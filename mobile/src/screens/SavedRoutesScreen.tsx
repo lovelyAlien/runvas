@@ -7,7 +7,7 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { getMyCourses, deleteCourse } from '../services/courseApi';
-import { getBookmarkedCourses } from '../services/bookmarkApi';
+import { getBookmarkedCourses, deleteBookmark } from '../services/bookmarkApi';
 import { evictCourse } from '../services/courseCache';
 import { formatDistance, formatDuration } from '../utils/format';
 import { useAuthGate } from '../hooks/useAuthGate';
@@ -69,6 +69,27 @@ export default function SavedRoutesScreen({ navigation }: Props) {
           await deleteCourse(route.id, accessToken);
           evictCourse(route.id);
           setRoutes((prev) => prev.filter((r) => r.id !== route.id));
+        },
+      },
+    ]);
+  };
+
+  const handleRemoveBookmark = (route: BookmarkedCourseSummary) => {
+    Alert.alert('북마크 취소', `"${route.title}"의 북마크를 취소할까요?`, [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '확인',
+        style: 'destructive',
+        onPress: async () => {
+          if (!accessToken) return;
+          const previous = bookmarkedRoutes;
+          setBookmarkedRoutes((prev) => prev.filter((r) => r.id !== route.id));
+          try {
+            await deleteBookmark(route.id, accessToken);
+          } catch (e: unknown) {
+            setBookmarkedRoutes(previous);
+            Alert.alert('오류', e instanceof Error ? e.message : '북마크 취소 중 오류가 발생했습니다.');
+          }
         },
       },
     ]);
@@ -194,7 +215,7 @@ export default function SavedRoutesScreen({ navigation }: Props) {
                 <Text style={styles.rowMeta}>
                   {formatDistance(item.distanceMeters)} ·{' '}
                   {formatDuration(estimatedDuration(item.distanceMeters))} ·{' '}
-                  {new Date(item.bookmarkedAt).toLocaleDateString()} 저장
+                  {new Date(item.bookmarkedAt).toLocaleDateString()}
                 </Text>
                 {item.startAddress && (
                   <Text style={styles.rowAddress} numberOfLines={1}>
@@ -208,6 +229,13 @@ export default function SavedRoutesScreen({ navigation }: Props) {
                 courseId={item.id}
                 onPress={() => setPreviewCourseId(item.id)}
               />
+              <TouchableOpacity
+                onPress={() => handleRemoveBookmark(item)}
+                activeOpacity={0.7}
+                style={styles.bookmarkButton}
+              >
+                <Ionicons name="bookmark" size={20} color={Colors.primary} />
+              </TouchableOpacity>
             </TouchableOpacity>
           )}
         />
@@ -262,6 +290,9 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   deleteButton: {
+    marginLeft: 12,
+  },
+  bookmarkButton: {
     marginLeft: 12,
   },
   rowTitle: {
