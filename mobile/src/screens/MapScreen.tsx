@@ -1,5 +1,6 @@
-import React, { useRef, useCallback, useState } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
 import {
+  Animated,
   View,
   TouchableOpacity,
   StyleSheet,
@@ -15,7 +16,10 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
 import Header from '../components/Header';
 import KakaoMapView, { KakaoMapViewRef } from '../components/KakaoMapView';
-import CourseSearchSheet from '../components/CourseSearchSheet';
+import CourseSearchSheet, {
+  CourseSearchSheetRef,
+  SHEET_HANDLE_HEIGHT,
+} from '../components/CourseSearchSheet';
 import RouteStatsBar from '../components/RouteStatsBar';
 import PaceSelector from '../components/PaceSelector';
 import { useRoute, DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
@@ -26,14 +30,18 @@ import { exportGpx } from '../utils/exportGpx';
 import { postCourse, buildCreateCourseRequest, getCourse, getCourses } from '../services/courseApi';
 import { patchMe } from '../services/authApi';
 import { Colors } from '../constants/theme';
-import { Coordinate, CourseSummary, CourseVisibility } from '../types';
+import { Coordinate, Course, CourseSummary, CourseVisibility } from '../types';
 import { formatPace } from '../utils/format';
 import { RootTabParamList } from '../navigation/types';
 
 type Props = BottomTabScreenProps<RootTabParamList, 'Map'>;
 
+const FLOATING_BUTTONS_DEFAULT_BOTTOM = 16;
+const FLOATING_BUTTONS_SHEET_GAP = 12; // 시트 상단과 우측 FAB 스택 사이 여백
+
 export default function MapScreen({ navigation }: Props) {
   const mapRef = useRef<KakaoMapViewRef>(null);
+  const courseSheetRef = useRef<CourseSearchSheetRef>(null);
   const { accessToken, requireAuth, user, updateUser } = useAuth();
   const { getCurrentLocation } = useLocation();
 
@@ -62,10 +70,48 @@ export default function MapScreen({ navigation }: Props) {
   const [isCourseSheetOpen, setIsCourseSheetOpen] = useState(false);
   const [nearbyCourses, setNearbyCourses] = useState<CourseSummary[]>([]);
   const [isLoadingCourses, setIsLoadingCourses] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [selectedCourseDetail, setSelectedCourseDetail] = useState<Course | null>(null);
+  const [isCourseSheetCollapsed, setIsCourseSheetCollapsed] = useState(false);
+  const floatingButtonsBottom = useRef(new Animated.Value(FLOATING_BUTTONS_DEFAULT_BOTTOM)).current;
+  const searchButtonBottom = useRef(new Animated.Value(FLOATING_BUTTONS_DEFAULT_BOTTOM)).current;
+  const sheetContentHeightRef = useRef(0);
+
+  // 우측 FAB 스택(내 위치/되돌리기/저장/삭제)은 시트가 펼쳐진 동안 숨겨지므로(내 경로 도구라 맥락에
+  // 안 맞음), 보일 때 위치는 기본값 또는 접힌 시트 핸들 바로 위 두 가지뿐이다.
+  useEffect(() => {
+    const target =
+      isCourseSheetOpen && isCourseSheetCollapsed
+        ? SHEET_HANDLE_HEIGHT + FLOATING_BUTTONS_SHEET_GAP
+        : FLOATING_BUTTONS_DEFAULT_BOTTOM;
+    Animated.timing(floatingButtonsBottom, {
+      toValue: target,
+      duration: 220,
+      useNativeDriver: false, // bottom은 레이아웃 속성이라 네이티브 드라이버를 쓸 수 없다
+    }).start();
+  }, [isCourseSheetOpen, isCourseSheetCollapsed, floatingButtonsBottom]);
+
+  // 탐색 버튼은 시트가 열려 있는 동안 사라지지 않고, 시트의 실시간 위치(드래그 중에도)를 그대로
+  // 따라다닌다. translateY는 native driver로도 움직이므로, addListener로 JS 쪽 값을 동기화한다.
+  useEffect(() => {
+    if (!isCourseSheetOpen) {
+      searchButtonBottom.setValue(FLOATING_BUTTONS_DEFAULT_BOTTOM);
+      return;
+    }
+    const sheet = courseSheetRef.current;
+    if (!sheet) return;
+    const listenerId = sheet.translateY.addListener(({ value }) => {
+      const target =
+        SHEET_HANDLE_HEIGHT + sheetContentHeightRef.current + FLOATING_BUTTONS_SHEET_GAP - value;
+      searchButtonBottom.setValue(target);
+    });
+    return () => sheet.translateY.removeListener(listenerId);
+  }, [isCourseSheetOpen, searchButtonBottom]);
 
   const handleMapPress = useCallback(
     async (coord: Coordinate) => {
       if (isRouting) return; // 이미 경로 탐색 중이면 무시
+      if (isCourseSheetOpen) return; // 코스 탐색 중에는 지도 탭이 내 경로에 웨이포인트를 추가하지 않게 한다
 
       // 첫 번째 포인트: 마커만 추가
       if (waypoints.length === 0) {
@@ -95,7 +141,7 @@ export default function MapScreen({ navigation }: Props) {
         setIsRouting(false);
       }
     },
-    [waypoints, isRouting, accessToken, addFirstPoint, addSegment]
+    [waypoints, isRouting, isCourseSheetOpen, accessToken, addFirstPoint, addSegment]
   );
 
   const handleLocate = async () => {
@@ -111,6 +157,12 @@ export default function MapScreen({ navigation }: Props) {
     if (!mapRef.current) return;
     setIsLoadingCourses(true);
     setIsCourseSheetOpen(true);
+    setSelectedCourseId(null);
+    setSelectedCourseDetail(null);
+    setIsCourseSheetCollapsed(false);
+    sheetContentHeightRef.current = 0;
+    mapRef.current.clearCoursePreview();
+    courseSheetRef.current?.expand();
     try {
       const bounds = await mapRef.current.getBounds();
       const courses = await getCourses(bounds, accessToken ?? undefined);
@@ -123,14 +175,33 @@ export default function MapScreen({ navigation }: Props) {
     }
   };
 
-  const handleSelectCourse = async (courseId: string) => {
+  const handleCloseCourseSearch = () => {
     setIsCourseSheetOpen(false);
+    setSelectedCourseId(null);
+    setSelectedCourseDetail(null);
+    setIsCourseSheetCollapsed(false);
+    mapRef.current?.clearCoursePreview();
+  };
+
+  // 목록에서 코스를 선택: 현재 지도 범위를 유지한 채 경로만 미리보기로 그린다 (카메라 이동 없음).
+  const handleSelectCourse = async (courseId: string) => {
+    setSelectedCourseId(courseId);
     try {
       const course = await getCourse(courseId, accessToken ?? undefined);
-      mapRef.current?.showCourse(course.path, course.bounds);
+      setSelectedCourseDetail(course);
+      mapRef.current?.previewCourse(course.path);
     } catch (e: unknown) {
       Alert.alert('불러오기 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+      setSelectedCourseId(null);
+      setSelectedCourseDetail(null);
     }
+  };
+
+  // "상세 보기" 버튼: 선택된 코스의 좌표로 카메라를 이동하고 경로 순서(웨이포인트 번호)를 표시한다.
+  const handleViewCourseDetail = (courseId: string) => {
+    if (!selectedCourseDetail || selectedCourseDetail.id !== courseId) return;
+    mapRef.current?.fitBounds(selectedCourseDetail.bounds);
+    mapRef.current?.showCourseWaypoints(selectedCourseDetail.waypoints);
   };
 
   const handleUndo = () => {
@@ -240,11 +311,6 @@ export default function MapScreen({ navigation }: Props) {
       <View style={styles.mapContainer}>
         <KakaoMapView ref={mapRef} onMapPress={handleMapPress} />
 
-        {/* 우측 상단 코스 조회 버튼 */}
-        <View style={styles.topRightButtons}>
-          <FAB icon="search" onPress={handleOpenCourseSearch} disabled={isLoadingCourses} />
-        </View>
-
         {/* 경로 탐색 중 오버레이 */}
         {isRouting && (
           <View style={styles.routingOverlay}>
@@ -252,22 +318,46 @@ export default function MapScreen({ navigation }: Props) {
           </View>
         )}
 
-        {/* 우측 플로팅 버튼 */}
-        <View style={styles.floatingButtons}>
-          <FAB icon="locate" onPress={handleLocate} />
-          <FAB
-            icon="arrow-undo"
-            onPress={handleUndo}
-            disabled={waypoints.length === 0 || isRouting}
-          />
-          <FAB icon="save-outline" onPress={handleOpenSaveModal} disabled={!canSave} />
-          <FAB
-            icon="trash-outline"
-            onPress={handleClear}
-            disabled={waypoints.length === 0 || isRouting}
-            color={Colors.danger}
-          />
-        </View>
+        {/* 좌측 하단 코스 조회 버튼 — 시트가 열려 있는 동안 사라지지 않고, 시트가 펼쳐지고
+            접히는 움직임을 그대로 따라다닌다. */}
+        <Animated.View style={[styles.bottomLeftButtons, { bottom: searchButtonBottom }]}>
+          <FAB icon="search" onPress={handleOpenCourseSearch} disabled={isLoadingCourses} />
+        </Animated.View>
+
+        {/* 우측 플로팅 버튼 — 시트가 펼쳐진 동안은 '내 경로' 도구라 맥락에 안 맞으므로 숨기고,
+            접혔을 때는 시트 상단(핸들) 바로 위로 떠오른다 */}
+        {(!isCourseSheetOpen || isCourseSheetCollapsed) && (
+          <Animated.View style={[styles.floatingButtons, { bottom: floatingButtonsBottom }]}>
+            <FAB icon="locate" onPress={handleLocate} />
+            <FAB
+              icon="arrow-undo"
+              onPress={handleUndo}
+              disabled={waypoints.length === 0 || isRouting}
+            />
+            <FAB icon="save-outline" onPress={handleOpenSaveModal} disabled={!canSave} />
+            <FAB
+              icon="trash-outline"
+              onPress={handleClear}
+              disabled={waypoints.length === 0 || isRouting}
+              color={Colors.danger}
+            />
+          </Animated.View>
+        )}
+
+        <CourseSearchSheet
+          ref={courseSheetRef}
+          visible={isCourseSheetOpen}
+          courses={nearbyCourses}
+          isLoading={isLoadingCourses}
+          selectedCourseId={selectedCourseId}
+          onSelectCourse={handleSelectCourse}
+          onViewDetail={handleViewCourseDetail}
+          onClose={handleCloseCourseSearch}
+          onCollapsedChange={setIsCourseSheetCollapsed}
+          onContentHeightChange={(height) => {
+            sheetContentHeightRef.current = height;
+          }}
+        />
       </View>
 
       <RouteStatsBar
@@ -284,14 +374,6 @@ export default function MapScreen({ navigation }: Props) {
         onConfirm={handlePaceConfirm}
         onClose={() => setIsPaceSelectorOpen(false)}
         isSaving={isSavingPace}
-      />
-
-      <CourseSearchSheet
-        visible={isCourseSheetOpen}
-        courses={nearbyCourses}
-        isLoading={isLoadingCourses}
-        onSelectCourse={handleSelectCourse}
-        onClose={() => setIsCourseSheetOpen(false)}
       />
 
       <Modal visible={isSaveModalOpen} transparent animationType="fade">
@@ -387,6 +469,7 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     flex: 1,
+    overflow: 'hidden', // 코스 시트가 접힘 애니메이션으로 내려갈 때 이 경계 밖으로 새어나가지 않게 자른다
   },
   routingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -397,13 +480,11 @@ const styles = StyleSheet.create({
   floatingButtons: {
     position: 'absolute',
     right: 16,
-    bottom: 16,
     gap: 10,
   },
-  topRightButtons: {
+  bottomLeftButtons: {
     position: 'absolute',
-    right: 16,
-    top: 16,
+    left: 16,
   },
   fab: {
     width: 46,
