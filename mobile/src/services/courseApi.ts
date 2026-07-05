@@ -162,7 +162,8 @@ export async function getPublicCourses(
 
 export async function searchPublicCourses(
   q: string,
-  accessToken?: string
+  accessToken?: string,
+  signal?: AbortSignal
 ): Promise<CourseSummary[]> {
   if (!API_BASE_URL) {
     throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
@@ -172,7 +173,7 @@ export async function searchPublicCourses(
   const headers: Record<string, string> = {};
   if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
 
-  const response = await fetch(`${API_BASE_URL}/api/courses?${query}`, { headers });
+  const response = await fetch(`${API_BASE_URL}/api/courses?${query}`, { headers, signal });
 
   if (!response.ok) {
     throw new Error(await parseApiErrorMessage(response));

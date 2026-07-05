@@ -120,7 +120,7 @@ export default function MapScreen({ navigation }: Props) {
   }, []);
 
   const handleSearchCourse = useCallback(
-    (q: string) => searchPublicCourses(q, accessToken ?? undefined),
+    (q: string, signal: AbortSignal) => searchPublicCourses(q, accessToken ?? undefined, signal),
     [accessToken]
   );
 

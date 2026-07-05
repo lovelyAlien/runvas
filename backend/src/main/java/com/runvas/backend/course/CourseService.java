@@ -92,6 +92,9 @@ public class CourseService {
 		if (!hasBounds && (q == null || q.isBlank())) {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "either bounds or q must be provided");
 		}
+		if (q != null && q.length() > 100) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "q must be at most 100 characters");
+		}
 
 		String currentUserId = currentUserProvider.currentUserIdOrNull();
 
@@ -100,7 +103,7 @@ public class CourseService {
 				: courseRepository.findPublicCoursesByTitle(q);
 
 		List<CourseSummaryResponse> courses = candidates.stream()
-				.filter(course -> !hasBounds || q == null || course.getTitle().contains(q))
+				.filter(course -> !hasBounds || q == null || course.getTitle().toLowerCase().contains(q.toLowerCase()))
 				.filter(course -> tag == null || course.getTags().contains(tag))
 				.limit(effectiveLimit)
 				.map(course -> CourseSummaryResponse.from(course, isLikedByCurrentUser(course.getId(), currentUserId)))
