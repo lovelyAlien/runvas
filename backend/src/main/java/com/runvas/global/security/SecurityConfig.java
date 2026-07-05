@@ -41,6 +41,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/courses/{courseId}").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/likes/{targetType}/{targetId}").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/likes/{targetType}/{targetId}").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/bookmarks").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/courses/{courseId}/bookmarks").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/me/bookmarked-courses").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider, tokenBlacklistService),

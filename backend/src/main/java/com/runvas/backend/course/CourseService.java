@@ -5,6 +5,8 @@ import com.runvas.backend.common.ApiException;
 import com.runvas.backend.common.ErrorCode;
 import com.runvas.backend.common.PageInfo;
 import com.runvas.backend.common.RoutePoint;
+import com.runvas.backend.community.Bookmark;
+import com.runvas.backend.community.BookmarkRepository;
 import com.runvas.backend.community.Like;
 import com.runvas.backend.community.LikeRepository;
 import com.runvas.backend.community.LikeTargetType;
@@ -30,6 +32,7 @@ public class CourseService {
 
 	private final CourseRepository courseRepository;
 	private final LikeRepository likeRepository;
+	private final BookmarkRepository bookmarkRepository;
 	private final CourseValidator courseValidator;
 	private final CurrentUserProvider currentUserProvider;
 	private final TmapReverseGeocodingClient reverseGeocodingClient;
@@ -53,7 +56,7 @@ public class CourseService {
 
 		course.setStartAddress(resolveStartAddress(request.path()));
 		courseRepository.save(course);
-		return CourseResponse.from(course, false);
+		return CourseResponse.from(course, false, false);
 	}
 
 	// tags가 지연 로딩 컬렉션이라, open-in-view=false에서 트랜잭션 밖으로 나가면
@@ -73,7 +76,9 @@ public class CourseService {
 			}
 		}
 
-		return CourseResponse.from(course, isLikedByCurrentUser(course.getId(), currentUserId));
+		return CourseResponse.from(course,
+				isLikedByCurrentUser(course.getId(), currentUserId),
+				isBookmarkedByCurrentUser(course.getId(), currentUserId));
 	}
 
 	// getById()/listMine()과 같은 이유로 필요 — tags 지연 로딩 컬렉션을 트랜잭션 안에서 복사해야 한다.
@@ -152,7 +157,7 @@ public class CourseService {
 		}
 
 		course.setUpdatedAt(Instant.now());
-		return CourseResponse.from(course, isLikedByCurrentUser(course.getId(), course.getAuthorId()));
+		return CourseResponse.from(course, isLikedByCurrentUser(course.getId(), course.getAuthorId()), false);
 	}
 
 	@Transactional
@@ -183,6 +188,11 @@ public class CourseService {
 	private boolean isLikedByCurrentUser(String courseId, String currentUserId) {
 		if (currentUserId == null) return false;
 		return likeRepository.existsById(new Like.LikeId(currentUserId, LikeTargetType.COURSE, courseId));
+	}
+
+	private boolean isBookmarkedByCurrentUser(String courseId, String currentUserId) {
+		if (currentUserId == null) return false;
+		return bookmarkRepository.existsById(new Bookmark.BookmarkId(currentUserId, courseId));
 	}
 
 	public record ListResult(List<CourseSummaryResponse> courses, PageInfo pageInfo) {
