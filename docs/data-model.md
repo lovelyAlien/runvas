@@ -146,6 +146,25 @@ MVP에서 사용자는 본인이 생성한 코스의 아래 필드를 수정할 
 | `createdAt` | string | Y | ISO 8601 생성 시각 |
 | `updatedAt` | string | Y | ISO 8601 수정 시각 |
 
+## CourseComment
+
+`PUBLIC` 코스에만 존재할 수 있습니다. `PRIVATE` 코스에는 댓글을 생성할 수 없습니다.
+
+댓글은 최상위 댓글과 대댓글, 총 2단계까지만 허용합니다(`parentCommentId`로 표현). 대댓글에는
+다시 대댓글을 달 수 없습니다. 최상위 댓글이 삭제되면 그 댓글의 대댓글도 함께 삭제됩니다.
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `id` | string | Y | 댓글 ID |
+| `courseId` | string | Y | 댓글이 달린 코스 ID |
+| `parentCommentId` | string \| null | N | 부모(최상위) 댓글 ID. 최상위 댓글이면 `null` |
+| `author` | PublicProfile | Y | 작성자 공개 프로필 |
+| `body` | string | Y | 댓글 본문 |
+| `imageUrl` | string \| null | N | 러닝 인증 이미지 URL. 없으면 `null` |
+| `replyCount` | number | Y | 이 댓글에 달린 대댓글 수. 대댓글 응답에서는 항상 `0` |
+| `createdAt` | string | Y | ISO 8601 생성 시각 |
+| `updatedAt` | string | Y | ISO 8601 수정 시각 |
+
 ## LikeTargetType
 
 | 값 | 설명 |
