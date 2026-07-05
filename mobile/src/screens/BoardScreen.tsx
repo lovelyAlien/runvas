@@ -1,18 +1,47 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, CompositeScreenProps } from '@react-navigation/native';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+
+import PostListItem from '../components/PostListItem';
+import { getPosts } from '../services/postApi';
 import { useAuthGate } from '../hooks/useAuthGate';
 import { Colors } from '../constants/theme';
+import { Post } from '../types';
+import { RootTabParamList, RootStackParamList } from '../navigation/types';
 
-// 게시판 목록/작성 폼은 Non-Goal — 백엔드 Post API(docs/api-contract.md)가 아직 없다.
-// 이 화면은 비로그인도 읽을 수 있는 빈 상태와, 글쓰기 게이팅만 먼저 구현한다.
-export default function BoardScreen() {
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<RootTabParamList, 'Board'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
+
+export default function BoardScreen({ navigation }: Props) {
   const { requireAuth } = useAuthGate();
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      setIsLoading(true);
+      getPosts({}).then((result) => {
+        if (isActive) {
+          setPosts(result);
+          setIsLoading(false);
+        }
+      });
+      return () => {
+        isActive = false;
+      };
+    }, [])
+  );
 
   const handlePressWrite = () => {
     if (!requireAuth()) return;
-    Alert.alert('안내', '게시글 작성은 다음 업데이트에서 제공됩니다.');
+    navigation.navigate('PostCreate', {});
   };
 
   return (
@@ -21,9 +50,24 @@ export default function BoardScreen() {
         <Text style={styles.headerTitle}>게시판</Text>
       </View>
 
-      <View style={styles.empty}>
-        <Text style={styles.emptyText}>아직 게시글이 없습니다.</Text>
-      </View>
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={posts}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={posts.length === 0 ? styles.emptyContainer : undefined}
+          ListEmptyComponent={<Text style={styles.emptyText}>아직 게시글이 없습니다.</Text>}
+          renderItem={({ item }) => (
+            <PostListItem
+              post={item}
+              onPress={(postId) => navigation.navigate('PostDetail', { postId })}
+            />
+          )}
+        />
+      )}
 
       <TouchableOpacity style={styles.writeFab} onPress={handlePressWrite} activeOpacity={0.8}>
         <Ionicons name="create-outline" size={20} color={Colors.white} />
@@ -48,7 +92,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.gray900,
   },
-  empty: {
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
