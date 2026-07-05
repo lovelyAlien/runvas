@@ -9,6 +9,7 @@ import KakaoMapView, { KakaoMapViewRef } from '../components/KakaoMapView';
 import RouteStatsBar from '../components/RouteStatsBar';
 import { getCourse } from '../services/courseApi';
 import { putLike, deleteLike } from '../services/likeApi';
+import { postBookmark, deleteBookmark } from '../services/bookmarkApi';
 import { exportGpx } from '../utils/exportGpx';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthGate } from '../hooks/useAuthGate';
@@ -28,6 +29,7 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
   const [isExporting, setIsExporting] = useState(false);
   const [likedByMe, setLikedByMe] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const [bookmarkedByMe, setBookmarkedByMe] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -38,6 +40,7 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
             setCourse(result);
             setLikedByMe(result.likedByMe);
             setLikeCount(result.likeCount);
+            setBookmarkedByMe(result.bookmarkedByMe ?? false);
           }
         })
         .catch((e: unknown) => {
@@ -78,6 +81,25 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
       setLikedByMe(wasLiked);
       setLikeCount((prev) => (wasLiked ? prev + 1 : prev - 1));
       Alert.alert('오류', e instanceof Error ? e.message : '좋아요 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleBookmark = async () => {
+    if (!requireAuth()) return;
+    if (!accessToken) return;
+
+    const wasBookmarked = bookmarkedByMe;
+    setBookmarkedByMe(!wasBookmarked);
+
+    try {
+      if (wasBookmarked) {
+        await deleteBookmark(courseId, accessToken);
+      } else {
+        await postBookmark(courseId, accessToken);
+      }
+    } catch (e: unknown) {
+      setBookmarkedByMe(wasBookmarked);
+      Alert.alert('오류', e instanceof Error ? e.message : '북마크 처리 중 오류가 발생했습니다.');
     }
   };
 
@@ -153,6 +175,15 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
             {likeCount}
           </Text>
         </TouchableOpacity>
+        {user?.id !== course.authorId && (
+          <TouchableOpacity onPress={handleBookmark} activeOpacity={0.7} style={styles.bookmarkButton}>
+            <Ionicons
+              name={bookmarkedByMe ? 'bookmark' : 'bookmark-outline'}
+              size={22}
+              color={bookmarkedByMe ? Colors.primary : Colors.gray500}
+            />
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -217,6 +248,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  bookmarkButton: {
+    marginLeft: 16,
+    padding: 4,
   },
   likeCount: {
     fontSize: 14,

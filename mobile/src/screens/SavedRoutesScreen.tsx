@@ -7,13 +7,14 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { getMyCourses, deleteCourse } from '../services/courseApi';
+import { getBookmarkedCourses } from '../services/bookmarkApi';
 import { evictCourse } from '../services/courseCache';
 import { formatDistance, formatDuration } from '../utils/format';
 import { useAuthGate } from '../hooks/useAuthGate';
 import { useAuth } from '../contexts/AuthContext';
 import { DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
 import { Colors } from '../constants/theme';
-import { CourseSummary } from '../types';
+import { CourseSummary, BookmarkedCourseSummary } from '../types';
 import { RootTabParamList, RootStackParamList } from '../navigation/types';
 import CourseRouteSvg from '../components/CourseRouteSvg';
 import CoursePreviewModal from '../components/CoursePreviewModal';
@@ -23,8 +24,12 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
+type Tab = 'mine' | 'bookmarked';
+
 export default function SavedRoutesScreen({ navigation }: Props) {
+  const [activeTab, setActiveTab] = useState<Tab>('mine');
   const [routes, setRoutes] = useState<CourseSummary[]>([]);
+  const [bookmarkedRoutes, setBookmarkedRoutes] = useState<BookmarkedCourseSummary[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [previewCourseId, setPreviewCourseId] = useState<string | null>(null);
   const handleClosePreview = useCallback(() => setPreviewCourseId(null), []);
@@ -48,6 +53,7 @@ export default function SavedRoutesScreen({ navigation }: Props) {
     useCallback(() => {
       if (!accessToken) return;
       getMyCourses(accessToken).then(setRoutes);
+      getBookmarkedCourses(accessToken).then((result) => setBookmarkedRoutes(result.courses));
     }, [accessToken])
   );
 
@@ -73,6 +79,23 @@ export default function SavedRoutesScreen({ navigation }: Props) {
         <Text style={styles.headerTitle}>저장한 코스</Text>
       </View>
 
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'mine' && styles.tabItemActive]}
+          onPress={() => setActiveTab('mine')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabLabel, activeTab === 'mine' && styles.tabLabelActive]}>내 코스</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'bookmarked' && styles.tabItemActive]}
+          onPress={() => setActiveTab('bookmarked')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabLabel, activeTab === 'bookmarked' && styles.tabLabelActive]}>북마크</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.searchBar}>
         <Ionicons name="search-outline" size={16} color={Colors.gray400} />
         <TextInput
@@ -91,57 +114,101 @@ export default function SavedRoutesScreen({ navigation }: Props) {
         )}
       </View>
 
-      <FlatList
-        data={routes.filter((r) =>
-          searchQuery.trim()
-            ? r.title.toLowerCase().includes(searchQuery.trim().toLowerCase())
-            : true
-        )}
-        keyExtractor={(item) => item.id}
-        initialNumToRender={4}
-        maxToRenderPerBatch={2}
-        windowSize={5}
-        contentContainerStyle={routes.length === 0 && styles.emptyContainer}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>아직 저장한 코스가 없습니다.</Text>
-        }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.row}
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('CourseDetail', { courseId: item.id })}
-          >
-            <View style={styles.rowInfo}>
-              <Text style={styles.rowTitle}>{item.title}</Text>
-              <Text style={styles.rowMeta}>
-                {formatDistance(item.distanceMeters)} ·{' '}
-                {formatDuration(estimatedDuration(item.distanceMeters))} ·{' '}
-                {new Date(item.createdAt).toLocaleDateString()}
-              </Text>
-              {item.startAddress && (
-                <Text style={styles.rowAddress} numberOfLines={1}>
-                  <Ionicons name="location-outline" size={11} color={Colors.gray400} />{' '}
-                  {item.startAddress}
-                </Text>
-              )}
-            </View>
-            <CourseRouteSvg
-              courseId={item.id}
-              onPress={() => setPreviewCourseId(item.id)}
-            />
+      {activeTab === 'mine' ? (
+        <FlatList
+          data={routes.filter((r) =>
+            searchQuery.trim()
+              ? r.title.toLowerCase().includes(searchQuery.trim().toLowerCase())
+              : true
+          )}
+          keyExtractor={(item) => item.id}
+          initialNumToRender={4}
+          maxToRenderPerBatch={2}
+          windowSize={5}
+          contentContainerStyle={routes.length === 0 && styles.emptyContainer}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>아직 저장한 코스가 없습니다.</Text>
+          }
+          renderItem={({ item }) => (
             <TouchableOpacity
-              onPress={() => navigation.navigate('CourseEdit', { courseId: item.id })}
+              style={styles.row}
               activeOpacity={0.7}
-              style={styles.editButton}
+              onPress={() => navigation.navigate('CourseDetail', { courseId: item.id })}
             >
-              <Ionicons name="pencil-outline" size={20} color={Colors.gray500} />
+              <View style={styles.rowInfo}>
+                <Text style={styles.rowTitle}>{item.title}</Text>
+                <Text style={styles.rowMeta}>
+                  {formatDistance(item.distanceMeters)} ·{' '}
+                  {formatDuration(estimatedDuration(item.distanceMeters))} ·{' '}
+                  {new Date(item.createdAt).toLocaleDateString()}
+                </Text>
+                {item.startAddress && (
+                  <Text style={styles.rowAddress} numberOfLines={1}>
+                    <Ionicons name="location-outline" size={11} color={Colors.gray400} />{' '}
+                    {item.startAddress}
+                  </Text>
+                )}
+              </View>
+              <CourseRouteSvg
+                courseId={item.id}
+                onPress={() => setPreviewCourseId(item.id)}
+              />
+              <TouchableOpacity
+                onPress={() => navigation.navigate('CourseEdit', { courseId: item.id })}
+                activeOpacity={0.7}
+                style={styles.editButton}
+              >
+                <Ionicons name="pencil-outline" size={20} color={Colors.gray500} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleDelete(item)} activeOpacity={0.7} style={styles.deleteButton}>
+                <Ionicons name="trash-outline" size={20} color={Colors.danger} />
+              </TouchableOpacity>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleDelete(item)} activeOpacity={0.7} style={styles.deleteButton}>
-              <Ionicons name="trash-outline" size={20} color={Colors.danger} />
+          )}
+        />
+      ) : (
+        <FlatList
+          data={bookmarkedRoutes.filter((r) =>
+            searchQuery.trim()
+              ? r.title.toLowerCase().includes(searchQuery.trim().toLowerCase())
+              : true
+          )}
+          keyExtractor={(item) => item.id}
+          initialNumToRender={4}
+          maxToRenderPerBatch={2}
+          windowSize={5}
+          contentContainerStyle={bookmarkedRoutes.length === 0 && styles.emptyContainer}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>북마크한 코스가 없습니다.</Text>
+          }
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.row}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('CourseDetail', { courseId: item.id })}
+            >
+              <View style={styles.rowInfo}>
+                <Text style={styles.rowTitle}>{item.title}</Text>
+                <Text style={styles.rowMeta}>
+                  {formatDistance(item.distanceMeters)} ·{' '}
+                  {formatDuration(estimatedDuration(item.distanceMeters))} ·{' '}
+                  {new Date(item.bookmarkedAt).toLocaleDateString()} 저장
+                </Text>
+                {item.startAddress && (
+                  <Text style={styles.rowAddress} numberOfLines={1}>
+                    <Ionicons name="location-outline" size={11} color={Colors.gray400} />{' '}
+                    {item.startAddress}
+                  </Text>
+                )}
+              </View>
+              <CourseRouteSvg
+                courseId={item.id}
+                onPress={() => setPreviewCourseId(item.id)}
+              />
             </TouchableOpacity>
-          </TouchableOpacity>
-        )}
-      />
+          )}
+        />
+      )}
       <CoursePreviewModal courseId={previewCourseId} onClose={handleClosePreview} />
     </SafeAreaView>
   );
@@ -208,6 +275,30 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.gray400,
     marginTop: 2,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.gray100,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabItemActive: {
+    borderBottomColor: Colors.primary,
+  },
+  tabLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.gray500,
+  },
+  tabLabelActive: {
+    color: Colors.primary,
+    fontWeight: '700',
   },
   searchBar: {
     flexDirection: 'row',

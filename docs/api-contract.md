@@ -509,11 +509,14 @@ bounds 4개 중 일부만 전달하거나, bounds와 q를 모두 생략하면 `4
     "tags": ["heart", "city"],
     "likeCount": 12,
     "likedByMe": false,
+    "bookmarkedByMe": false,
     "createdAt": "2026-06-22T08:00:00Z",
     "updatedAt": "2026-06-22T08:00:00Z"
   }
 }
 ```
+
+`bookmarkedByMe`는 인증된 사용자에게만 실제 값을 반환하며, 미인증 요청에서는 `false`를 반환합니다.
 
 비공개 코스는 작성자 본인만 조회할 수 있습니다.
 
