@@ -32,6 +32,7 @@ export interface Course {
   tags: string[];
   likeCount: number;
   likedByMe: boolean;
+  bookmarkedByMe?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -124,6 +125,11 @@ export interface ApiErrorBody {
     message: string;
     details?: Array<{ field: string; message: string }>;
   };
+}
+
+// docs/api-contract.md GET /me/bookmarked-courses 응답 항목 타입.
+export interface BookmarkedCourseSummary extends CourseSummary {
+  bookmarkedAt: string;
 }
 
 // docs/api-contract.md GET /courses, GET /courses/mine 목록 응답과 1:1 대응. path는 빠진다
