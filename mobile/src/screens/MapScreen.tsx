@@ -84,7 +84,7 @@ export default function MapScreen({ navigation }: Props) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const handleSearchCourse = useCallback(
-    (q: string) => searchPublicCourses(q, accessToken ?? undefined),
+    (q: string, signal: AbortSignal) => searchPublicCourses(q, accessToken ?? undefined, signal),
     [accessToken]
   );
 

@@ -18,7 +18,7 @@ import { formatDistance } from '../utils/format';
 interface Props {
   onClose: () => void;
   onSelectCourse: (courseId: string) => void;
-  onSearch: (q: string) => Promise<CourseSummary[]>;
+  onSearch: (q: string, signal: AbortSignal) => Promise<CourseSummary[]>;
 }
 
 export default function CourseSearchBar({ onClose, onSelectCourse, onSearch }: Props) {
@@ -27,12 +27,14 @@ export default function CourseSearchBar({ onClose, onSelectCourse, onSearch }: P
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (abortRef.current) abortRef.current.abort();
     };
   }, []);
 
@@ -40,18 +42,22 @@ export default function CourseSearchBar({ onClose, onSelectCourse, onSearch }: P
     (text: string) => {
       setQuery(text);
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (abortRef.current) abortRef.current.abort();
       if (!text.trim()) {
         setResults([]);
         setHasSearched(false);
         return;
       }
       debounceRef.current = setTimeout(async () => {
+        const controller = new AbortController();
+        abortRef.current = controller;
         setIsLoading(true);
         try {
-          const courses = await onSearch(text.trim());
+          const courses = await onSearch(text.trim(), controller.signal);
           setResults(courses);
           setHasSearched(true);
-        } catch {
+        } catch (e) {
+          if (e instanceof Error && e.name === 'AbortError') return;
           setResults([]);
           setHasSearched(true);
         } finally {
@@ -104,6 +110,7 @@ export default function CourseSearchBar({ onClose, onSelectCourse, onSearch }: P
             placeholderTextColor={Colors.gray400}
             returnKeyType="search"
             clearButtonMode="while-editing"
+            maxLength={100}
           />
           {isLoading && (
             <ActivityIndicator size="small" color={Colors.primary} style={styles.spinner} />
