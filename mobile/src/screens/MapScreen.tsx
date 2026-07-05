@@ -27,6 +27,7 @@ import { exportGpx } from '../utils/exportGpx';
 import { postCourse, buildCreateCourseRequest, getPublicCourses, searchPublicCourses } from '../services/courseApi';
 import CourseSearchBar from '../components/CourseSearchBar';
 import { patchMe } from '../services/authApi';
+import Toast from 'react-native-toast-message';
 import { Colors } from '../constants/theme';
 import { Coordinate, GeoBounds } from '../types';
 import { formatPace } from '../utils/format';
@@ -66,6 +67,7 @@ export default function MapScreen({ navigation }: Props) {
   const [isBrowseMode, setIsBrowseMode] = useState(false);
   const [isFetchingCourses, setIsFetchingCourses] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isPedestrianRouteEnabled, setIsPedestrianRouteEnabled] = useState(true);
 
   const boundsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -119,6 +121,19 @@ export default function MapScreen({ navigation }: Props) {
     setIsBrowseMode((prev) => !prev);
   }, []);
 
+  const togglePedestrianRoute = useCallback(() => {
+    setIsPedestrianRouteEnabled((prev) => {
+      const next = !prev;
+      Toast.show({
+        type: 'info',
+        text1: next ? '보행로 경로를 사용합니다' : '직선으로 연결합니다',
+        visibilityTime: 2500,
+        position: 'bottom',
+      });
+      return next;
+    });
+  }, []);
+
   const handleSearchCourse = useCallback(
     (q: string, signal: AbortSignal) => searchPublicCourses(q, accessToken ?? undefined, signal),
     [accessToken]
@@ -156,6 +171,14 @@ export default function MapScreen({ navigation }: Props) {
 
       const prevWaypoint = waypoints[waypoints.length - 1];
 
+      if (!isPedestrianRouteEnabled) {
+        const straightSegment = [prevWaypoint, coord];
+        addSegment(coord, straightSegment);
+        mapRef.current?.addWaypoint(coord, waypoints.length + 1);
+        mapRef.current?.addRouteSegment(straightSegment);
+        return;
+      }
+
       setIsRouting(true);
       try {
         const segmentCoords = await fetchPedestrianRoute(prevWaypoint, coord, accessToken);
@@ -172,7 +195,7 @@ export default function MapScreen({ navigation }: Props) {
         setIsRouting(false);
       }
     },
-    [waypoints, isRouting, isBrowseMode, accessToken, addFirstPoint, addSegment]
+    [waypoints, isRouting, isBrowseMode, isPedestrianRouteEnabled, accessToken, addFirstPoint, addSegment]
   );
 
   const handleLocate = async () => {
@@ -318,6 +341,11 @@ export default function MapScreen({ navigation }: Props) {
           <FAB icon="locate" onPress={handleLocate} />
           {!isBrowseMode && (
             <>
+              <FAB
+                icon={isPedestrianRouteEnabled ? 'walk' : 'walk-outline'}
+                onPress={togglePedestrianRoute}
+                color={isPedestrianRouteEnabled ? Colors.primary : Colors.gray400}
+              />
               <FAB
                 icon="arrow-undo"
                 onPress={handleUndo}

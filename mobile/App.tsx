@@ -15,6 +15,7 @@ import CourseDetailScreen from './src/screens/CourseDetailScreen';
 import CourseEditScreen from './src/screens/CourseEditScreen';
 import LoginPromptModal from './src/components/LoginPromptModal';
 import KakaoLoginWebView from './src/components/KakaoLoginWebView';
+import Toast from 'react-native-toast-message';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { RootTabParamList, RootStackParamList } from './src/navigation/types';
 import { Colors } from './src/constants/theme';
@@ -118,6 +119,7 @@ function AppContent() {
       </NavigationContainer>
       <LoginPromptModal />
       <KakaoLoginWebView />
+      <Toast />
     </SafeAreaProvider>
   );
 }
