@@ -32,6 +32,7 @@ import { exportGpx } from '../utils/exportGpx';
 import { postCourse, buildCreateCourseRequest, getCourse, getCourses, searchPublicCourses } from '../services/courseApi';
 import CourseSearchBar from '../components/CourseSearchBar';
 import { patchMe } from '../services/authApi';
+import Toast from 'react-native-toast-message';
 import { Colors } from '../constants/theme';
 import { Coordinate, Course, CourseSummary, CourseVisibility } from '../types';
 import { formatPace } from '../utils/format';
@@ -82,6 +83,20 @@ export default function MapScreen({ navigation }: Props) {
   const searchButtonBottom = useRef(new Animated.Value(FLOATING_BUTTONS_DEFAULT_BOTTOM)).current;
   const sheetContentHeightRef = useRef(0);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isPedestrianRouteEnabled, setIsPedestrianRouteEnabled] = useState(true);
+
+  const togglePedestrianRoute = useCallback(() => {
+    setIsPedestrianRouteEnabled((prev) => {
+      const next = !prev;
+      Toast.show({
+        type: 'info',
+        text1: next ? '보행로 경로를 사용합니다' : '직선으로 연결합니다',
+        visibilityTime: 2500,
+        position: 'bottom',
+      });
+      return next;
+    });
+  }, []);
 
   const handleSearchCourse = useCallback(
     (q: string, signal: AbortSignal) => searchPublicCourses(q, accessToken ?? undefined, signal),
@@ -128,6 +143,14 @@ export default function MapScreen({ navigation }: Props) {
       // 두 번째 이후: 보행로 API는 비로그인 사용자도 호출 가능 (docs/api-contract.md Auth: None)
       const prevWaypoint = waypoints[waypoints.length - 1];
 
+      if (!isPedestrianRouteEnabled) {
+        const straightSegment = [prevWaypoint, coord];
+        addSegment(coord, straightSegment);
+        mapRef.current?.addWaypoint(coord, waypoints.length + 1);
+        mapRef.current?.addRouteSegment(straightSegment);
+        return;
+      }
+
       setIsRouting(true);
       try {
         const segmentCoords = await fetchPedestrianRoute(prevWaypoint, coord, accessToken);
@@ -146,7 +169,15 @@ export default function MapScreen({ navigation }: Props) {
         setIsRouting(false);
       }
     },
-    [waypoints, isRouting, isCourseSheetOpen, accessToken, addFirstPoint, addSegment]
+    [
+      waypoints,
+      isRouting,
+      isCourseSheetOpen,
+      isPedestrianRouteEnabled,
+      accessToken,
+      addFirstPoint,
+      addSegment,
+    ]
   );
 
   const handleLocate = async () => {
@@ -359,6 +390,11 @@ export default function MapScreen({ navigation }: Props) {
         {!isCourseSheetOpen && (
           <View style={[styles.floatingButtons, { bottom: FLOATING_BUTTONS_DEFAULT_BOTTOM }]}>
             <FAB icon="locate" onPress={handleLocate} />
+            <FAB
+              icon={isPedestrianRouteEnabled ? 'walk' : 'walk-outline'}
+              onPress={togglePedestrianRoute}
+              color={isPedestrianRouteEnabled ? Colors.primary : Colors.gray400}
+            />
             <FAB
               icon="arrow-undo"
               onPress={handleUndo}
