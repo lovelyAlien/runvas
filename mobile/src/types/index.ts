@@ -126,3 +126,50 @@ export interface CourseSummary {
   createdAt: string;
   updatedAt: string;
 }
+
+// docs/data-model.md PublicProfile과 1:1 대응. 공개 화면·커뮤니티 응답에서는 User 전체가 아니라
+// 이 필드만 노출한다.
+export interface PublicProfile {
+  id: string;
+  nickname: string;
+  profileImageUrl: string | null;
+  bio: string | null;
+}
+
+// docs/data-model.md Post와 1:1 대응.
+export interface Post {
+  id: string;
+  author: PublicProfile;
+  title: string;
+  body: string;
+  attachedCourseId: string | null;
+  tags: string[];
+  likeCount: number;
+  likedByMe: boolean;
+  commentCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// docs/data-model.md Comment와 1:1 대응.
+export interface Comment {
+  id: string;
+  postId: string;
+  author: PublicProfile;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// docs/api-contract.md POST /posts 요청 본문과 1:1 대응.
+export interface CreatePostRequestBody {
+  title: string;
+  body: string;
+  attachedCourseId?: string | null;
+  tags?: string[];
+}
+
+// docs/api-contract.md POST /posts/{postId}/comments 요청 본문과 1:1 대응.
+export interface CreateCommentRequestBody {
+  body: string;
+}
