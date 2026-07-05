@@ -18,6 +18,7 @@ import { CourseSummary, BookmarkedCourseSummary } from '../types';
 import { RootTabParamList, RootStackParamList } from '../navigation/types';
 import CourseRouteSvg from '../components/CourseRouteSvg';
 import CoursePreviewModal from '../components/CoursePreviewModal';
+import TagList from '../components/TagList';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<RootTabParamList, 'SavedRoutes'>,
@@ -148,6 +149,7 @@ export default function SavedRoutesScreen({ navigation }: Props) {
                     {item.startAddress}
                   </Text>
                 )}
+                <TagList tags={item.tags} style={styles.rowTags} />
               </View>
               <CourseRouteSvg
                 courseId={item.id}
@@ -200,6 +202,7 @@ export default function SavedRoutesScreen({ navigation }: Props) {
                     {item.startAddress}
                   </Text>
                 )}
+                <TagList tags={item.tags} style={styles.rowTags} />
               </View>
               <CourseRouteSvg
                 courseId={item.id}
@@ -275,6 +278,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.gray400,
     marginTop: 2,
+  },
+  rowTags: {
+    marginTop: 6,
   },
   tabBar: {
     flexDirection: 'row',

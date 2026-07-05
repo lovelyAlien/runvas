@@ -7,6 +7,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import KakaoMapView, { KakaoMapViewRef } from '../components/KakaoMapView';
 import RouteStatsBar from '../components/RouteStatsBar';
+import TagList from '../components/TagList';
 import { getCourse } from '../services/courseApi';
 import { putLike, deleteLike } from '../services/likeApi';
 import { postBookmark, deleteBookmark } from '../services/bookmarkApi';
@@ -185,6 +186,7 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
           </TouchableOpacity>
         )}
       </View>
+      <TagList tags={course.tags} style={styles.tagList} />
     </SafeAreaView>
   );
 }
@@ -260,5 +262,11 @@ const styles = StyleSheet.create({
   },
   likeCountActive: {
     color: Colors.danger,
+  },
+  tagList: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.gray100,
   },
 });

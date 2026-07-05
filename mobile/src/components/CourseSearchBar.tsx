@@ -14,8 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CourseSummary } from '../types';
 import { Colors } from '../constants/theme';
 import { formatDistance } from '../utils/format';
-
-type SearchMode = 'name' | 'tag';
+import TagList from './TagList';
 
 interface Props {
   onClose: () => void;
@@ -29,10 +28,11 @@ export default function CourseSearchBar({ onClose, onSelectCourse, onSearch, onS
   const [results, setResults] = useState<CourseSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [searchMode, setSearchMode] = useState<SearchMode>('name');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<TextInput>(null);
+
+  const isTagMode = query.startsWith('#');
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -42,22 +42,12 @@ export default function CourseSearchBar({ onClose, onSelectCourse, onSearch, onS
     };
   }, []);
 
-  const handleModeToggle = useCallback(() => {
-    setSearchMode((prev) => (prev === 'name' ? 'tag' : 'name'));
-    setQuery('');
-    setResults([]);
-    setHasSearched(false);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (abortRef.current) abortRef.current.abort();
-    setTimeout(() => inputRef.current?.focus(), 50);
-  }, []);
-
   const handleQueryChange = useCallback(
     (text: string) => {
       setQuery(text);
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (abortRef.current) abortRef.current.abort();
-      if (!text.trim()) {
+      if (!text.trim() || text === '#') {
         setResults([]);
         setHasSearched(false);
         return;
@@ -67,10 +57,16 @@ export default function CourseSearchBar({ onClose, onSelectCourse, onSearch, onS
         abortRef.current = controller;
         setIsLoading(true);
         try {
-          const courses =
-            searchMode === 'tag'
-              ? await onSearchByTag(text.trim(), controller.signal)
-              : await onSearch(text.trim(), controller.signal);
+          const tagSearch = text.startsWith('#');
+          const term = tagSearch ? text.slice(1).trim() : text.trim();
+          if (!term) {
+            setResults([]);
+            setHasSearched(false);
+            return;
+          }
+          const courses = tagSearch
+            ? await onSearchByTag(term, controller.signal)
+            : await onSearch(term, controller.signal);
           setResults(courses);
           setHasSearched(true);
         } catch (e) {
@@ -82,7 +78,7 @@ export default function CourseSearchBar({ onClose, onSelectCourse, onSearch, onS
         }
       }, 300);
     },
-    [searchMode, onSearch, onSearchByTag]
+    [onSearch, onSearchByTag]
   );
 
   const renderItem = useCallback(
@@ -103,6 +99,7 @@ export default function CourseSearchBar({ onClose, onSelectCourse, onSearch, onS
             {formatDistance(item.distanceMeters)}
             {item.startAddress ? `  ·  ${item.startAddress}` : ''}
           </Text>
+          <TagList tags={item.tags} style={styles.resultTags} />
         </View>
         <Ionicons name="chevron-forward" size={16} color={Colors.gray300} />
       </TouchableOpacity>
@@ -110,34 +107,34 @@ export default function CourseSearchBar({ onClose, onSelectCourse, onSearch, onS
     [onSelectCourse]
   );
 
+  const emptyMessage = isTagMode
+    ? `"${query}" 태그의 코스가 없습니다`
+    : `"${query}"에 해당하는 코스가 없습니다`;
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
       <View style={styles.searchRow}>
-        <TouchableOpacity
-          onPress={handleModeToggle}
-          style={[styles.modeButton, searchMode === 'tag' && styles.modeButtonActive]}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons
-            name={searchMode === 'tag' ? 'pricetag' : 'search'}
-            size={18}
-            color={searchMode === 'tag' ? Colors.primary : Colors.gray500}
-          />
-        </TouchableOpacity>
         <View style={styles.inputWrapper}>
+          <Ionicons
+            name={isTagMode ? 'pricetag-outline' : 'search'}
+            size={18}
+            color={isTagMode ? Colors.primary : Colors.gray400}
+            style={styles.searchIcon}
+          />
           <TextInput
             ref={inputRef}
             style={styles.input}
             value={query}
             onChangeText={handleQueryChange}
-            placeholder={searchMode === 'tag' ? '태그로 검색 (예: 한강)' : '코스 이름으로 검색'}
+            placeholder="코스 이름 또는 #태그로 검색"
             placeholderTextColor={Colors.gray400}
             returnKeyType="search"
             clearButtonMode="while-editing"
-            maxLength={20}
+            maxLength={isTagMode ? 21 : 100}
+            autoCapitalize="none"
           />
           {isLoading && (
             <ActivityIndicator size="small" color={Colors.primary} style={styles.spinner} />
@@ -160,11 +157,7 @@ export default function CourseSearchBar({ onClose, onSelectCourse, onSearch, onS
 
       {hasSearched && results.length === 0 && !isLoading && (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>
-            {searchMode === 'tag'
-              ? `"#${query}" 태그의 코스가 없습니다`
-              : `"${query}"에 해당하는 코스가 없습니다`}
-          </Text>
+          <Text style={styles.emptyText}>{emptyMessage}</Text>
         </View>
       )}
     </KeyboardAvoidingView>
@@ -192,17 +185,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 8,
   },
-  modeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: Colors.gray50,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modeButtonActive: {
-    backgroundColor: Colors.gray100,
-  },
   inputWrapper: {
     flex: 1,
     flexDirection: 'row',
@@ -223,7 +205,7 @@ const styles = StyleSheet.create({
   cancelButton: { paddingHorizontal: 4 },
   cancelLabel: { fontSize: 15, color: Colors.primary, fontWeight: '500' },
   list: {
-    maxHeight: 320,
+    maxHeight: 340,
     borderTopWidth: 1,
     borderTopColor: Colors.gray100,
   },
@@ -247,6 +229,7 @@ const styles = StyleSheet.create({
   resultText: { flex: 1 },
   resultTitle: { fontSize: 14, fontWeight: '600', color: Colors.gray900, marginBottom: 2 },
   resultMeta: { fontSize: 12, color: Colors.gray400 },
+  resultTags: { marginTop: 4 },
   emptyState: { padding: 24, alignItems: 'center' },
   emptyText: { fontSize: 14, color: Colors.gray400 },
 });
