@@ -152,6 +152,8 @@
 | `post.body` | 1-5000자 |
 | `post.tags` | 최대 10개 |
 | `comment.body` | 1-1000자 |
+| `courseComment.body` | 1-1000자 |
+| `courseComment.image` | jpg/jpeg/png/webp, 최대 5MB, 댓글당 1장 |
 
 ## Routing APIs
 
@@ -777,6 +779,231 @@ bounds 4개 중 일부만 전달하거나, bounds/q/tag를 모두 생략하면 `
 
 - `400 VALIDATION_ERROR`: `limit` 범위 초과
 - `401 UNAUTHORIZED`: 로그인하지 않음
+
+## Course Comment APIs
+
+공개(`PUBLIC`) 코스에만 댓글을 달 수 있습니다. `PRIVATE` 코스에 댓글을 시도하면 `400 VALIDATION_ERROR`를 반환합니다.
+
+댓글에는 러닝 인증 이미지를 최대 1장 첨부할 수 있습니다. 이미지 업로드는 별도 API 없이 댓글 작성/수정 요청에 `multipart/form-data`로 함께 보냅니다.
+
+댓글은 최상위 댓글과 그 댓글에 달리는 대댓글(reply), 총 2단계까지만 허용합니다. 대댓글에는 다시
+대댓글을 달 수 없습니다(`400 VALIDATION_ERROR`). 최상위 댓글을 삭제하면 그 댓글에 달린 대댓글도
+함께 삭제됩니다(첨부 이미지 포함).
+
+### GET /courses/{courseId}/comments
+
+코스의 최상위 댓글 목록을 조회합니다(대댓글은 포함하지 않습니다). `PRIVATE` 코스는 작성자 본인만 조회할 수 있습니다.
+
+#### Auth
+
+`Optional`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `courseId` | string | 코스 ID |
+
+#### Query Params
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `limit` | number | N | 기본 20, 최대 50 |
+| `cursor` | string | N | 다음 페이지 조회용 커서 |
+
+#### Response: 200 OK
+
+```json
+{
+  "comments": [
+    {
+      "id": "course_comment_123",
+      "courseId": "course_123",
+      "parentCommentId": null,
+      "author": {
+        "id": "user_456",
+        "nickname": "River Runner",
+        "profileImageUrl": null,
+        "bio": null
+      },
+      "body": "오늘 이 코스 완주했습니다!",
+      "imageUrl": "http://localhost:8921/uploads/course-comments/course_123/8f1c.jpg",
+      "replyCount": 2,
+      "createdAt": "2026-06-22T09:30:00Z",
+      "updatedAt": "2026-06-22T09:30:00Z"
+    }
+  ],
+  "pageInfo": {
+    "nextCursor": null
+  }
+}
+```
+
+`parentCommentId`가 `null`이면 최상위 댓글입니다. `replyCount`는 해당 댓글에 달린 대댓글 수입니다
+(대댓글 응답에서는 항상 `0`).
+
+#### Errors
+
+- `400 VALIDATION_ERROR`: `limit` 범위 초과
+- `403 FORBIDDEN`: `PRIVATE` 코스에 작성자가 아닌 사용자가 접근
+- `404 NOT_FOUND`: 코스가 없음
+
+### GET /courses/{courseId}/comments/{commentId}/replies
+
+특정 최상위 댓글에 달린 대댓글 목록을 오래된 순으로 전체 조회합니다(페이지네이션 없음, 최대 200개).
+
+#### Auth
+
+`Optional`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `courseId` | string | 코스 ID |
+| `commentId` | string | 대댓글을 조회할 최상위 댓글 ID |
+
+#### Response: 200 OK
+
+```json
+{
+  "replies": [
+    {
+      "id": "course_comment_789",
+      "courseId": "course_123",
+      "parentCommentId": "course_comment_123",
+      "author": {
+        "id": "user_789",
+        "nickname": "Han River Jogger",
+        "profileImageUrl": null,
+        "bio": null
+      },
+      "body": "저도 어제 뛰었어요!",
+      "imageUrl": null,
+      "replyCount": 0,
+      "createdAt": "2026-06-22T10:00:00Z",
+      "updatedAt": "2026-06-22T10:00:00Z"
+    }
+  ]
+}
+```
+
+#### Errors
+
+- `403 FORBIDDEN`: `PRIVATE` 코스에 작성자가 아닌 사용자가 접근
+- `404 NOT_FOUND`: 코스 또는 댓글이 없음
+
+### POST /courses/{courseId}/comments
+
+코스에 댓글 또는 대댓글을 작성합니다. 대상 코스는 `PUBLIC`이어야 합니다.
+
+#### Auth
+
+`Required`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `courseId` | string | 코스 ID |
+
+#### Request Body (`multipart/form-data`)
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `body` | string (form field) | Y | 댓글 본문 |
+| `image` | file (form part) | N | 러닝 인증 이미지. jpg/jpeg/png/webp, 최대 5MB |
+| `parentCommentId` | string (form field) | N | 대댓글을 작성할 최상위 댓글 ID. 생략하면 최상위 댓글로 작성 |
+
+#### Response: 201 Created
+
+`GET /courses/{courseId}/comments`의 단일 댓글 객체와 같은 `comment` 객체를 반환합니다.
+
+```json
+{
+  "comment": {
+    "id": "course_comment_123",
+    "courseId": "course_123",
+    "parentCommentId": null,
+    "author": {
+      "id": "user_456",
+      "nickname": "River Runner",
+      "profileImageUrl": null,
+      "bio": null
+    },
+    "body": "오늘 이 코스 완주했습니다!",
+    "imageUrl": "http://localhost:8921/uploads/course-comments/course_123/8f1c.jpg",
+    "replyCount": 0,
+    "createdAt": "2026-06-22T09:30:00Z",
+    "updatedAt": "2026-06-22T09:30:00Z"
+  }
+}
+```
+
+#### Errors
+
+- `400 VALIDATION_ERROR`: `body` 제한값 위반, 코스가 `PUBLIC`이 아님, 이미지 형식/용량 초과, `parentCommentId`가 다른 코스의 댓글이거나 이미 대댓글임(2단계 초과)
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `404 NOT_FOUND`: 코스 또는 `parentCommentId`로 지정한 댓글이 없음
+
+### PATCH /courses/{courseId}/comments/{commentId}
+
+댓글을 수정합니다. 작성자 본인만 수정할 수 있습니다. 전송한 필드만 수정합니다.
+
+#### Auth
+
+`Required`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `courseId` | string | 코스 ID |
+| `commentId` | string | 댓글 ID |
+
+#### Request Body (`multipart/form-data`)
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `body` | string (form field) | N | 댓글 본문 |
+| `image` | file (form part) | N | 새 이미지로 교체. jpg/jpeg/png/webp, 최대 5MB |
+| `removeImage` | boolean (form field) | N | `true`면 기존 이미지를 제거. `image`와 동시에 보내면 `image`가 우선 |
+
+#### Response: 200 OK
+
+수정된 `comment` 객체를 반환합니다.
+
+#### Errors
+
+- `400 VALIDATION_ERROR`: `body` 제한값 위반, 이미지 형식/용량 초과
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `403 FORBIDDEN`: 작성자가 아님
+- `404 NOT_FOUND`: 코스 또는 댓글이 없음
+
+### DELETE /courses/{courseId}/comments/{commentId}
+
+댓글을 삭제합니다. 작성자 본인만 삭제할 수 있습니다. 삭제 시 첨부 이미지도 함께 제거합니다.
+
+#### Auth
+
+`Required`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `courseId` | string | 코스 ID |
+| `commentId` | string | 댓글 ID |
+
+#### Response: 204 No Content
+
+응답 본문이 없습니다.
+
+#### Errors
+
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `403 FORBIDDEN`: 작성자가 아님
+- `404 NOT_FOUND`: 코스 또는 댓글이 없음
 
 ## Auth APIs
 
