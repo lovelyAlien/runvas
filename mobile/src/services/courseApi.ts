@@ -186,6 +186,32 @@ export async function searchPublicCourses(
   return data.courses;
 }
 
+export async function searchPublicCoursesByTag(
+  tag: string,
+  accessToken?: string,
+  signal?: AbortSignal
+): Promise<CourseSummary[]> {
+  if (!API_BASE_URL) {
+    throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
+  }
+
+  const query = new URLSearchParams({ tag, limit: '20' });
+  const headers: Record<string, string> = {};
+  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+  const response = await fetch(`${API_BASE_URL}/api/courses?${query}`, { headers, signal });
+
+  if (!response.ok) {
+    throw new Error(await parseApiErrorMessage(response));
+  }
+
+  const data = (await response.json()) as {
+    courses: CourseSummary[];
+    pageInfo: { nextCursor: string | null };
+  };
+  return data.courses;
+}
+
 export async function patchCourse(
   courseId: string,
   body: UpdateCourseRequest,

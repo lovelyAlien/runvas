@@ -24,7 +24,7 @@ import { useLocation } from '../hooks/useLocation';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchPedestrianRoute } from '../services/routingApi';
 import { exportGpx } from '../utils/exportGpx';
-import { postCourse, buildCreateCourseRequest, getPublicCourses, searchPublicCourses } from '../services/courseApi';
+import { postCourse, buildCreateCourseRequest, getPublicCourses, searchPublicCourses, searchPublicCoursesByTag } from '../services/courseApi';
 import CourseSearchBar from '../components/CourseSearchBar';
 import { patchMe } from '../services/authApi';
 import Toast from 'react-native-toast-message';
@@ -136,6 +136,11 @@ export default function MapScreen({ navigation }: Props) {
 
   const handleSearchCourse = useCallback(
     (q: string, signal: AbortSignal) => searchPublicCourses(q, accessToken ?? undefined, signal),
+    [accessToken]
+  );
+
+  const handleSearchCourseByTag = useCallback(
+    (tag: string, signal: AbortSignal) => searchPublicCoursesByTag(tag, accessToken ?? undefined, signal),
     [accessToken]
   );
 
@@ -329,6 +334,7 @@ export default function MapScreen({ navigation }: Props) {
             onClose={() => setIsSearchOpen(false)}
             onSelectCourse={handleSelectSearchResult}
             onSearch={handleSearchCourse}
+            onSearchByTag={handleSearchCourseByTag}
           />
         )}
 
