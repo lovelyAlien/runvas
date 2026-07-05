@@ -15,17 +15,21 @@ import { CourseSummary } from '../types';
 import { Colors } from '../constants/theme';
 import { formatDistance } from '../utils/format';
 
+type SearchMode = 'name' | 'tag';
+
 interface Props {
   onClose: () => void;
   onSelectCourse: (courseId: string) => void;
   onSearch: (q: string, signal: AbortSignal) => Promise<CourseSummary[]>;
+  onSearchByTag: (tag: string, signal: AbortSignal) => Promise<CourseSummary[]>;
 }
 
-export default function CourseSearchBar({ onClose, onSelectCourse, onSearch }: Props) {
+export default function CourseSearchBar({ onClose, onSelectCourse, onSearch, onSearchByTag }: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<CourseSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchMode, setSearchMode] = useState<SearchMode>('name');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<TextInput>(null);
@@ -36,6 +40,16 @@ export default function CourseSearchBar({ onClose, onSelectCourse, onSearch }: P
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (abortRef.current) abortRef.current.abort();
     };
+  }, []);
+
+  const handleModeToggle = useCallback(() => {
+    setSearchMode((prev) => (prev === 'name' ? 'tag' : 'name'));
+    setQuery('');
+    setResults([]);
+    setHasSearched(false);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (abortRef.current) abortRef.current.abort();
+    setTimeout(() => inputRef.current?.focus(), 50);
   }, []);
 
   const handleQueryChange = useCallback(
@@ -53,7 +67,10 @@ export default function CourseSearchBar({ onClose, onSelectCourse, onSearch }: P
         abortRef.current = controller;
         setIsLoading(true);
         try {
-          const courses = await onSearch(text.trim(), controller.signal);
+          const courses =
+            searchMode === 'tag'
+              ? await onSearchByTag(text.trim(), controller.signal)
+              : await onSearch(text.trim(), controller.signal);
           setResults(courses);
           setHasSearched(true);
         } catch (e) {
@@ -65,7 +82,7 @@ export default function CourseSearchBar({ onClose, onSelectCourse, onSearch }: P
         }
       }, 300);
     },
-    [onSearch]
+    [searchMode, onSearch, onSearchByTag]
   );
 
   const renderItem = useCallback(
@@ -99,18 +116,28 @@ export default function CourseSearchBar({ onClose, onSelectCourse, onSearch }: P
       style={styles.container}
     >
       <View style={styles.searchRow}>
+        <TouchableOpacity
+          onPress={handleModeToggle}
+          style={[styles.modeButton, searchMode === 'tag' && styles.modeButtonActive]}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons
+            name={searchMode === 'tag' ? 'pricetag' : 'search'}
+            size={18}
+            color={searchMode === 'tag' ? Colors.primary : Colors.gray500}
+          />
+        </TouchableOpacity>
         <View style={styles.inputWrapper}>
-          <Ionicons name="search" size={18} color={Colors.gray400} style={styles.searchIcon} />
           <TextInput
             ref={inputRef}
             style={styles.input}
             value={query}
             onChangeText={handleQueryChange}
-            placeholder="코스 이름으로 검색"
+            placeholder={searchMode === 'tag' ? '태그로 검색 (예: 한강)' : '코스 이름으로 검색'}
             placeholderTextColor={Colors.gray400}
             returnKeyType="search"
             clearButtonMode="while-editing"
-            maxLength={100}
+            maxLength={20}
           />
           {isLoading && (
             <ActivityIndicator size="small" color={Colors.primary} style={styles.spinner} />
@@ -133,7 +160,11 @@ export default function CourseSearchBar({ onClose, onSelectCourse, onSearch }: P
 
       {hasSearched && results.length === 0 && !isLoading && (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>"{query}"에 해당하는 코스가 없습니다</Text>
+          <Text style={styles.emptyText}>
+            {searchMode === 'tag'
+              ? `"#${query}" 태그의 코스가 없습니다`
+              : `"${query}"에 해당하는 코스가 없습니다`}
+          </Text>
         </View>
       )}
     </KeyboardAvoidingView>
@@ -160,6 +191,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 8,
+  },
+  modeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.gray50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modeButtonActive: {
+    backgroundColor: Colors.gray100,
   },
   inputWrapper: {
     flex: 1,
