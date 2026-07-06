@@ -39,7 +39,7 @@ export default function PostDetailScreen({ route, navigation }: Props) {
   const loadPost = useCallback(async () => {
     try {
       const [postResult, commentsResult] = await Promise.all([
-        getPost(postId),
+        getPost(postId, accessToken ?? undefined),
         getComments(postId),
       ]);
       setPost(postResult);
@@ -50,7 +50,7 @@ export default function PostDetailScreen({ route, navigation }: Props) {
     } finally {
       setIsLoading(false);
     }
-  }, [postId, navigation]);
+  }, [postId, navigation, accessToken]);
 
   useFocusEffect(
     useCallback(() => {

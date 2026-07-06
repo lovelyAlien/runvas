@@ -14,6 +14,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import PostListItem from '../components/PostListItem';
 import { getPosts } from '../services/postApi';
+import { useAuth } from '../contexts/AuthContext';
 import { useAuthGate } from '../hooks/useAuthGate';
 import { Colors } from '../constants/theme';
 import { Post } from '../types';
@@ -23,6 +24,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'CourseBoard'>;
 
 export default function CourseBoardScreen({ route, navigation }: Props) {
   const { courseId, courseTitle } = route.params;
+  const { accessToken } = useAuth();
   const { requireAuth } = useAuthGate();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,7 +33,7 @@ export default function CourseBoardScreen({ route, navigation }: Props) {
     useCallback(() => {
       let isActive = true;
       setIsLoading(true);
-      getPosts({ attachedCourseId: courseId }).then((result) => {
+      getPosts({ attachedCourseId: courseId }, accessToken ?? undefined).then((result) => {
         if (isActive) {
           setPosts(result);
           setIsLoading(false);
@@ -40,7 +42,7 @@ export default function CourseBoardScreen({ route, navigation }: Props) {
       return () => {
         isActive = false;
       };
-    }, [courseId])
+    }, [courseId, accessToken])
   );
 
   const handlePressWrite = () => {
