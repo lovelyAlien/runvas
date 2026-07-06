@@ -46,13 +46,7 @@ export default function PostCreateScreen({ route, navigation }: Props) {
           body: body.trim(),
           attachedCourseId: attachedCourseId ?? null,
         },
-        accessToken,
-        {
-          id: user.id,
-          nickname: user.nickname,
-          profileImageUrl: user.profileImageUrl,
-          bio: user.bio,
-        }
+        accessToken
       );
       navigation.replace('PostDetail', { postId: post.id });
     } catch (e: unknown) {

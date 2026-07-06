@@ -74,17 +74,7 @@ export default function PostDetailScreen({ route, navigation }: Props) {
     if (!requireAuth() || !accessToken || !user || !commentBody.trim()) return;
     setIsSubmittingComment(true);
     try {
-      const comment = await createComment(
-        postId,
-        { body: commentBody.trim() },
-        accessToken,
-        {
-          id: user.id,
-          nickname: user.nickname,
-          profileImageUrl: user.profileImageUrl,
-          bio: user.bio,
-        }
-      );
+      const comment = await createComment(postId, { body: commentBody.trim() }, accessToken);
       setComments((prev) => [...prev, comment]);
       setCommentBody('');
       setPost((prev) => (prev ? { ...prev, commentCount: prev.commentCount + 1 } : prev));

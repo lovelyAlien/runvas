@@ -32,6 +32,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/kakao", "/api/auth/dev-login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/courses", "/api/courses/{courseId}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/posts", "/api/posts/{postId}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/posts/{postId}/comments").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/routes/pedestrian").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/courses/mine").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/courses").authenticated()
