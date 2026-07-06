@@ -318,6 +318,7 @@
     "tags": ["heart", "city"],
     "likeCount": 0,
     "likedByMe": false,
+    "bookmarkedByMe": false,
     "createdAt": "2026-06-22T08:00:00Z",
     "updatedAt": "2026-06-22T08:00:00Z"
   }
