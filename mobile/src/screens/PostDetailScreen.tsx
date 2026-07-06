@@ -8,6 +8,9 @@ import {
   ActivityIndicator,
   Alert,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -78,6 +81,7 @@ export default function PostDetailScreen({ route, navigation }: Props) {
       setComments((prev) => [...prev, comment]);
       setCommentBody('');
       setPost((prev) => (prev ? { ...prev, commentCount: prev.commentCount + 1 } : prev));
+      Keyboard.dismiss();
     } catch (e: unknown) {
       Alert.alert('작성 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
@@ -105,70 +109,75 @@ export default function PostDetailScreen({ route, navigation }: Props) {
         <View style={styles.headerSpacer} />
       </View>
 
-      <FlatList
-        data={comments}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={
-          <View style={styles.postBody}>
-            <Text style={styles.postTitle}>{post.title}</Text>
-            <Text style={styles.postMeta}>
-              {post.author.nickname} · {formatDateYYYYMMDD(new Date(post.createdAt))}
-            </Text>
-            {post.attachedCourseId && (
-              <TouchableOpacity
-                style={styles.courseChip}
-                activeOpacity={0.7}
-                onPress={() =>
-                  navigation.navigate('CourseDetail', { courseId: post.attachedCourseId as string })
-                }
-              >
-                <Ionicons name="map-outline" size={14} color={Colors.primary} />
-                <Text style={styles.courseChipLabel}>첨부된 코스 보기</Text>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoider}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <FlatList
+          data={comments}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={
+            <View style={styles.postBody}>
+              <Text style={styles.postTitle}>{post.title}</Text>
+              <Text style={styles.postMeta}>
+                {post.author.nickname} · {formatDateYYYYMMDD(new Date(post.createdAt))}
+              </Text>
+              {post.attachedCourseId && (
+                <TouchableOpacity
+                  style={styles.courseChip}
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    navigation.navigate('CourseDetail', { courseId: post.attachedCourseId as string })
+                  }
+                >
+                  <Ionicons name="map-outline" size={14} color={Colors.primary} />
+                  <Text style={styles.courseChipLabel}>첨부된 코스 보기</Text>
+                </TouchableOpacity>
+              )}
+              <Text style={styles.postText}>{post.body}</Text>
+              <TouchableOpacity style={styles.likeButton} onPress={handleToggleLike} activeOpacity={0.7}>
+                <Ionicons
+                  name={post.likedByMe ? 'heart' : 'heart-outline'}
+                  size={18}
+                  color={post.likedByMe ? Colors.danger : Colors.gray500}
+                />
+                <Text style={styles.likeCount}>{post.likeCount}</Text>
               </TouchableOpacity>
-            )}
-            <Text style={styles.postText}>{post.body}</Text>
-            <TouchableOpacity style={styles.likeButton} onPress={handleToggleLike} activeOpacity={0.7}>
-              <Ionicons
-                name={post.likedByMe ? 'heart' : 'heart-outline'}
-                size={18}
-                color={post.likedByMe ? Colors.danger : Colors.gray500}
-              />
-              <Text style={styles.likeCount}>{post.likeCount}</Text>
-            </TouchableOpacity>
-            <Text style={styles.commentsHeading}>댓글 {comments.length}</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <View style={styles.commentRow}>
-            <Text style={styles.commentAuthor}>{item.author.nickname}</Text>
-            <Text style={styles.commentBody}>{item.body}</Text>
-          </View>
-        )}
-        ListEmptyComponent={<Text style={styles.emptyComments}>아직 댓글이 없습니다.</Text>}
-      />
+              <Text style={styles.commentsHeading}>댓글 {comments.length}</Text>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <View style={styles.commentRow}>
+              <Text style={styles.commentAuthor}>{item.author.nickname}</Text>
+              <Text style={styles.commentBody}>{item.body}</Text>
+            </View>
+          )}
+          ListEmptyComponent={<Text style={styles.emptyComments}>아직 댓글이 없습니다.</Text>}
+        />
 
-      {user ? (
-        <View style={styles.commentInputRow}>
-          <TextInput
-            style={styles.commentInput}
-            placeholder="댓글을 입력하세요"
-            placeholderTextColor={Colors.gray400}
-            value={commentBody}
-            onChangeText={setCommentBody}
-          />
-          <TouchableOpacity onPress={handleSubmitComment} disabled={isSubmittingComment} activeOpacity={0.7}>
-            {isSubmittingComment ? (
-              <ActivityIndicator size="small" color={Colors.primary} />
-            ) : (
-              <Text style={styles.commentSubmitLabel}>등록</Text>
-            )}
+        {user ? (
+          <View style={styles.commentInputRow}>
+            <TextInput
+              style={styles.commentInput}
+              placeholder="댓글을 입력하세요"
+              placeholderTextColor={Colors.gray400}
+              value={commentBody}
+              onChangeText={setCommentBody}
+            />
+            <TouchableOpacity onPress={handleSubmitComment} disabled={isSubmittingComment} activeOpacity={0.7}>
+              {isSubmittingComment ? (
+                <ActivityIndicator size="small" color={Colors.primary} />
+              ) : (
+                <Text style={styles.commentSubmitLabel}>등록</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.loginPrompt} onPress={() => requireAuth()} activeOpacity={0.7}>
+            <Text style={styles.loginPromptLabel}>로그인하고 댓글 남기기</Text>
           </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity style={styles.loginPrompt} onPress={() => requireAuth()} activeOpacity={0.7}>
-          <Text style={styles.loginPromptLabel}>로그인하고 댓글 남기기</Text>
-        </TouchableOpacity>
-      )}
+        )}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -202,6 +211,9 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 24,
+  },
+  keyboardAvoider: {
+    flex: 1,
   },
   postBody: {
     paddingHorizontal: 20,
