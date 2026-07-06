@@ -78,23 +78,8 @@ export default function MapScreen({ navigation }: Props) {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedCourseDetail, setSelectedCourseDetail] = useState<Course | null>(null);
   const [isCourseSheetCollapsed, setIsCourseSheetCollapsed] = useState(false);
-  const floatingButtonsBottom = useRef(new Animated.Value(FLOATING_BUTTONS_DEFAULT_BOTTOM)).current;
   const searchButtonBottom = useRef(new Animated.Value(FLOATING_BUTTONS_DEFAULT_BOTTOM)).current;
   const sheetContentHeightRef = useRef(0);
-
-  // 우측 FAB 스택(내 위치/되돌리기/저장/삭제)은 시트가 펼쳐진 동안 숨겨지므로(내 경로 도구라 맥락에
-  // 안 맞음), 보일 때 위치는 기본값 또는 접힌 시트 핸들 바로 위 두 가지뿐이다.
-  useEffect(() => {
-    const target =
-      isCourseSheetOpen && isCourseSheetCollapsed
-        ? SHEET_HANDLE_HEIGHT + FLOATING_BUTTONS_SHEET_GAP
-        : FLOATING_BUTTONS_DEFAULT_BOTTOM;
-    Animated.timing(floatingButtonsBottom, {
-      toValue: target,
-      duration: 220,
-      useNativeDriver: false, // bottom은 레이아웃 속성이라 네이티브 드라이버를 쓸 수 없다
-    }).start();
-  }, [isCourseSheetOpen, isCourseSheetCollapsed, floatingButtonsBottom]);
 
   // 탐색 버튼은 시트가 열려 있는 동안 사라지지 않고, 시트의 실시간 위치(드래그 중에도)를 그대로
   // 따라다닌다. translateY는 native driver로도 움직이므로, addListener로 JS 쪽 값을 동기화한다.
@@ -345,10 +330,10 @@ export default function MapScreen({ navigation }: Props) {
           <FAB icon="search" onPress={handleOpenCourseSearch} disabled={isLoadingCourses} />
         </Animated.View>
 
-        {/* 우측 플로팅 버튼 — 시트가 펼쳐진 동안은 '내 경로' 도구라 맥락에 안 맞으므로 숨기고,
-            접혔을 때는 시트 상단(핸들) 바로 위로 떠오른다 */}
-        {(!isCourseSheetOpen || isCourseSheetCollapsed) && (
-          <Animated.View style={[styles.floatingButtons, { bottom: floatingButtonsBottom }]}>
+        {/* 우측 플로팅 버튼 — 코스 탐색 시트가 닫혀 있을 때만 보이는 '내 경로' 도구 모음.
+            시트가 열려 있는 동안은 맥락에 안 맞으므로(펼침/접힘 모두) 완전히 숨긴다. */}
+        {!isCourseSheetOpen && (
+          <View style={[styles.floatingButtons, { bottom: FLOATING_BUTTONS_DEFAULT_BOTTOM }]}>
             <FAB icon="locate" onPress={handleLocate} />
             <FAB
               icon="arrow-undo"
@@ -362,13 +347,15 @@ export default function MapScreen({ navigation }: Props) {
               disabled={waypoints.length === 0 || isRouting}
               color={Colors.danger}
             />
-          </Animated.View>
+          </View>
         )}
 
         {/* 코스 커뮤니티 액션 버튼 — 코스 탐색 시트가 열려 있는 동안(펼침/접힘 모두) 보이고,
-            좌측 탐색 버튼과 같은 방식으로 시트 상단 위치를 따라간다. 코스를 선택해야 눌린다. */}
+            좌측 탐색 버튼과 같은 방식으로 시트 상단 위치를 따라간다. 현재 위치 버튼은 항상 함께
+            보이고, 후기 작성/목록 버튼은 코스를 선택해야 눌린다. */}
         {isCourseSheetOpen && (
           <Animated.View style={[styles.floatingButtons, { bottom: searchButtonBottom }]}>
+            <FAB icon="locate" onPress={handleLocate} />
             <FAB
               icon="create-outline"
               onPress={handlePressWritePost}
