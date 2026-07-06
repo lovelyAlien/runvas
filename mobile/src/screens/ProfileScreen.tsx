@@ -2,11 +2,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthGate } from '../hooks/useAuthGate';
@@ -68,6 +70,16 @@ export default function ProfileScreen() {
       <View style={styles.content}>
         {user ? (
           <>
+            {user.profileImageUrl ? (
+              <Image source={{ uri: user.profileImageUrl }} style={styles.avatar} />
+            ) : (
+              <Ionicons
+                name="person-circle-outline"
+                size={80}
+                color={Colors.gray300}
+                style={styles.avatarPlaceholder}
+              />
+            )}
             <Text style={styles.nickname}>{user.nickname}</Text>
 
             <TouchableOpacity
@@ -120,6 +132,15 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 12,
+  },
+  avatarPlaceholder: {
+    marginBottom: 12,
   },
   nickname: {
     fontSize: 18,
