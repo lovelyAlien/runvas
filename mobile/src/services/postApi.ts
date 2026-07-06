@@ -9,7 +9,7 @@ interface GetPostsParams {
   sort?: 'createdAtDesc' | 'popularDesc';
 }
 
-export async function getPosts(params: GetPostsParams = {}): Promise<Post[]> {
+export async function getPosts(params: GetPostsParams = {}, accessToken?: string): Promise<Post[]> {
   if (!API_BASE_URL) {
     throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
   }
@@ -18,7 +18,9 @@ export async function getPosts(params: GetPostsParams = {}): Promise<Post[]> {
   if (params.attachedCourseId) query.set('attachedCourseId', params.attachedCourseId);
   if (params.sort) query.set('sort', params.sort);
 
-  const response = await fetch(`${API_BASE_URL}/api/posts?${query.toString()}`);
+  const response = await fetch(`${API_BASE_URL}/api/posts?${query.toString()}`, {
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
 
   if (!response.ok) {
     throw new Error(await parseApiErrorMessage(response));
@@ -28,12 +30,14 @@ export async function getPosts(params: GetPostsParams = {}): Promise<Post[]> {
   return posts;
 }
 
-export async function getPost(postId: string): Promise<Post> {
+export async function getPost(postId: string, accessToken?: string): Promise<Post> {
   if (!API_BASE_URL) {
     throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/posts/${postId}`);
+  const response = await fetch(`${API_BASE_URL}/api/posts/${postId}`, {
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
 
   if (!response.ok) {
     throw new Error(await parseApiErrorMessage(response));

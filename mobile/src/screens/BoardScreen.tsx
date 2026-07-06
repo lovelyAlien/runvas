@@ -8,6 +8,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import PostListItem from '../components/PostListItem';
 import { getPosts } from '../services/postApi';
+import { useAuth } from '../contexts/AuthContext';
 import { useAuthGate } from '../hooks/useAuthGate';
 import { Colors } from '../constants/theme';
 import { Post } from '../types';
@@ -19,6 +20,7 @@ type Props = CompositeScreenProps<
 >;
 
 export default function BoardScreen({ navigation }: Props) {
+  const { accessToken } = useAuth();
   const { requireAuth } = useAuthGate();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,7 +29,7 @@ export default function BoardScreen({ navigation }: Props) {
     useCallback(() => {
       let isActive = true;
       setIsLoading(true);
-      getPosts({}).then((result) => {
+      getPosts({}, accessToken ?? undefined).then((result) => {
         if (isActive) {
           setPosts(result);
           setIsLoading(false);
@@ -36,7 +38,7 @@ export default function BoardScreen({ navigation }: Props) {
       return () => {
         isActive = false;
       };
-    }, [])
+    }, [accessToken])
   );
 
   const handlePressWrite = () => {
