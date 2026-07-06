@@ -9,6 +9,8 @@ import {
   Modal,
   Text,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CompositeScreenProps } from '@react-navigation/native';
@@ -402,7 +404,10 @@ export default function MapScreen({ navigation }: Props) {
       />
 
       <Modal visible={isSaveModalOpen} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>코스 저장</Text>
             <TextInput
@@ -461,7 +466,7 @@ export default function MapScreen({ navigation }: Props) {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
