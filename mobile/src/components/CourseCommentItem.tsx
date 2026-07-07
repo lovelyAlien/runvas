@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, Image, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Colors } from '../constants/theme';
 import { CourseComment } from '../types';
-import { CourseCommentImageInput } from '../services/courseCommentApi';
 import { formatRelativeTime } from '../utils/format';
 
 interface Props {
@@ -19,11 +18,8 @@ interface Props {
   loadingReplyIds: Record<string, boolean>;
   activeReplyId: string | null;
   replyBody: string;
-  replyImage: CourseCommentImageInput | null;
   isSubmittingReply: boolean;
   onChangeReplyBody: (text: string) => void;
-  onPickReplyImage: () => void;
-  onRemoveReplyImage: () => void;
   onSubmitReply: (parentCommentId: string) => void;
   onCancelReply: () => void;
 }
@@ -40,11 +36,8 @@ export default function CourseCommentItem({
   loadingReplyIds,
   activeReplyId,
   replyBody,
-  replyImage,
   isSubmittingReply,
   onChangeReplyBody,
-  onPickReplyImage,
-  onRemoveReplyImage,
   onSubmitReply,
   onCancelReply,
 }: Props) {
@@ -135,12 +128,7 @@ export default function CourseCommentItem({
           </View>
         </View>
       ) : (
-        <>
-          <Text style={styles.body}>{comment.body}</Text>
-          {comment.imageUrl && (
-            <Image source={{ uri: comment.imageUrl }} style={styles.image} resizeMode="cover" />
-          )}
-        </>
+        <Text style={styles.body}>{comment.body}</Text>
       )}
 
       <View style={styles.actionsRow}>
@@ -167,38 +155,21 @@ export default function CourseCommentItem({
             multiline
             autoFocus
           />
-          {replyImage && (
-            <View style={styles.replyImagePreviewWrapper}>
-              <Image source={{ uri: replyImage.uri }} style={styles.replyImagePreview} />
-              <TouchableOpacity
-                onPress={onRemoveReplyImage}
-                style={styles.replyImageRemoveButton}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="close-circle" size={18} color={Colors.gray500} />
-              </TouchableOpacity>
-            </View>
-          )}
           <View style={styles.replyFormActions}>
-            <TouchableOpacity onPress={onPickReplyImage} activeOpacity={0.7}>
-              <Ionicons name="camera-outline" size={18} color={Colors.gray500} />
+            <TouchableOpacity onPress={onCancelReply} activeOpacity={0.7} disabled={isSubmittingReply}>
+              <Text style={styles.replyCancelText}>취소</Text>
             </TouchableOpacity>
-            <View style={styles.replyFormButtons}>
-              <TouchableOpacity onPress={onCancelReply} activeOpacity={0.7} disabled={isSubmittingReply}>
-                <Text style={styles.replyCancelText}>취소</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => onSubmitReply(comment.id)}
-                activeOpacity={0.7}
-                disabled={isSubmittingReply}
-              >
-                {isSubmittingReply ? (
-                  <ActivityIndicator size="small" color={Colors.primary} />
-                ) : (
-                  <Text style={styles.replySubmitText}>등록</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              onPress={() => onSubmitReply(comment.id)}
+              activeOpacity={0.7}
+              disabled={isSubmittingReply}
+            >
+              {isSubmittingReply ? (
+                <ActivityIndicator size="small" color={Colors.primary} />
+              ) : (
+                <Text style={styles.replySubmitText}>등록</Text>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -222,11 +193,8 @@ export default function CourseCommentItem({
                 loadingReplyIds={loadingReplyIds}
                 activeReplyId={activeReplyId}
                 replyBody={replyBody}
-                replyImage={replyImage}
                 isSubmittingReply={isSubmittingReply}
                 onChangeReplyBody={onChangeReplyBody}
-                onPickReplyImage={onPickReplyImage}
-                onRemoveReplyImage={onRemoveReplyImage}
                 onSubmitReply={onSubmitReply}
                 onCancelReply={onCancelReply}
               />
@@ -279,13 +247,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.gray900,
     lineHeight: 20,
-  },
-  image: {
-    marginTop: 8,
-    width: 120,
-    height: 120,
-    borderRadius: 8,
-    backgroundColor: Colors.gray100,
   },
   editForm: {
     marginTop: 2,
@@ -346,34 +307,12 @@ const styles = StyleSheet.create({
     color: Colors.gray900,
     backgroundColor: Colors.white,
   },
-  replyImagePreviewWrapper: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    position: 'relative',
-  },
-  replyImagePreview: {
-    width: 64,
-    height: 64,
-    borderRadius: 8,
-    backgroundColor: Colors.gray100,
-  },
-  replyImageRemoveButton: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: Colors.white,
-    borderRadius: 10,
-  },
   replyFormActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 6,
-  },
-  replyFormButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: 14,
+    marginTop: 6,
   },
   replyCancelText: {
     fontSize: 12,

@@ -257,3 +257,45 @@ cd mobile && npx tsc --noEmit
       새 댓글 아래에 입력창이 열림(입력 중이던 내용은 초기화됨 — 동시에 하나만 허용)
 - [ ] 대댓글(2단계 이상)에도 같은 방식으로 답글 입력창이 그 댓글 바로 아래에 열림
 - [ ] 대댓글의 대댓글을 작성한 뒤 부모 댓글의 "답글 N개 보기" 숫자가 정확히 증가/감소함
+
+## 추가 변경: 댓글 이미지 첨부 기능 제거
+
+"댓글에 사진을 올릴 수 있는 기능"을 제거해달라는 요청에 따라, 최상위 댓글 작성창과 답글
+작성창 양쪽에서 이미지 선택/미리보기/제거 UI를 모두 걷어냈습니다.
+
+- `CourseDetailScreen.tsx`: `commentImage`/`replyImage` state, 공용 `pickImageFromLibrary`
+  헬퍼, `handlePickCommentImage`/`handlePickReplyImage`/`handleRemoveReplyImage` 핸들러를
+  삭제했습니다. `createCourseComment` 호출에서 `image` 인자를 제거하고 시그니처를
+  `(courseId, body, accessToken, parentCommentId?)`로 맞췄습니다. `expo-image-picker`,
+  `Image`(react-native) import도 더 이상 쓰이지 않아 제거했습니다.
+- `CourseCommentItem.tsx`: `comment.imageUrl` 렌더링, 답글 폼의 이미지 미리보기/카메라 버튼과
+  관련 props(`replyImage`, `onPickReplyImage`, `onRemoveReplyImage`)를 제거했습니다. 답글
+  폼의 취소/등록 버튼만 남은 `replyFormActions`는 `justify-content: 'flex-end'`로 단순화하고,
+  이제 쓸모없어진 `replyFormButtons`/`replyImagePreviewWrapper`/`replyImagePreview`/
+  `replyImageRemoveButton`/`image` 스타일도 함께 지웠습니다.
+- `courseCommentApi.ts`: `CourseCommentImageInput` 타입, `createCourseComment`의 `image`
+  파라미터, `UpdateCourseCommentInput`의 `image`/`removeImage` 필드와 그 FormData append
+  로직을 제거했습니다.
+- `types/index.ts`: `CourseComment.imageUrl` 필드를 제거해 `docs/data-model.md`와 다시 1:1을
+  맞췄습니다.
+- `app.json`: 이 기능 때문에 추가했던 `expo-image-picker` config plugin 항목,
+  `ios.infoPlist.NSPhotoLibraryUsageDescription`, `android.permissions`의
+  `READ_MEDIA_IMAGES`를 제거했습니다.
+- `package.json`: `npx expo install` 대신 이번엔 반대로 `npm uninstall expo-image-picker`로
+  의존성을 제거했습니다(다른 화면에서 이 패키지를 쓰는 곳이 없음을 grep으로 확인).
+
+### 검증 (이미지 제거)
+
+```
+npx tsc --noEmit
+→ TypeScript: No errors found
+
+npx expo start (백그라운드) → curl ".../index.bundle?platform=ios&dev=true"
+→ HTTP 200
+```
+
+### 수동 테스트 체크리스트 (이미지 제거)
+
+- [ ] 최상위 댓글 작성창, 답글 작성창 어디에도 카메라/이미지 아이콘이 보이지 않음
+- [ ] 기존에 이미지가 첨부되어 있던 댓글도 오류 없이 텍스트만 표시됨
+- [ ] 사진 라이브러리 권한 요청 다이얼로그가 더 이상 뜨지 않음

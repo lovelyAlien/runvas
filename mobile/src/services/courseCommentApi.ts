@@ -8,16 +8,8 @@ export interface CourseCommentsResult {
   nextCursor: string | null;
 }
 
-export interface CourseCommentImageInput {
-  uri: string;
-  name: string;
-  type: string;
-}
-
 export interface UpdateCourseCommentInput {
   body?: string;
-  image?: CourseCommentImageInput;
-  removeImage?: boolean;
 }
 
 function ensureApiBaseUrl(): void {
@@ -55,7 +47,6 @@ export async function getCourseComments(
 export async function createCourseComment(
   courseId: string,
   body: string,
-  image: CourseCommentImageInput | null,
   accessToken: string,
   parentCommentId?: string
 ): Promise<CourseComment> {
@@ -63,9 +54,6 @@ export async function createCourseComment(
 
   const formData = new FormData();
   formData.append('body', body);
-  if (image) {
-    formData.append('image', image as unknown as Blob);
-  }
   if (parentCommentId) {
     formData.append('parentCommentId', parentCommentId);
   }
@@ -113,8 +101,6 @@ export async function updateCourseComment(
 
   const formData = new FormData();
   if (input.body !== undefined) formData.append('body', input.body);
-  if (input.image) formData.append('image', input.image as unknown as Blob);
-  if (input.removeImage !== undefined) formData.append('removeImage', String(input.removeImage));
 
   const response = await fetch(`${API_BASE_URL}/api/courses/${courseId}/comments/${commentId}`, {
     method: 'PATCH',

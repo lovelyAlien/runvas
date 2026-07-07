@@ -168,7 +168,6 @@ export interface CourseComment {
   parentCommentId: string | null;
   author: PublicProfile;
   body: string;
-  imageUrl: string | null;
   replyCount: number;
   createdAt: string;
   updatedAt: string;

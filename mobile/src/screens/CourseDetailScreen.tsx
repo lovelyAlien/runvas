@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  Image,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -16,7 +15,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import * as ImagePicker from 'expo-image-picker';
 
 import KakaoMapView, { KakaoMapViewRef } from '../components/KakaoMapView';
 import RouteStatsBar from '../components/RouteStatsBar';
@@ -31,7 +29,6 @@ import {
   createCourseComment,
   updateCourseComment,
   deleteCourseComment,
-  CourseCommentImageInput,
 } from '../services/courseCommentApi';
 import { exportGpx } from '../utils/exportGpx';
 import { useAuth } from '../contexts/AuthContext';
@@ -57,11 +54,9 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
   const [comments, setComments] = useState<CourseComment[]>([]);
   const [isCommentsLoading, setIsCommentsLoading] = useState(false);
   const [commentBody, setCommentBody] = useState('');
-  const [commentImage, setCommentImage] = useState<CourseCommentImageInput | null>(null);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [replyTargetId, setReplyTargetId] = useState<string | null>(null);
   const [replyBody, setReplyBody] = useState('');
-  const [replyImage, setReplyImage] = useState<CourseCommentImageInput | null>(null);
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
   const [repliesByParentId, setRepliesByParentId] = useState<Record<string, CourseComment[]>>({});
   const [expandedReplyIds, setExpandedReplyIds] = useState<Record<string, boolean>>({});
@@ -170,41 +165,6 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
     }
   };
 
-  const pickImageFromLibrary = async (namePrefix: string): Promise<CourseCommentImageInput | null> => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('권한 필요', '사진 라이브러리 접근 권한이 필요합니다.');
-      return null;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
-    if (result.canceled || result.assets.length === 0) return null;
-
-    const asset = result.assets[0];
-    const name = asset.fileName ?? `${namePrefix}-${Date.now()}.jpg`;
-    const type = asset.mimeType ?? 'image/jpeg';
-    return { uri: asset.uri, name, type };
-  };
-
-  const handlePickCommentImage = async () => {
-    if (!requireAuth()) return;
-    const image = await pickImageFromLibrary('comment');
-    if (image) setCommentImage(image);
-  };
-
-  const handlePickReplyImage = async () => {
-    if (!requireAuth()) return;
-    const image = await pickImageFromLibrary('reply');
-    if (image) setReplyImage(image);
-  };
-
-  const handleRemoveReplyImage = () => {
-    setReplyImage(null);
-  };
-
   const updateReplyCount = useCallback((parentCommentId: string, delta: number) => {
     setComments((prev) =>
       prev.map((comment) =>
@@ -241,10 +201,9 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
 
     setIsSubmittingComment(true);
     try {
-      const created = await createCourseComment(courseId, trimmedBody, commentImage, accessToken);
+      const created = await createCourseComment(courseId, trimmedBody, accessToken);
       setComments((prev) => [created, ...prev]);
       setCommentBody('');
-      setCommentImage(null);
     } catch (e: unknown) {
       Alert.alert('댓글 작성 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
@@ -256,13 +215,11 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
     if (!requireAuth()) return;
     setReplyTargetId((prev) => (prev === comment.id ? null : comment.id));
     setReplyBody('');
-    setReplyImage(null);
   };
 
   const handleCancelReply = () => {
     setReplyTargetId(null);
     setReplyBody('');
-    setReplyImage(null);
   };
 
   const handleSubmitReply = async (parentCommentId: string) => {
@@ -277,13 +234,7 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
 
     setIsSubmittingReply(true);
     try {
-      const created = await createCourseComment(
-        courseId,
-        trimmedBody,
-        replyImage,
-        accessToken,
-        parentCommentId
-      );
+      const created = await createCourseComment(courseId, trimmedBody, accessToken, parentCommentId);
       setRepliesByParentId((prev) => ({
         ...prev,
         [parentCommentId]: [...(prev[parentCommentId] ?? []), created],
@@ -495,11 +446,8 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
                   loadingReplyIds={loadingReplyIds}
                   activeReplyId={replyTargetId}
                   replyBody={replyBody}
-                  replyImage={replyImage}
                   isSubmittingReply={isSubmittingReply}
                   onChangeReplyBody={setReplyBody}
-                  onPickReplyImage={handlePickReplyImage}
-                  onRemoveReplyImage={handleRemoveReplyImage}
                   onSubmitReply={handleSubmitReply}
                   onCancelReply={handleCancelReply}
                 />
@@ -519,22 +467,7 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
             onChangeText={setCommentBody}
             multiline
           />
-          {commentImage && (
-            <View style={styles.commentImagePreviewWrapper}>
-              <Image source={{ uri: commentImage.uri }} style={styles.commentImagePreview} />
-              <TouchableOpacity
-                onPress={() => setCommentImage(null)}
-                style={styles.commentImageRemoveButton}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="close-circle" size={20} color={Colors.gray500} />
-              </TouchableOpacity>
-            </View>
-          )}
           <View style={styles.commentFormActions}>
-            <TouchableOpacity onPress={handlePickCommentImage} activeOpacity={0.7}>
-              <Ionicons name="camera-outline" size={22} color={Colors.gray500} />
-            </TouchableOpacity>
             <TouchableOpacity
               onPress={handleSubmitComment}
               activeOpacity={0.7}
@@ -701,28 +634,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.gray900,
   },
-  commentImagePreviewWrapper: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    position: 'relative',
-  },
-  commentImagePreview: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: Colors.gray100,
-  },
-  commentImageRemoveButton: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: Colors.white,
-    borderRadius: 10,
-  },
   commentFormActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     marginTop: 8,
   },
   commentSubmitButton: {
