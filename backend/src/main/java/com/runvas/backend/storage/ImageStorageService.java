@@ -30,7 +30,7 @@ public class ImageStorageService {
 
 	public ImageStorageService(
 			@Value("${runvas.upload.dir:./uploads}") String uploadDir,
-			@Value("${runvas.upload.base-url:http://localhost:8921}") String baseUrl) {
+			@Value("${runvas.upload.base-url:http://localhost:8080}") String baseUrl) {
 		this.uploadDir = Path.of(uploadDir);
 		this.baseUrl = baseUrl;
 	}
