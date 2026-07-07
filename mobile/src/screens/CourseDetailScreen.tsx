@@ -164,6 +164,22 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
     }
   };
 
+  const handlePressWriteReview = () => {
+    if (!requireAuth() || !course) return;
+    navigation.navigate('PostCreate', {
+      attachedCourseId: course.id,
+      attachedCourseTitle: course.title,
+    });
+  };
+
+  const handlePressReviewBoard = () => {
+    if (!course) return;
+    navigation.navigate('CourseBoard', {
+      courseId: course.id,
+      courseTitle: course.title,
+    });
+  };
+
   const handlePickCommentImage = async () => {
     if (!requireAuth()) return;
 
@@ -361,6 +377,11 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
 
       <View style={styles.mapContainer}>
         <KakaoMapView ref={mapRef} onMapPress={() => {}} onMapReady={handleMapReady} />
+
+        <View style={styles.floatingButtons}>
+          <FAB icon="create-outline" onPress={handlePressWriteReview} />
+          <FAB icon="list-outline" onPress={handlePressReviewBoard} />
+        </View>
       </View>
 
       <ScrollView style={styles.bottomScroll} keyboardShouldPersistTaps="handled">
@@ -476,6 +497,19 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
   );
 }
 
+interface FABProps {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  onPress: () => void;
+}
+
+function FAB({ icon, onPress }: FABProps) {
+  return (
+    <TouchableOpacity style={styles.fab} onPress={onPress} activeOpacity={0.8}>
+      <Ionicons name={icon} size={20} color={Colors.primary} />
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -552,6 +586,25 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     height: 260,
+  },
+  floatingButtons: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    gap: 10,
+  },
+  fab: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
   },
   bottomScroll: {
     flex: 1,
