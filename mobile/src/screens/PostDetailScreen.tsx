@@ -65,8 +65,8 @@ export default function PostDetailScreen({ route, navigation }: Props) {
     if (!requireAuth() || !post || !accessToken) return;
     try {
       const result = post.likedByMe
-        ? await deleteLike(post.id, accessToken)
-        : await putLike(post.id, accessToken);
+        ? await deleteLike('posts', post.id, accessToken)
+        : await putLike('posts', post.id, accessToken);
       setPost({ ...post, likedByMe: result.liked, likeCount: result.likeCount });
     } catch (e: unknown) {
       Alert.alert('실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');

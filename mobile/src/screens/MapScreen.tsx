@@ -31,8 +31,17 @@ import { useLocation } from '../hooks/useLocation';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchPedestrianRoute } from '../services/routingApi';
 import { exportGpx } from '../utils/exportGpx';
-import { postCourse, buildCreateCourseRequest, getCourse, getCourses } from '../services/courseApi';
+import {
+  postCourse,
+  buildCreateCourseRequest,
+  getCourse,
+  getCourses,
+  searchPublicCourses,
+  searchPublicCoursesByTag,
+} from '../services/courseApi';
+import CourseSearchBar from '../components/CourseSearchBar';
 import { patchMe } from '../services/authApi';
+import Toast from 'react-native-toast-message';
 import { Colors } from '../constants/theme';
 import { Coordinate, Course, CourseSummary, CourseVisibility } from '../types';
 import { formatPace } from '../utils/format';
@@ -82,6 +91,39 @@ export default function MapScreen({ navigation }: Props) {
   const [isCourseSheetCollapsed, setIsCourseSheetCollapsed] = useState(false);
   const searchButtonBottom = useRef(new Animated.Value(FLOATING_BUTTONS_DEFAULT_BOTTOM)).current;
   const sheetContentHeightRef = useRef(0);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isPedestrianRouteEnabled, setIsPedestrianRouteEnabled] = useState(true);
+
+  const togglePedestrianRoute = useCallback(() => {
+    setIsPedestrianRouteEnabled((prev) => {
+      const next = !prev;
+      Toast.show({
+        type: 'info',
+        text1: next ? '보행로 경로를 사용합니다' : '직선으로 연결합니다',
+        visibilityTime: 2500,
+        position: 'bottom',
+      });
+      return next;
+    });
+  }, []);
+
+  const handleSearchCourse = useCallback(
+    (q: string, signal: AbortSignal) => searchPublicCourses(q, accessToken ?? undefined, signal),
+    [accessToken]
+  );
+
+  const handleSearchCourseByTag = useCallback(
+    (tag: string, signal: AbortSignal) => searchPublicCoursesByTag(tag, accessToken ?? undefined, signal),
+    [accessToken]
+  );
+
+  const handleSelectSearchResult = useCallback(
+    (courseId: string) => {
+      setIsSearchOpen(false);
+      navigation.navigate('CourseDetail', { courseId });
+    },
+    [navigation]
+  );
 
   // 탐색 버튼은 시트가 열려 있는 동안 사라지지 않고, 시트의 실시간 위치(드래그 중에도)를 그대로
   // 따라다닌다. translateY는 native driver로도 움직이므로, addListener로 JS 쪽 값을 동기화한다.
@@ -115,6 +157,14 @@ export default function MapScreen({ navigation }: Props) {
       // 두 번째 이후: 보행로 API는 비로그인 사용자도 호출 가능 (docs/api-contract.md Auth: None)
       const prevWaypoint = waypoints[waypoints.length - 1];
 
+      if (!isPedestrianRouteEnabled) {
+        const straightSegment = [prevWaypoint, coord];
+        addSegment(coord, straightSegment);
+        mapRef.current?.addWaypoint(coord, waypoints.length + 1);
+        mapRef.current?.addRouteSegment(straightSegment);
+        return;
+      }
+
       setIsRouting(true);
       try {
         const segmentCoords = await fetchPedestrianRoute(prevWaypoint, coord, accessToken);
@@ -133,7 +183,15 @@ export default function MapScreen({ navigation }: Props) {
         setIsRouting(false);
       }
     },
-    [waypoints, isRouting, isCourseSheetOpen, accessToken, addFirstPoint, addSegment]
+    [
+      waypoints,
+      isRouting,
+      isCourseSheetOpen,
+      isPedestrianRouteEnabled,
+      accessToken,
+      addFirstPoint,
+      addSegment,
+    ]
   );
 
   const handleLocate = async () => {
@@ -307,7 +365,7 @@ export default function MapScreen({ navigation }: Props) {
   const canSave = routeCoords.length >= 2;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <Header
         pointCount={waypoints.length}
         isRouting={isRouting}
@@ -326,17 +384,32 @@ export default function MapScreen({ navigation }: Props) {
           </View>
         )}
 
-        {/* 좌측 하단 코스 조회 버튼 — 시트가 열려 있는 동안 사라지지 않고, 시트가 펼쳐지고
+        {/* 좌측 하단 코스 조회/이름 검색 버튼 — 시트가 열려 있는 동안 사라지지 않고, 시트가 펼쳐지고
             접히는 움직임을 그대로 따라다닌다. */}
         <Animated.View style={[styles.bottomLeftButtons, { bottom: searchButtonBottom }]}>
           <FAB icon="search" onPress={handleOpenCourseSearch} disabled={isLoadingCourses} />
+          <FAB icon="search-outline" onPress={() => setIsSearchOpen(true)} />
         </Animated.View>
+
+        {isSearchOpen && (
+          <CourseSearchBar
+            onClose={() => setIsSearchOpen(false)}
+            onSelectCourse={handleSelectSearchResult}
+            onSearch={handleSearchCourse}
+            onSearchByTag={handleSearchCourseByTag}
+          />
+        )}
 
         {/* 우측 플로팅 버튼 — 코스 탐색 시트가 닫혀 있을 때만 보이는 '내 경로' 도구 모음.
             시트가 열려 있는 동안은 맥락에 안 맞으므로(펼침/접힘 모두) 완전히 숨긴다. */}
         {!isCourseSheetOpen && (
           <View style={[styles.floatingButtons, { bottom: FLOATING_BUTTONS_DEFAULT_BOTTOM }]}>
             <FAB icon="locate" onPress={handleLocate} />
+            <FAB
+              icon={isPedestrianRouteEnabled ? 'walk' : 'walk-outline'}
+              onPress={togglePedestrianRoute}
+              color={isPedestrianRouteEnabled ? Colors.primary : Colors.gray400}
+            />
             <FAB
               icon="arrow-undo"
               onPress={handleUndo}
@@ -515,6 +588,7 @@ const styles = StyleSheet.create({
   bottomLeftButtons: {
     position: 'absolute',
     left: 16,
+    gap: 10,
   },
   fab: {
     width: 46,

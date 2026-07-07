@@ -47,7 +47,7 @@ export default function BoardScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>게시판</Text>
       </View>

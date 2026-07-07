@@ -13,4 +13,5 @@ export type RootStackParamList = {
   PostCreate: { attachedCourseId?: string; attachedCourseTitle?: string };
   PostDetail: { postId: string };
   CourseBoard: { courseId: string; courseTitle: string };
+  CourseEdit: { courseId: string };
 };

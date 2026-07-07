@@ -4,6 +4,9 @@ import com.runvas.backend.auth.CurrentUserProvider;
 import com.runvas.backend.common.ApiException;
 import com.runvas.backend.common.ErrorCode;
 import com.runvas.backend.common.PageInfo;
+import com.runvas.backend.common.RoutePoint;
+import com.runvas.backend.community.Bookmark;
+import com.runvas.backend.community.BookmarkRepository;
 import com.runvas.backend.community.Like;
 import com.runvas.backend.community.LikeRepository;
 import com.runvas.backend.community.LikeTargetType;
@@ -11,6 +14,7 @@ import com.runvas.backend.course.dto.CourseResponse;
 import com.runvas.backend.course.dto.CourseSummaryResponse;
 import com.runvas.backend.course.dto.CreateCourseRequest;
 import com.runvas.backend.course.dto.UpdateCourseRequest;
+import com.runvas.backend.routing.TmapReverseGeocodingClient;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
@@ -28,8 +32,10 @@ public class CourseService {
 
 	private final CourseRepository courseRepository;
 	private final LikeRepository likeRepository;
+	private final BookmarkRepository bookmarkRepository;
 	private final CourseValidator courseValidator;
 	private final CurrentUserProvider currentUserProvider;
+	private final TmapReverseGeocodingClient reverseGeocodingClient;
 
 	@Transactional
 	public CourseResponse create(CreateCourseRequest request) {
@@ -48,8 +54,9 @@ public class CourseService {
 				request.visibility(),
 				request.tags() == null ? Set.of() : request.tags());
 
+		course.setStartAddress(resolveStartAddress(request.path()));
 		courseRepository.save(course);
-		return CourseResponse.from(course, false);
+		return CourseResponse.from(course, false, false);
 	}
 
 	// tags가 지연 로딩 컬렉션이라, open-in-view=false에서 트랜잭션 밖으로 나가면
@@ -69,25 +76,42 @@ public class CourseService {
 			}
 		}
 
-		return CourseResponse.from(course, isLikedByCurrentUser(course.getId(), currentUserId));
+		return CourseResponse.from(course,
+				isLikedByCurrentUser(course.getId(), currentUserId),
+				isBookmarkedByCurrentUser(course.getId(), currentUserId));
 	}
 
 	// getById()/listMine()과 같은 이유로 필요 — tags 지연 로딩 컬렉션을 트랜잭션 안에서 복사해야 한다.
 	@Transactional(readOnly = true)
-	public ListResult list(double swLat, double swLng, double neLat, double neLng, Integer limit, String q, String tag) {
+	public ListResult list(Double swLat, Double swLng, Double neLat, Double neLng, Integer limit, String q, String tag) {
 		int effectiveLimit = limit == null ? DEFAULT_LIMIT : Math.min(limit, MAX_LIMIT);
 		if (limit != null && limit > MAX_LIMIT) {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "limit must be at most " + MAX_LIMIT);
 		}
 
+		boolean hasBounds = swLat != null && swLng != null && neLat != null && neLng != null;
+		boolean partialBounds = (swLat != null || swLng != null || neLat != null || neLng != null) && !hasBounds;
+		if (partialBounds) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "bounds parameters must all be provided together");
+		}
+		if (!hasBounds && (q == null || q.isBlank()) && (tag == null || tag.isBlank())) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "either bounds, q, or tag must be provided");
+		}
+		if (q != null && q.length() > 100) {
+			throw new ApiException(ErrorCode.VALIDATION_ERROR, "q must be at most 100 characters");
+		}
+
 		String currentUserId = currentUserProvider.currentUserIdOrNull();
 
-		List<CourseSummaryResponse> courses = courseRepository
-				.findPublicCoursesWithinBounds(swLat, swLng, neLat, neLng)
-				.stream()
-				.filter(course -> q == null || course.getTitle().contains(q))
+		List<Course> candidates = hasBounds
+				? courseRepository.findPublicCoursesWithinBounds(swLat, swLng, neLat, neLng)
+				: (q != null && !q.isBlank())
+						? courseRepository.findPublicCoursesByTitle(q)
+						: courseRepository.findPublicCoursesByTag(tag);
+
+		List<CourseSummaryResponse> courses = candidates.stream()
+				.filter(course -> !hasBounds || q == null || course.getTitle().toLowerCase().contains(q.toLowerCase()))
 				.filter(course -> tag == null || course.getTags().contains(tag))
-				.sorted(Comparator.comparing(Course::getCreatedAt).reversed())
 				.limit(effectiveLimit)
 				.map(course -> CourseSummaryResponse.from(course, isLikedByCurrentUser(course.getId(), currentUserId)))
 				.toList();
@@ -131,10 +155,11 @@ public class CourseService {
 			course.setDistanceMeters(request.distanceMeters());
 			course.setEstimatedDurationSeconds(request.estimatedDurationSeconds());
 			course.applyBounds(request.bounds());
+			course.setStartAddress(resolveStartAddress(request.path()));
 		}
 
 		course.setUpdatedAt(Instant.now());
-		return CourseResponse.from(course, isLikedByCurrentUser(course.getId(), course.getAuthorId()));
+		return CourseResponse.from(course, isLikedByCurrentUser(course.getId(), course.getAuthorId()), false);
 	}
 
 	@Transactional
@@ -142,6 +167,12 @@ public class CourseService {
 		Course course = findCourseOrThrow(courseId);
 		requireAuthor(course);
 		courseRepository.delete(course);
+	}
+
+	private String resolveStartAddress(List<RoutePoint> path) {
+		if (path == null || path.isEmpty()) return null;
+		RoutePoint start = path.get(0);
+		return reverseGeocodingClient.fetchAddress(start.latitude(), start.longitude());
 	}
 
 	private Course findCourseOrThrow(String courseId) {
@@ -159,6 +190,11 @@ public class CourseService {
 	private boolean isLikedByCurrentUser(String courseId, String currentUserId) {
 		if (currentUserId == null) return false;
 		return likeRepository.existsById(new Like.LikeId(currentUserId, LikeTargetType.COURSE, courseId));
+	}
+
+	private boolean isBookmarkedByCurrentUser(String courseId, String currentUserId) {
+		if (currentUserId == null) return false;
+		return bookmarkRepository.existsById(new Bookmark.BookmarkId(currentUserId, courseId));
 	}
 
 	public record ListResult(List<CourseSummaryResponse> courses, PageInfo pageInfo) {

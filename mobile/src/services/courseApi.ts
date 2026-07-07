@@ -4,6 +4,7 @@ import {
   Course,
   CourseSummary,
   CreateCourseRequestBody,
+  UpdateCourseRequest,
   GeoBounds,
   RoutePoint,
   CourseVisibility,
@@ -136,4 +137,82 @@ export async function getCourses(bounds: GeoBounds, accessToken?: string): Promi
 
   const { courses } = (await response.json()) as { courses: CourseSummary[] };
   return courses;
+}
+
+export async function searchPublicCourses(
+  q: string,
+  accessToken?: string,
+  signal?: AbortSignal
+): Promise<CourseSummary[]> {
+  if (!API_BASE_URL) {
+    throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
+  }
+
+  const query = new URLSearchParams({ q, limit: '20' });
+  const headers: Record<string, string> = {};
+  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+  const response = await fetch(`${API_BASE_URL}/api/courses?${query}`, { headers, signal });
+
+  if (!response.ok) {
+    throw new Error(await parseApiErrorMessage(response));
+  }
+
+  const data = (await response.json()) as {
+    courses: CourseSummary[];
+    pageInfo: { nextCursor: string | null };
+  };
+  return data.courses;
+}
+
+export async function searchPublicCoursesByTag(
+  tag: string,
+  accessToken?: string,
+  signal?: AbortSignal
+): Promise<CourseSummary[]> {
+  if (!API_BASE_URL) {
+    throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
+  }
+
+  const query = new URLSearchParams({ tag, limit: '20' });
+  const headers: Record<string, string> = {};
+  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+  const response = await fetch(`${API_BASE_URL}/api/courses?${query}`, { headers, signal });
+
+  if (!response.ok) {
+    throw new Error(await parseApiErrorMessage(response));
+  }
+
+  const data = (await response.json()) as {
+    courses: CourseSummary[];
+    pageInfo: { nextCursor: string | null };
+  };
+  return data.courses;
+}
+
+export async function patchCourse(
+  courseId: string,
+  body: UpdateCourseRequest,
+  accessToken: string
+): Promise<Course> {
+  if (!API_BASE_URL) {
+    throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/courses/${courseId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiErrorMessage(response));
+  }
+
+  const { course } = (await response.json()) as { course: Course };
+  return course;
 }

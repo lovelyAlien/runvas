@@ -19,14 +19,16 @@ public record CourseResponse(
 		Integer distanceMeters,
 		Integer estimatedDurationSeconds,
 		GeoBounds bounds,
+		String startAddress,
 		CourseVisibility visibility,
 		Set<String> tags,
 		Integer likeCount,
 		boolean likedByMe,
+		boolean bookmarkedByMe,
 		Instant createdAt,
 		Instant updatedAt) {
 
-	public static CourseResponse from(Course course, boolean likedByMe) {
+	public static CourseResponse from(Course course, boolean likedByMe, boolean bookmarkedByMe) {
 		return new CourseResponse(
 				course.getId(),
 				course.getAuthorId(),
@@ -37,12 +39,14 @@ public record CourseResponse(
 				course.getDistanceMeters(),
 				course.getEstimatedDurationSeconds(),
 				course.getBounds(),
+				course.getStartAddress(),
 				course.getVisibility(),
 				// tags는 지연 로딩 컬렉션 — 트랜잭션이 끝난 뒤(Jackson 직렬화 시점) 접근하면
 				// LazyInitializationException이 나므로, 트랜잭션 안에서 즉시 복사해 둔다.
 				Set.copyOf(course.getTags()),
 				course.getLikeCount(),
 				likedByMe,
+				bookmarkedByMe,
 				course.getCreatedAt(),
 				course.getUpdatedAt());
 	}

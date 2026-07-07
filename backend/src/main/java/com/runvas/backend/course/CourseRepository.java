@@ -15,6 +15,14 @@ public interface CourseRepository extends JpaRepository<Course, String> {
 	java.util.List<Course> findPublicCoursesWithinBounds(
 			double swLat, double swLng, double neLat, double neLng);
 
+	// bounds 없이 제목 부분 일치 검색 — 코스 이름 검색 기능용
+	@Query("select c from Course c where c.visibility = 'PUBLIC' and lower(c.title) like lower(concat('%', :q, '%')) order by c.createdAt desc")
+	java.util.List<Course> findPublicCoursesByTitle(@org.springframework.data.repository.query.Param("q") String q);
+
+	// bounds 없이 태그 정확 일치 검색 (대소문자 구분 없음) — 태그 검색 기능용
+	@Query("select distinct c from Course c join c.tags t where c.visibility = 'PUBLIC' and lower(t) = lower(:tag) order by c.createdAt desc")
+	java.util.List<Course> findPublicCoursesByTag(@org.springframework.data.repository.query.Param("tag") String tag);
+
 	// 본인이 만든 코스 목록 — visibility 필터 없이 PRIVATE도 포함한다.
 	java.util.List<Course> findByAuthorIdOrderByCreatedAtDesc(String authorId);
 }

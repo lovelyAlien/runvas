@@ -66,7 +66,7 @@ export default function ProfileScreen() {
   const currentPace = user?.runningPaceSecPerKm ?? DEFAULT_PACE_SEC_PER_KM;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.content}>
         {user ? (
           <>

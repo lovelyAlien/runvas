@@ -1,5 +1,5 @@
-import React, { useRef, useImperativeHandle, forwardRef } from 'react';
-import { StyleSheet } from 'react-native';
+import React, { useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
+import { AppState, AppStateStatus, StyleSheet } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { Coordinate, GeoBounds, RoutePoint } from '../types';
 
@@ -141,6 +141,11 @@ function buildMapHtml(appKey: string): string {
         }));
       });
 
+      // WebView 초기 레이아웃이 안정되기 전에 지도가 생성되면 카카오맵 SDK가
+      // 실제보다 작은 컨테이너 크기를 캐싱해 이후 재렌더링 시 하단에 흰 공백이 남는다.
+      // 레이아웃이 안정된 뒤 한 번 더 relayout을 걸어 캐시된 크기를 갱신한다.
+      setTimeout(function() { map.relayout(); }, 300);
+
       // 지도 로드 완료 알림 — RN이 이걸 받기 전에 보낸 메시지는 map이 아직 없어 무시될 수 있다.
       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MAP_READY' }));
     });
@@ -187,6 +192,9 @@ function buildMapHtml(appKey: string): string {
         if (lastSeg) lastSeg.setMap(null);
 
       } else if (msg.type === 'FIT_BOUNDS') {
+        // 캐시된 컨테이너 크기 기준으로 bounds를 맞추면 하단이 잘려 흰 공백이 생길 수 있어
+        // 크기를 다시 계산한 뒤 bounds를 적용한다.
+        map.relayout();
         var sw = new kakao.maps.LatLng(msg.swLat, msg.swLng);
         var ne = new kakao.maps.LatLng(msg.neLat, msg.neLng);
         var llBounds = new kakao.maps.LatLngBounds(sw, ne);
@@ -253,6 +261,9 @@ function buildMapHtml(appKey: string): string {
         segmentPolylines = [];
 
       } else if (msg.type === 'MOVE_TO') {
+        // 캐시된 컨테이너 크기 기준으로 확대/이동하면 하단이 잘려 흰 공백이 생길 수 있어
+        // 크기를 다시 계산한 뒤 이동한다.
+        map.relayout();
         var currentLatLng = new kakao.maps.LatLng(msg.latitude, msg.longitude);
         map.setCenter(currentLatLng);
         map.setLevel(3);
@@ -267,6 +278,12 @@ function buildMapHtml(appKey: string): string {
           content: '<div class="current-location-wrapper"><div class="current-location-pin"></div><div class="current-location-label">내 위치</div></div>'
         });
         currentLocationOverlay.setMap(map);
+
+      } else if (msg.type === 'RELAYOUT') {
+        // 안드로이드 권한 다이얼로그 등 다른 Activity가 잠깐 떴다가 사라지면
+        // WebView의 하드웨어 가속 서페이스가 무효화되어 지도 하단이 흰 공백으로 남을 수 있다.
+        // 앱이 다시 포그라운드로 돌아올 때 강제로 relayout해 복구한다.
+        map.relayout();
       }
     }
 
@@ -286,6 +303,21 @@ const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
     const postMessage = (msg: object) => {
       webViewRef.current?.postMessage(JSON.stringify(msg));
     };
+
+    // 위치 권한 다이얼로그 등으로 앱이 background/inactive를 거쳐 다시 active로 돌아오면
+    // 안드로이드 WebView의 하드웨어 가속 서페이스가 무효화되어 지도 하단이 흰 공백으로
+    // 남을 수 있다. 포그라운드 복귀 시점에 지도를 강제로 relayout해 복구한다.
+    useEffect(() => {
+      let previousState: AppStateStatus = AppState.currentState;
+      const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+        const wasBackgrounded = previousState !== 'active';
+        if (wasBackgrounded && nextState === 'active') {
+          postMessage({ type: 'RELAYOUT' });
+        }
+        previousState = nextState;
+      });
+      return () => subscription.remove();
+    }, []);
 
     useImperativeHandle(ref, () => ({
       moveToLocation: (coord: Coordinate) => {

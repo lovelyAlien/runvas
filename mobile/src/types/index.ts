@@ -27,10 +27,12 @@ export interface Course {
   distanceMeters: number;
   estimatedDurationSeconds: number;
   bounds: GeoBounds;
+  startAddress: string | null;
   visibility: CourseVisibility;
   tags: string[];
   likeCount: number;
   likedByMe: boolean;
+  bookmarkedByMe?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -92,12 +94,28 @@ export interface MeResponse {
   user: User;
 }
 
+// docs/api-contract.md PATCH /courses/{courseId} 요청 본문 (메타데이터만, 모든 필드 선택).
+export interface UpdateCourseRequest {
+  title?: string;
+  description?: string | null;
+  visibility?: CourseVisibility;
+  tags?: string[];
+}
+
 // docs/api-contract.md PATCH /me 요청 본문 (모든 필드 선택).
 export interface UpdateMeRequest {
   nickname?: string;
   profileImageUrl?: string | null;
   bio?: string | null;
   runningPaceSecPerKm?: number;
+}
+
+// docs/api-contract.md PUT/DELETE /likes/{targetType}/{targetId} 응답.
+export interface LikeResponse {
+  targetType: string;
+  targetId: string;
+  liked: boolean;
+  likeCount: number;
 }
 
 // docs/api-contract.md 공통 에러 응답 형식.
@@ -107,6 +125,11 @@ export interface ApiErrorBody {
     message: string;
     details?: Array<{ field: string; message: string }>;
   };
+}
+
+// docs/api-contract.md GET /me/bookmarked-courses 응답 항목 타입.
+export interface BookmarkedCourseSummary extends CourseSummary {
+  bookmarkedAt: string;
 }
 
 // docs/api-contract.md GET /courses, GET /courses/mine 목록 응답과 1:1 대응. path는 빠진다
@@ -119,6 +142,7 @@ export interface CourseSummary {
   distanceMeters: number;
   estimatedDurationSeconds: number;
   bounds: GeoBounds;
+  startAddress: string | null;
   visibility: CourseVisibility;
   tags: string[];
   likeCount: number;
@@ -172,4 +196,18 @@ export interface CreatePostRequestBody {
 // docs/api-contract.md POST /posts/{postId}/comments 요청 본문과 1:1 대응.
 export interface CreateCommentRequestBody {
   body: string;
+}
+
+// docs/data-model.md CourseComment와 1:1 대응. PUBLIC 코스에만 존재할 수 있다.
+// parentCommentId가 null이면 최상위 댓글, 아니면 대댓글(2단계까지만 허용).
+export interface CourseComment {
+  id: string;
+  courseId: string;
+  parentCommentId: string | null;
+  author: PublicProfile;
+  body: string;
+  imageUrl: string | null;
+  replyCount: number;
+  createdAt: string;
+  updatedAt: string;
 }

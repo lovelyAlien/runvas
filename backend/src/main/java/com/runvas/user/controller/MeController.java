@@ -1,5 +1,6 @@
 package com.runvas.user.controller;
 
+import com.runvas.backend.community.BookmarkService;
 import com.runvas.global.error.ErrorCode;
 import com.runvas.global.error.RunvasException;
 import com.runvas.global.security.RunvasPrincipal;
@@ -9,6 +10,7 @@ import com.runvas.user.dto.UpdateMeRequest;
 import com.runvas.user.dto.UserResponse;
 import com.runvas.user.repository.UserRepository;
 import jakarta.validation.Valid;
+import java.util.Map;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -21,9 +23,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class MeController {
 
     private final UserRepository userRepository;
+    private final BookmarkService bookmarkService;
 
-    public MeController(UserRepository userRepository) {
+    public MeController(UserRepository userRepository, BookmarkService bookmarkService) {
         this.userRepository = userRepository;
+        this.bookmarkService = bookmarkService;
     }
 
     @GetMapping("/me")
@@ -34,6 +38,15 @@ public class MeController {
         return userRepository.findById(principal.userId())
                 .map(user -> new MeResponse(UserResponse.from(user)))
                 .orElseThrow(() -> new RunvasException(ErrorCode.UNAUTHORIZED));
+    }
+
+    @GetMapping("/me/bookmarked-courses")
+    Map<String, Object> listBookmarkedCourses(@AuthenticationPrincipal RunvasPrincipal principal) {
+        if (principal == null) {
+            throw new RunvasException(ErrorCode.UNAUTHORIZED);
+        }
+        BookmarkService.ListResult result = bookmarkService.listByUser();
+        return Map.of("courses", result.courses(), "pageInfo", result.pageInfo());
     }
 
     @PatchMapping("/me")
