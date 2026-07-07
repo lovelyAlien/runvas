@@ -18,7 +18,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { getPost } from '../services/postApi';
-import { getComments, createComment } from '../services/commentApi';
+import { getComments, createComment, updateComment, deleteComment } from '../services/commentApi';
 import { putLike, deleteLike } from '../services/likeApi';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthGate } from '../hooks/useAuthGate';
@@ -38,6 +38,9 @@ export default function PostDetailScreen({ route, navigation }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [commentBody, setCommentBody] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingBody, setEditingBody] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const loadPost = useCallback(async () => {
     try {
@@ -87,6 +90,50 @@ export default function PostDetailScreen({ route, navigation }: Props) {
     } finally {
       setIsSubmittingComment(false);
     }
+  };
+
+  const handleStartEdit = (comment: Comment) => {
+    setEditingCommentId(comment.id);
+    setEditingBody(comment.body);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCommentId(null);
+    setEditingBody('');
+  };
+
+  const handleSaveEdit = async (commentId: string) => {
+    if (!accessToken || !editingBody.trim()) return;
+    setIsSavingEdit(true);
+    try {
+      const updated = await updateComment(commentId, { body: editingBody.trim() }, accessToken);
+      setComments((prev) => prev.map((c) => (c.id === commentId ? updated : c)));
+      handleCancelEdit();
+    } catch (e: unknown) {
+      Alert.alert('수정 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleDeleteComment = (commentId: string) => {
+    Alert.alert('댓글 삭제', '이 댓글을 삭제하시겠습니까?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
+          if (!accessToken) return;
+          try {
+            await deleteComment(commentId, accessToken);
+            setComments((prev) => prev.filter((c) => c.id !== commentId));
+            setPost((prev) => (prev ? { ...prev, commentCount: Math.max(0, prev.commentCount - 1) } : prev));
+          } catch (e: unknown) {
+            Alert.alert('삭제 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+          }
+        },
+      },
+    ]);
   };
 
   if (isLoading || !post) {
@@ -146,12 +193,57 @@ export default function PostDetailScreen({ route, navigation }: Props) {
               <Text style={styles.commentsHeading}>댓글 {comments.length}</Text>
             </View>
           }
-          renderItem={({ item }) => (
-            <View style={styles.commentRow}>
-              <Text style={styles.commentAuthor}>{item.author.nickname}</Text>
-              <Text style={styles.commentBody}>{item.body}</Text>
-            </View>
-          )}
+          renderItem={({ item }) => {
+            const isMine = user != null && user.id === item.author.id;
+
+            if (editingCommentId === item.id) {
+              return (
+                <View style={styles.commentRow}>
+                  <Text style={styles.commentAuthor}>{item.author.nickname}</Text>
+                  <TextInput
+                    style={styles.commentEditInput}
+                    value={editingBody}
+                    onChangeText={setEditingBody}
+                    multiline
+                    autoFocus
+                  />
+                  <View style={styles.commentActionsRow}>
+                    <TouchableOpacity onPress={handleCancelEdit} activeOpacity={0.7} disabled={isSavingEdit}>
+                      <Text style={styles.commentActionLabel}>취소</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleSaveEdit(item.id)}
+                      activeOpacity={0.7}
+                      disabled={isSavingEdit || !editingBody.trim()}
+                    >
+                      {isSavingEdit ? (
+                        <ActivityIndicator size="small" color={Colors.primary} />
+                      ) : (
+                        <Text style={styles.commentActionLabel}>저장</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            }
+
+            return (
+              <View style={styles.commentRow}>
+                <Text style={styles.commentAuthor}>{item.author.nickname}</Text>
+                <Text style={styles.commentBody}>{item.body}</Text>
+                {isMine && (
+                  <View style={styles.commentActionsRow}>
+                    <TouchableOpacity onPress={() => handleStartEdit(item)} activeOpacity={0.7}>
+                      <Text style={styles.commentActionLabel}>수정</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeleteComment(item.id)} activeOpacity={0.7}>
+                      <Text style={styles.commentActionLabel}>삭제</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            );
+          }}
           ListEmptyComponent={<Text style={styles.emptyComments}>아직 댓글이 없습니다.</Text>}
         />
 
@@ -284,6 +376,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.gray500,
     marginTop: 2,
+  },
+  commentEditInput: {
+    fontSize: 13,
+    color: Colors.gray900,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: Colors.gray100,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  commentActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 6,
+  },
+  commentActionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.gray500,
   },
   emptyComments: {
     paddingHorizontal: 20,
