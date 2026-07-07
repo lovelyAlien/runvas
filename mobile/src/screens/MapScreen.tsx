@@ -385,10 +385,31 @@ export default function MapScreen({ navigation }: Props) {
         )}
 
         {/* 좌측 하단 코스 조회/이름 검색 버튼 — 시트가 열려 있는 동안 사라지지 않고, 시트가 펼쳐지고
-            접히는 움직임을 그대로 따라다닌다. */}
+            접히는 움직임을 그대로 따라다닌다. "주변 코스 찾기"는 지도 bounds로 목록을 가져오는
+            주요 동작이라 텍스트 라벨이 있는 pill 버튼으로, "검색"은 이름/태그 검색창을 여는 보조
+            동작이라 아이콘 전용 FAB로 남겨 서로 다른 동작임을 형태로 구분한다. */}
         <Animated.View style={[styles.bottomLeftButtons, { bottom: searchButtonBottom }]}>
-          <FAB icon="search" onPress={handleOpenCourseSearch} disabled={isLoadingCourses} />
-          <FAB icon="search-outline" onPress={() => setIsSearchOpen(true)} />
+          <TouchableOpacity
+            style={[styles.nearbyCoursesButton, isLoadingCourses && styles.nearbyCoursesButtonDisabled]}
+            onPress={handleOpenCourseSearch}
+            disabled={isLoadingCourses}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="navigate"
+              size={18}
+              color={isLoadingCourses ? Colors.gray400 : Colors.white}
+            />
+            <Text
+              style={[
+                styles.nearbyCoursesButtonLabel,
+                isLoadingCourses && styles.nearbyCoursesButtonLabelDisabled,
+              ]}
+            >
+              주변 코스 찾기
+            </Text>
+          </TouchableOpacity>
+          <FAB icon="search" onPress={() => setIsSearchOpen(true)} />
         </Animated.View>
 
         {isSearchOpen && (
@@ -605,6 +626,31 @@ const styles = StyleSheet.create({
   },
   fabDisabled: {
     backgroundColor: Colors.gray50,
+  },
+  nearbyCoursesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 46,
+    paddingHorizontal: 16,
+    borderRadius: 23,
+    backgroundColor: Colors.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  nearbyCoursesButtonDisabled: {
+    backgroundColor: Colors.gray100,
+  },
+  nearbyCoursesButtonLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.white,
+  },
+  nearbyCoursesButtonLabelDisabled: {
+    color: Colors.gray400,
   },
   modalOverlay: {
     flex: 1,
