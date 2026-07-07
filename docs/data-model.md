@@ -160,7 +160,6 @@ MVP에서 사용자는 본인이 생성한 코스의 아래 필드를 수정할 
 | `parentCommentId` | string \| null | N | 바로 위 부모 댓글 ID. 최상위 댓글이면 `null` |
 | `author` | PublicProfile | Y | 작성자 공개 프로필 |
 | `body` | string | Y | 댓글 본문 |
-| `imageUrl` | string \| null | N | 러닝 인증 이미지 URL. 없으면 `null` |
 | `replyCount` | number | Y | 이 댓글에 달린 직계 대댓글 수 (대댓글도 자신의 대댓글 수를 가질 수 있음) |
 | `createdAt` | string | Y | ISO 8601 생성 시각 |
 | `updatedAt` | string | Y | ISO 8601 수정 시각 |
