@@ -9,6 +9,9 @@ import {
   ScrollView,
   Image,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -240,6 +243,7 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
       }
       setCommentBody('');
       setCommentImage(null);
+      Keyboard.dismiss();
     } catch (e: unknown) {
       Alert.alert('댓글 작성 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
@@ -375,124 +379,129 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
         )}
       </View>
 
-      <View style={styles.mapContainer}>
-        <KakaoMapView ref={mapRef} onMapPress={() => {}} onMapReady={handleMapReady} />
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoider}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View style={styles.mapContainer}>
+          <KakaoMapView ref={mapRef} onMapPress={() => {}} onMapReady={handleMapReady} />
 
-        <View style={styles.floatingButtons}>
-          <FAB icon="create-outline" onPress={handlePressWriteReview} />
-          <FAB icon="list-outline" onPress={handlePressReviewBoard} />
+          <View style={styles.floatingButtons}>
+            <FAB icon="create-outline" onPress={handlePressWriteReview} />
+            <FAB icon="list-outline" onPress={handlePressReviewBoard} />
+          </View>
         </View>
-      </View>
 
-      <ScrollView style={styles.bottomScroll} keyboardShouldPersistTaps="handled">
-        <RouteStatsBar
-          stats={{
-            distanceMeters: course.distanceMeters,
-            estimatedDurationSeconds: Math.round((course.distanceMeters / 1000) * userPace),
-            pointCount: course.waypoints.length,
-          }}
-          onExport={handleExport}
-          isExporting={isExporting}
-        />
-        <View style={styles.likeBar}>
-          <TouchableOpacity onPress={handleLike} activeOpacity={0.7} style={styles.likeButton}>
-            <Ionicons
-              name={likedByMe ? 'heart' : 'heart-outline'}
-              size={22}
-              color={likedByMe ? Colors.danger : Colors.gray500}
-            />
-            <Text style={[styles.likeCount, likedByMe && styles.likeCountActive]}>
-              {likeCount}
-            </Text>
-          </TouchableOpacity>
-          {user?.id !== course.authorId && (
-            <TouchableOpacity onPress={handleBookmark} activeOpacity={0.7} style={styles.bookmarkButton}>
+        <ScrollView style={styles.bottomScroll} keyboardShouldPersistTaps="handled">
+          <RouteStatsBar
+            stats={{
+              distanceMeters: course.distanceMeters,
+              estimatedDurationSeconds: Math.round((course.distanceMeters / 1000) * userPace),
+              pointCount: course.waypoints.length,
+            }}
+            onExport={handleExport}
+            isExporting={isExporting}
+          />
+          <View style={styles.likeBar}>
+            <TouchableOpacity onPress={handleLike} activeOpacity={0.7} style={styles.likeButton}>
               <Ionicons
-                name={bookmarkedByMe ? 'bookmark' : 'bookmark-outline'}
+                name={likedByMe ? 'heart' : 'heart-outline'}
                 size={22}
-                color={bookmarkedByMe ? Colors.primary : Colors.gray500}
+                color={likedByMe ? Colors.danger : Colors.gray500}
               />
+              <Text style={[styles.likeCount, likedByMe && styles.likeCountActive]}>
+                {likeCount}
+              </Text>
             </TouchableOpacity>
-          )}
-        </View>
-        <TagList tags={course.tags} style={styles.tagList} />
-
-        {course.visibility === 'PUBLIC' && (
-          <View style={styles.commentSection}>
-            <Text style={styles.commentSectionTitle}>댓글</Text>
-
-            <View style={styles.commentForm}>
-              {replyTarget && (
-                <View style={styles.replyTargetBar}>
-                  <Text style={styles.replyTargetText}>
-                    {replyTarget.author.nickname}님에게 답글 작성 중
-                  </Text>
-                  <TouchableOpacity onPress={handleCancelReply} activeOpacity={0.7}>
-                    <Ionicons name="close" size={16} color={Colors.gray500} />
-                  </TouchableOpacity>
-                </View>
-              )}
-              <TextInput
-                style={styles.commentInput}
-                placeholder={replyTarget ? '답글을 입력하세요' : '댓글을 입력하세요'}
-                placeholderTextColor={Colors.gray400}
-                value={commentBody}
-                onChangeText={setCommentBody}
-                multiline
-              />
-              {commentImage && (
-                <View style={styles.commentImagePreviewWrapper}>
-                  <Image source={{ uri: commentImage.uri }} style={styles.commentImagePreview} />
-                  <TouchableOpacity
-                    onPress={() => setCommentImage(null)}
-                    style={styles.commentImageRemoveButton}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="close-circle" size={20} color={Colors.gray500} />
-                  </TouchableOpacity>
-                </View>
-              )}
-              <View style={styles.commentFormActions}>
-                <TouchableOpacity onPress={handlePickCommentImage} activeOpacity={0.7}>
-                  <Ionicons name="camera-outline" size={22} color={Colors.gray500} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleSubmitComment}
-                  activeOpacity={0.7}
-                  style={styles.commentSubmitButton}
-                  disabled={isSubmittingComment}
-                >
-                  {isSubmittingComment ? (
-                    <ActivityIndicator size="small" color={Colors.white} />
-                  ) : (
-                    <Text style={styles.commentSubmitText}>등록</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {isCommentsLoading ? (
-              <ActivityIndicator size="small" color={Colors.primary} style={styles.commentLoading} />
-            ) : comments.length === 0 ? (
-              <Text style={styles.commentEmptyText}>아직 댓글이 없습니다.</Text>
-            ) : (
-              comments.map((comment) => (
-                <CourseCommentItem
-                  key={comment.id}
-                  comment={comment}
-                  currentUserId={user?.id}
-                  onDelete={handleDeleteComment}
-                  onReply={handleReply}
-                  replies={repliesByParentId[comment.id]}
-                  isRepliesExpanded={expandedReplyIds[comment.id] ?? false}
-                  isRepliesLoading={loadingReplyIds[comment.id] ?? false}
-                  onToggleReplies={handleToggleReplies}
+            {user?.id !== course.authorId && (
+              <TouchableOpacity onPress={handleBookmark} activeOpacity={0.7} style={styles.bookmarkButton}>
+                <Ionicons
+                  name={bookmarkedByMe ? 'bookmark' : 'bookmark-outline'}
+                  size={22}
+                  color={bookmarkedByMe ? Colors.primary : Colors.gray500}
                 />
-              ))
+              </TouchableOpacity>
             )}
           </View>
-        )}
-      </ScrollView>
+          <TagList tags={course.tags} style={styles.tagList} />
+
+          {course.visibility === 'PUBLIC' && (
+            <View style={styles.commentSection}>
+              <Text style={styles.commentSectionTitle}>댓글</Text>
+
+              <View style={styles.commentForm}>
+                {replyTarget && (
+                  <View style={styles.replyTargetBar}>
+                    <Text style={styles.replyTargetText}>
+                      {replyTarget.author.nickname}님에게 답글 작성 중
+                    </Text>
+                    <TouchableOpacity onPress={handleCancelReply} activeOpacity={0.7}>
+                      <Ionicons name="close" size={16} color={Colors.gray500} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                <TextInput
+                  style={styles.commentInput}
+                  placeholder={replyTarget ? '답글을 입력하세요' : '댓글을 입력하세요'}
+                  placeholderTextColor={Colors.gray400}
+                  value={commentBody}
+                  onChangeText={setCommentBody}
+                  multiline
+                />
+                {commentImage && (
+                  <View style={styles.commentImagePreviewWrapper}>
+                    <Image source={{ uri: commentImage.uri }} style={styles.commentImagePreview} />
+                    <TouchableOpacity
+                      onPress={() => setCommentImage(null)}
+                      style={styles.commentImageRemoveButton}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="close-circle" size={20} color={Colors.gray500} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                <View style={styles.commentFormActions}>
+                  <TouchableOpacity onPress={handlePickCommentImage} activeOpacity={0.7}>
+                    <Ionicons name="camera-outline" size={22} color={Colors.gray500} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleSubmitComment}
+                    activeOpacity={0.7}
+                    style={styles.commentSubmitButton}
+                    disabled={isSubmittingComment}
+                  >
+                    {isSubmittingComment ? (
+                      <ActivityIndicator size="small" color={Colors.white} />
+                    ) : (
+                      <Text style={styles.commentSubmitText}>등록</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {isCommentsLoading ? (
+                <ActivityIndicator size="small" color={Colors.primary} style={styles.commentLoading} />
+              ) : comments.length === 0 ? (
+                <Text style={styles.commentEmptyText}>아직 댓글이 없습니다.</Text>
+              ) : (
+                comments.map((comment) => (
+                  <CourseCommentItem
+                    key={comment.id}
+                    comment={comment}
+                    currentUserId={user?.id}
+                    onDelete={handleDeleteComment}
+                    onReply={handleReply}
+                    replies={repliesByParentId[comment.id]}
+                    isRepliesExpanded={expandedReplyIds[comment.id] ?? false}
+                    isRepliesLoading={loadingReplyIds[comment.id] ?? false}
+                    onToggleReplies={handleToggleReplies}
+                  />
+                ))
+              )}
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -539,6 +548,9 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 24,
+  },
+  keyboardAvoider: {
+    flex: 1,
   },
   metaBar: {
     flexDirection: 'row',
