@@ -50,5 +50,5 @@ SDK 메이저 버전이 올라가면 네이티브 모듈 API가 자주 바뀝니
 
 - mobile 관련 `.md` 파일(`CLAUDE.md`, `AGENTS.md`, `WORKLOG.md`)은 이 디렉토리(`runvas/mobile/`)
   안에만 작성하세요. `runvas/docs/` 문서는 백엔드·모바일 공통 영역이므로 모바일 작업만으로 수정하지 않습니다.
-- API 키(`EXPO_PUBLIC_KAKAO_APP_KEY`, `EXPO_PUBLIC_TMAP_APP_KEY`)와 `EXPO_PUBLIC_API_BASE_URL`은
+- API 키(`EXPO_PUBLIC_KAKAO_APP_KEY`, `EXPO_PUBLIC_KAKAO_JS_KEY`)와 `EXPO_PUBLIC_API_BASE_URL`은
   `.env`에만 두고 커밋하지 않습니다. `.env.example`만 갱신하세요.
