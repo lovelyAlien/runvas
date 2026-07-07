@@ -9,6 +9,8 @@ import {
   ScrollView,
   Image,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +29,7 @@ import {
   getCourseComments,
   getCourseCommentReplies,
   createCourseComment,
+  updateCourseComment,
   deleteCourseComment,
   CourseCommentImageInput,
 } from '../services/courseCommentApi';
@@ -56,7 +59,10 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
   const [commentBody, setCommentBody] = useState('');
   const [commentImage, setCommentImage] = useState<CourseCommentImageInput | null>(null);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [replyTarget, setReplyTarget] = useState<CourseComment | null>(null);
+  const [replyTargetId, setReplyTargetId] = useState<string | null>(null);
+  const [replyBody, setReplyBody] = useState('');
+  const [replyImage, setReplyImage] = useState<CourseCommentImageInput | null>(null);
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
   const [repliesByParentId, setRepliesByParentId] = useState<Record<string, CourseComment[]>>({});
   const [expandedReplyIds, setExpandedReplyIds] = useState<Record<string, boolean>>({});
   const [loadingReplyIds, setLoadingReplyIds] = useState<Record<string, boolean>>({});
@@ -164,26 +170,64 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
     }
   };
 
-  const handlePickCommentImage = async () => {
-    if (!requireAuth()) return;
-
+  const pickImageFromLibrary = async (namePrefix: string): Promise<CourseCommentImageInput | null> => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('권한 필요', '사진 라이브러리 접근 권한이 필요합니다.');
-      return;
+      return null;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.8,
     });
-    if (result.canceled || result.assets.length === 0) return;
+    if (result.canceled || result.assets.length === 0) return null;
 
     const asset = result.assets[0];
-    const name = asset.fileName ?? `comment-${Date.now()}.jpg`;
+    const name = asset.fileName ?? `${namePrefix}-${Date.now()}.jpg`;
     const type = asset.mimeType ?? 'image/jpeg';
-    setCommentImage({ uri: asset.uri, name, type });
+    return { uri: asset.uri, name, type };
   };
+
+  const handlePickCommentImage = async () => {
+    if (!requireAuth()) return;
+    const image = await pickImageFromLibrary('comment');
+    if (image) setCommentImage(image);
+  };
+
+  const handlePickReplyImage = async () => {
+    if (!requireAuth()) return;
+    const image = await pickImageFromLibrary('reply');
+    if (image) setReplyImage(image);
+  };
+
+  const handleRemoveReplyImage = () => {
+    setReplyImage(null);
+  };
+
+  const updateReplyCount = useCallback((parentCommentId: string, delta: number) => {
+    setComments((prev) =>
+      prev.map((comment) =>
+        comment.id === parentCommentId
+          ? { ...comment, replyCount: Math.max(0, comment.replyCount + delta) }
+          : comment
+      )
+    );
+    setRepliesByParentId((prev) => {
+      const next: Record<string, CourseComment[]> = { ...prev };
+      for (const [ownerId, replies] of Object.entries(prev)) {
+        const index = replies.findIndex((reply) => reply.id === parentCommentId);
+        if (index === -1) continue;
+        const updatedReplies = [...replies];
+        updatedReplies[index] = {
+          ...updatedReplies[index],
+          replyCount: Math.max(0, updatedReplies[index].replyCount + delta),
+        };
+        next[ownerId] = updatedReplies;
+      }
+      return next;
+    });
+  }, []);
 
   const handleSubmitComment = async () => {
     if (!requireAuth()) return;
@@ -197,31 +241,8 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
 
     setIsSubmittingComment(true);
     try {
-      const parentCommentId = replyTarget?.id;
-      const created = await createCourseComment(
-        courseId,
-        trimmedBody,
-        commentImage,
-        accessToken,
-        parentCommentId
-      );
-      if (parentCommentId) {
-        setRepliesByParentId((prev) => ({
-          ...prev,
-          [parentCommentId]: [...(prev[parentCommentId] ?? []), created],
-        }));
-        setComments((prev) =>
-          prev.map((comment) =>
-            comment.id === parentCommentId
-              ? { ...comment, replyCount: comment.replyCount + 1 }
-              : comment
-          )
-        );
-        setExpandedReplyIds((prev) => ({ ...prev, [parentCommentId]: true }));
-        setReplyTarget(null);
-      } else {
-        setComments((prev) => [created, ...prev]);
-      }
+      const created = await createCourseComment(courseId, trimmedBody, commentImage, accessToken);
+      setComments((prev) => [created, ...prev]);
       setCommentBody('');
       setCommentImage(null);
     } catch (e: unknown) {
@@ -233,11 +254,48 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
 
   const handleReply = (comment: CourseComment) => {
     if (!requireAuth()) return;
-    setReplyTarget(comment);
+    setReplyTargetId((prev) => (prev === comment.id ? null : comment.id));
+    setReplyBody('');
+    setReplyImage(null);
   };
 
   const handleCancelReply = () => {
-    setReplyTarget(null);
+    setReplyTargetId(null);
+    setReplyBody('');
+    setReplyImage(null);
+  };
+
+  const handleSubmitReply = async (parentCommentId: string) => {
+    if (!requireAuth()) return;
+    if (!accessToken) return;
+
+    const trimmedBody = replyBody.trim();
+    if (!trimmedBody) {
+      Alert.alert('알림', '답글 내용을 입력해주세요.');
+      return;
+    }
+
+    setIsSubmittingReply(true);
+    try {
+      const created = await createCourseComment(
+        courseId,
+        trimmedBody,
+        replyImage,
+        accessToken,
+        parentCommentId
+      );
+      setRepliesByParentId((prev) => ({
+        ...prev,
+        [parentCommentId]: [...(prev[parentCommentId] ?? []), created],
+      }));
+      updateReplyCount(parentCommentId, 1);
+      setExpandedReplyIds((prev) => ({ ...prev, [parentCommentId]: true }));
+      handleCancelReply();
+    } catch (e: unknown) {
+      Alert.alert('답글 작성 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+    } finally {
+      setIsSubmittingReply(false);
+    }
   };
 
   const handleToggleReplies = (commentId: string) => {
@@ -263,6 +321,26 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
     });
   };
 
+  const handleUpdateComment = async (
+    commentId: string,
+    parentCommentId: string | null,
+    body: string
+  ) => {
+    if (!accessToken) return;
+
+    const updated = await updateCourseComment(courseId, commentId, { body }, accessToken);
+    if (parentCommentId) {
+      setRepliesByParentId((prev) => ({
+        ...prev,
+        [parentCommentId]: (prev[parentCommentId] ?? []).map((reply) =>
+          reply.id === commentId ? updated : reply
+        ),
+      }));
+    } else {
+      setComments((prev) => prev.map((comment) => (comment.id === commentId ? updated : comment)));
+    }
+  };
+
   const handleDeleteComment = (commentId: string, parentCommentId: string | null) => {
     if (!accessToken) return;
 
@@ -279,13 +357,7 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
               ...prev,
               [parentCommentId]: (prev[parentCommentId] ?? []).filter((reply) => reply.id !== commentId),
             }));
-            setComments((prev) =>
-              prev.map((comment) =>
-                comment.id === parentCommentId
-                  ? { ...comment, replyCount: Math.max(0, comment.replyCount - 1) }
-                  : comment
-              )
-            );
+            updateReplyCount(parentCommentId, -1);
           } else {
             setComments((prev) => prev.filter((comment) => comment.id !== commentId));
           }
@@ -363,6 +435,10 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
         <KakaoMapView ref={mapRef} onMapPress={() => {}} onMapReady={handleMapReady} />
       </View>
 
+      <KeyboardAvoidingView
+        style={styles.commentAreaContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
       <ScrollView style={styles.bottomScroll} keyboardShouldPersistTaps="handled">
         <RouteStatsBar
           stats={{
@@ -400,56 +476,6 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
           <View style={styles.commentSection}>
             <Text style={styles.commentSectionTitle}>댓글</Text>
 
-            <View style={styles.commentForm}>
-              {replyTarget && (
-                <View style={styles.replyTargetBar}>
-                  <Text style={styles.replyTargetText}>
-                    {replyTarget.author.nickname}님에게 답글 작성 중
-                  </Text>
-                  <TouchableOpacity onPress={handleCancelReply} activeOpacity={0.7}>
-                    <Ionicons name="close" size={16} color={Colors.gray500} />
-                  </TouchableOpacity>
-                </View>
-              )}
-              <TextInput
-                style={styles.commentInput}
-                placeholder={replyTarget ? '답글을 입력하세요' : '댓글을 입력하세요'}
-                placeholderTextColor={Colors.gray400}
-                value={commentBody}
-                onChangeText={setCommentBody}
-                multiline
-              />
-              {commentImage && (
-                <View style={styles.commentImagePreviewWrapper}>
-                  <Image source={{ uri: commentImage.uri }} style={styles.commentImagePreview} />
-                  <TouchableOpacity
-                    onPress={() => setCommentImage(null)}
-                    style={styles.commentImageRemoveButton}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="close-circle" size={20} color={Colors.gray500} />
-                  </TouchableOpacity>
-                </View>
-              )}
-              <View style={styles.commentFormActions}>
-                <TouchableOpacity onPress={handlePickCommentImage} activeOpacity={0.7}>
-                  <Ionicons name="camera-outline" size={22} color={Colors.gray500} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleSubmitComment}
-                  activeOpacity={0.7}
-                  style={styles.commentSubmitButton}
-                  disabled={isSubmittingComment}
-                >
-                  {isSubmittingComment ? (
-                    <ActivityIndicator size="small" color={Colors.white} />
-                  ) : (
-                    <Text style={styles.commentSubmitText}>등록</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-
             {isCommentsLoading ? (
               <ActivityIndicator size="small" color={Colors.primary} style={styles.commentLoading} />
             ) : comments.length === 0 ? (
@@ -462,16 +488,69 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
                   currentUserId={user?.id}
                   onDelete={handleDeleteComment}
                   onReply={handleReply}
-                  replies={repliesByParentId[comment.id]}
-                  isRepliesExpanded={expandedReplyIds[comment.id] ?? false}
-                  isRepliesLoading={loadingReplyIds[comment.id] ?? false}
+                  onUpdate={handleUpdateComment}
                   onToggleReplies={handleToggleReplies}
+                  repliesByParentId={repliesByParentId}
+                  expandedReplyIds={expandedReplyIds}
+                  loadingReplyIds={loadingReplyIds}
+                  activeReplyId={replyTargetId}
+                  replyBody={replyBody}
+                  replyImage={replyImage}
+                  isSubmittingReply={isSubmittingReply}
+                  onChangeReplyBody={setReplyBody}
+                  onPickReplyImage={handlePickReplyImage}
+                  onRemoveReplyImage={handleRemoveReplyImage}
+                  onSubmitReply={handleSubmitReply}
+                  onCancelReply={handleCancelReply}
                 />
               ))
             )}
           </View>
         )}
       </ScrollView>
+
+      {course.visibility === 'PUBLIC' && (
+        <View style={styles.commentComposer}>
+          <TextInput
+            style={styles.commentInput}
+            placeholder="댓글을 입력하세요"
+            placeholderTextColor={Colors.gray400}
+            value={commentBody}
+            onChangeText={setCommentBody}
+            multiline
+          />
+          {commentImage && (
+            <View style={styles.commentImagePreviewWrapper}>
+              <Image source={{ uri: commentImage.uri }} style={styles.commentImagePreview} />
+              <TouchableOpacity
+                onPress={() => setCommentImage(null)}
+                style={styles.commentImageRemoveButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close-circle" size={20} color={Colors.gray500} />
+              </TouchableOpacity>
+            </View>
+          )}
+          <View style={styles.commentFormActions}>
+            <TouchableOpacity onPress={handlePickCommentImage} activeOpacity={0.7}>
+              <Ionicons name="camera-outline" size={22} color={Colors.gray500} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSubmitComment}
+              activeOpacity={0.7}
+              style={styles.commentSubmitButton}
+              disabled={isSubmittingComment}
+            >
+              {isSubmittingComment ? (
+                <ActivityIndicator size="small" color={Colors.white} />
+              ) : (
+                <Text style={styles.commentSubmitText}>등록</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -553,6 +632,9 @@ const styles = StyleSheet.create({
   mapContainer: {
     height: 260,
   },
+  commentAreaContainer: {
+    flex: 1,
+  },
   bottomScroll: {
     flex: 1,
   },
@@ -600,22 +682,13 @@ const styles = StyleSheet.create({
     color: Colors.gray900,
     marginBottom: 10,
   },
-  commentForm: {
-    marginBottom: 12,
-  },
-  replyTargetBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.gray100,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginBottom: 6,
-  },
-  replyTargetText: {
-    fontSize: 12,
-    color: Colors.gray500,
+  commentComposer: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.gray100,
+    backgroundColor: Colors.white,
   },
   commentInput: {
     minHeight: 44,
