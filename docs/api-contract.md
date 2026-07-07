@@ -827,7 +827,7 @@ bounds 4개 중 일부만 전달하거나, bounds/q/tag를 모두 생략하면 `
         "bio": null
       },
       "body": "오늘 이 코스 완주했습니다!",
-      "imageUrl": "http://localhost:8921/uploads/course-comments/course_123/8f1c.jpg",
+      "imageUrl": "http://localhost:8080/uploads/course-comments/course_123/8f1c.jpg",
       "replyCount": 2,
       "createdAt": "2026-06-22T09:30:00Z",
       "updatedAt": "2026-06-22T09:30:00Z"
@@ -932,7 +932,7 @@ bounds 4개 중 일부만 전달하거나, bounds/q/tag를 모두 생략하면 `
       "bio": null
     },
     "body": "오늘 이 코스 완주했습니다!",
-    "imageUrl": "http://localhost:8921/uploads/course-comments/course_123/8f1c.jpg",
+    "imageUrl": "http://localhost:8080/uploads/course-comments/course_123/8f1c.jpg",
     "replyCount": 0,
     "createdAt": "2026-06-22T09:30:00Z",
     "updatedAt": "2026-06-22T09:30:00Z"

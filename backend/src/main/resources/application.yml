@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:8921}
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
@@ -45,4 +45,4 @@ runvas:
     app-key: ${TMAP_APP_KEY:}
   upload:
     dir: ${UPLOAD_DIR:./uploads}
-    base-url: ${UPLOAD_BASE_URL:http://localhost:8921}
+    base-url: ${UPLOAD_BASE_URL:http://localhost:8080}
