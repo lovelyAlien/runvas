@@ -27,15 +27,24 @@ function normalizePoints(path: RoutePoint[], size: number): string {
   const minLng = Math.min(...lngs);
   const maxLng = Math.max(...lngs);
 
+  const avgLatRad = ((minLat + maxLat) / 2) * (Math.PI / 180);
+  // 경도 1도의 실제 거리는 위도에 따라 cos(latitude)만큼 짧아짐 → 종횡비 보정에 반영
+  const lngScaleFactor = Math.cos(avgLatRad);
+
   const latSpan = maxLat - minLat || 1e-6;
-  const lngSpan = maxLng - minLng || 1e-6;
+  const lngSpan = (maxLng - minLng) * lngScaleFactor || 1e-6;
   const drawSize = size - PADDING * 2;
+
+  // 실제 모양의 종횡비를 유지하도록 두 축에 같은 scale을 적용하고, 남는 공간은 중앙 정렬
+  const scale = drawSize / Math.max(latSpan, lngSpan);
+  const offsetX = PADDING + (drawSize - lngSpan * scale) / 2;
+  const offsetY = PADDING + (drawSize - latSpan * scale) / 2;
 
   return path
     .map(p => {
-      const x = PADDING + ((p.longitude - minLng) / lngSpan) * drawSize;
+      const x = offsetX + (p.longitude - minLng) * lngScaleFactor * scale;
       // latitude 증가 = 위쪽 → SVG y 감소
-      const y = PADDING + ((maxLat - p.latitude) / latSpan) * drawSize;
+      const y = offsetY + (maxLat - p.latitude) * scale;
       return `${x.toFixed(2)},${y.toFixed(2)}`;
     })
     .join(' ');
