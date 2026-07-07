@@ -100,7 +100,7 @@ cd mobile && npx tsc --noEmit
 ## 추가 구현: 대댓글(2단계 답글)
 
 백엔드는 이미 `parentCommentId`, `GET /comments/{commentId}/replies`, `replyCount`까지 구현되어
-있었지만(`CourseComment.java`, `CourseCommentController.java`, `V8__add_parent_comment_id_to_course_comments.sql`),
+있었지만(`CourseComment.java`, `CourseCommentController.java`, `V9__add_parent_comment_id_to_course_comments.sql`),
 모바일 쪽 `CourseDetailScreen`은 목록/작성 폼에 답글 상태를 전혀 연결하지 않고 있었습니다
 (`CourseCommentItem`에 존재하지도 않는 `isMine` prop을 넘기는 버그 포함). 이번에 아래를 연결했습니다.
 
