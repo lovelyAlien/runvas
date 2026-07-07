@@ -10,7 +10,6 @@ public record CourseCommentResponse(
 		String parentCommentId,
 		PublicProfile author,
 		String body,
-		String imageUrl,
 		long replyCount,
 		Instant createdAt,
 		Instant updatedAt) {
@@ -22,7 +21,6 @@ public record CourseCommentResponse(
 				comment.getParentCommentId(),
 				author,
 				comment.getBody(),
-				comment.getImageUrl(),
 				replyCount,
 				comment.getCreatedAt(),
 				comment.getUpdatedAt());

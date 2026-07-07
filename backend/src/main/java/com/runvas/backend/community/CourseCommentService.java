@@ -9,11 +9,9 @@ import com.runvas.backend.community.dto.PublicProfile;
 import com.runvas.backend.course.Course;
 import com.runvas.backend.course.CourseRepository;
 import com.runvas.backend.course.CourseVisibility;
-import com.runvas.backend.storage.ImageStorageService;
 import com.runvas.user.domain.User;
 import com.runvas.user.repository.UserRepository;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -23,7 +21,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -39,7 +36,6 @@ public class CourseCommentService {
 	private final CourseRepository courseRepository;
 	private final UserRepository userRepository;
 	private final CurrentUserProvider currentUserProvider;
-	private final ImageStorageService imageStorageService;
 
 	@Transactional(readOnly = true)
 	public ListResult list(String courseId, Integer limit, String cursor) {
@@ -83,7 +79,7 @@ public class CourseCommentService {
 	}
 
 	@Transactional
-	public CourseCommentResponse create(String courseId, String body, MultipartFile image, String parentCommentId) {
+	public CourseCommentResponse create(String courseId, String body, String parentCommentId) {
 		String authorId = currentUserProvider.requireUserId();
 		Course course = findCourseOrThrow(courseId);
 		requirePublicCourse(course);
@@ -92,30 +88,19 @@ public class CourseCommentService {
 			validateParentComment(courseId, parentCommentId);
 		}
 
-		String imageUrl = image != null && !image.isEmpty() ? imageStorageService.store(courseId, image) : null;
-
-		CourseComment comment = new CourseComment(courseId, authorId, parentCommentId, body, imageUrl);
+		CourseComment comment = new CourseComment(courseId, authorId, parentCommentId, body);
 		courseCommentRepository.save(comment);
 		return toResponse(comment, 0L);
 	}
 
 	@Transactional
-	public CourseCommentResponse update(
-			String courseId, String commentId, String body, MultipartFile image, Boolean removeImage) {
+	public CourseCommentResponse update(String courseId, String commentId, String body) {
 		CourseComment comment = findCommentOrThrow(courseId, commentId);
 		requireAuthor(comment);
 
 		if (body != null) {
 			validateBody(body);
 			comment.setBody(body);
-		}
-
-		if (image != null && !image.isEmpty()) {
-			imageStorageService.delete(comment.getImageUrl());
-			comment.setImageUrl(imageStorageService.store(courseId, image));
-		} else if (Boolean.TRUE.equals(removeImage)) {
-			imageStorageService.delete(comment.getImageUrl());
-			comment.setImageUrl(null);
 		}
 
 		comment.setUpdatedAt(Instant.now());
@@ -129,22 +114,7 @@ public class CourseCommentService {
 			return;
 		}
 		requireAuthor(comment);
-		// 하위 댓글은 몇 단계든 DB가 CASCADE로 행을 지워주지만, 첨부 이미지 파일은
-		// DB가 지워주지 않으므로 삭제 전에 모든 하위 댓글(대댓글의 대댓글 포함)을 순회하며 지운다.
-		collectDescendants(commentId).forEach(descendant -> imageStorageService.delete(descendant.getImageUrl()));
-		imageStorageService.delete(comment.getImageUrl());
 		courseCommentRepository.delete(comment);
-	}
-
-	private List<CourseComment> collectDescendants(String commentId) {
-		List<CourseComment> descendants = new ArrayList<>();
-		List<CourseComment> children =
-				courseCommentRepository.findByParentCommentIdOrderByCreatedAtAsc(commentId, Pageable.unpaged());
-		for (CourseComment child : children) {
-			descendants.add(child);
-			descendants.addAll(collectDescendants(child.getId()));
-		}
-		return descendants;
 	}
 
 	private void validateParentComment(String courseId, String parentCommentId) {

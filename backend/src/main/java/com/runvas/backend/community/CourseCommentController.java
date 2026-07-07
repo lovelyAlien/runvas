@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/courses/{courseId}/comments")
@@ -35,9 +34,8 @@ public class CourseCommentController {
 	public ResponseEntity<Map<String, CourseCommentResponse>> create(
 			@PathVariable String courseId,
 			@RequestParam String body,
-			@RequestParam(required = false) MultipartFile image,
 			@RequestParam(required = false) String parentCommentId) {
-		CourseCommentResponse response = courseCommentService.create(courseId, body, image, parentCommentId);
+		CourseCommentResponse response = courseCommentService.create(courseId, body, parentCommentId);
 		return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("comment", response));
 	}
 
@@ -50,11 +48,8 @@ public class CourseCommentController {
 	public Map<String, CourseCommentResponse> update(
 			@PathVariable String courseId,
 			@PathVariable String commentId,
-			@RequestParam(required = false) String body,
-			@RequestParam(required = false) MultipartFile image,
-			@RequestParam(required = false) Boolean removeImage) {
-		CourseCommentResponse response =
-				courseCommentService.update(courseId, commentId, body, image, removeImage);
+			@RequestParam(required = false) String body) {
+		CourseCommentResponse response = courseCommentService.update(courseId, commentId, body);
 		return Map.of("comment", response);
 	}
 
