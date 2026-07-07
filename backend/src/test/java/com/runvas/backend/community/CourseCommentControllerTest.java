@@ -249,32 +249,45 @@ class CourseCommentControllerTest {
 	}
 
 	@Test
-	void replyToReplyIsRejected() throws Exception {
+	void replyToReplySucceedsAndNestsCorrectly() throws Exception {
 		String token = createUserToken("author9");
 		String courseId = createCourse(authorIdFromToken(token), CourseVisibility.PUBLIC);
 		String parentId = createComment(courseId, token, "원본 댓글");
 		String replyId = createReply(courseId, token, parentId, "1차 대댓글");
 
 		mockMvc.perform(multipart("/api/courses/" + courseId + "/comments")
-						.param("body", "2차 대댓글 시도")
+						.param("body", "2차 대댓글")
 						.param("parentCommentId", replyId)
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.comment.parentCommentId").value(replyId));
+
+		mockMvc.perform(get("/api/courses/" + courseId + "/comments/" + parentId + "/replies"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.replies[0].id").value(replyId))
+				.andExpect(jsonPath("$.replies[0].replyCount").value(1));
+
+		mockMvc.perform(get("/api/courses/" + courseId + "/comments/" + replyId + "/replies"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.replies[0].body").value("2차 대댓글"))
+				.andExpect(jsonPath("$.replies[0].parentCommentId").value(replyId));
 	}
 
 	@Test
-	void deletingParentCommentCascadesToReplies() throws Exception {
+	void deletingParentCommentCascadesToNestedReplies() throws Exception {
 		String token = createUserToken("author10");
 		String courseId = createCourse(authorIdFromToken(token), CourseVisibility.PUBLIC);
 		String parentId = createComment(courseId, token, "원본 댓글");
-		createReply(courseId, token, parentId, "대댓글");
+		String replyId = createReply(courseId, token, parentId, "1차 대댓글");
+		createReply(courseId, token, replyId, "2차 대댓글");
 
 		mockMvc.perform(delete("/api/courses/" + courseId + "/comments/" + parentId)
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
 				.andExpect(status().isNoContent());
 
 		mockMvc.perform(get("/api/courses/" + courseId + "/comments/" + parentId + "/replies"))
+				.andExpect(status().isNotFound());
+		mockMvc.perform(get("/api/courses/" + courseId + "/comments/" + replyId + "/replies"))
 				.andExpect(status().isNotFound());
 	}
 

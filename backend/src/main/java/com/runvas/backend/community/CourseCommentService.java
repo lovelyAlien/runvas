@@ -13,6 +13,7 @@ import com.runvas.backend.storage.ImageStorageService;
 import com.runvas.user.domain.User;
 import com.runvas.user.repository.UserRepository;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -75,7 +76,10 @@ public class CourseCommentService {
 
 		List<CourseComment> replies = courseCommentRepository.findByParentCommentIdOrderByCreatedAtAsc(
 				parentCommentId, PageRequest.of(0, MAX_REPLIES));
-		return replies.stream().map(reply -> toResponse(reply, 0L)).toList();
+		Map<String, Long> replyCounts = replyCountsFor(replies);
+		return replies.stream()
+				.map(reply -> toResponse(reply, replyCounts.getOrDefault(reply.getId(), 0L)))
+				.toList();
 	}
 
 	@Transactional
@@ -115,8 +119,7 @@ public class CourseCommentService {
 		}
 
 		comment.setUpdatedAt(Instant.now());
-		long replyCount = comment.getParentCommentId() == null ? countReplies(comment.getId()) : 0L;
-		return toResponse(comment, replyCount);
+		return toResponse(comment, countReplies(comment.getId()));
 	}
 
 	@Transactional
@@ -126,15 +129,22 @@ public class CourseCommentService {
 			return;
 		}
 		requireAuthor(comment);
-		if (comment.getParentCommentId() == null) {
-			// 최상위 댓글을 지우면 DB가 대댓글 행을 CASCADE로 지우지만, 첨부 이미지 파일은
-			// DB가 지워주지 않으므로 먼저 직접 삭제한다.
-			courseCommentRepository
-					.findByParentCommentIdOrderByCreatedAtAsc(commentId, Pageable.unpaged())
-					.forEach(reply -> imageStorageService.delete(reply.getImageUrl()));
-		}
+		// 하위 댓글은 몇 단계든 DB가 CASCADE로 행을 지워주지만, 첨부 이미지 파일은
+		// DB가 지워주지 않으므로 삭제 전에 모든 하위 댓글(대댓글의 대댓글 포함)을 순회하며 지운다.
+		collectDescendants(commentId).forEach(descendant -> imageStorageService.delete(descendant.getImageUrl()));
 		imageStorageService.delete(comment.getImageUrl());
 		courseCommentRepository.delete(comment);
+	}
+
+	private List<CourseComment> collectDescendants(String commentId) {
+		List<CourseComment> descendants = new ArrayList<>();
+		List<CourseComment> children =
+				courseCommentRepository.findByParentCommentIdOrderByCreatedAtAsc(commentId, Pageable.unpaged());
+		for (CourseComment child : children) {
+			descendants.add(child);
+			descendants.addAll(collectDescendants(child.getId()));
+		}
+		return descendants;
 	}
 
 	private void validateParentComment(String courseId, String parentCommentId) {
@@ -143,9 +153,6 @@ public class CourseCommentService {
 				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "부모 댓글이 없습니다"));
 		if (!parent.getCourseId().equals(courseId)) {
 			throw new ApiException(ErrorCode.NOT_FOUND, "부모 댓글이 없습니다");
-		}
-		if (parent.getParentCommentId() != null) {
-			throw new ApiException(ErrorCode.VALIDATION_ERROR, "대댓글에는 답글을 달 수 없습니다");
 		}
 	}
 
