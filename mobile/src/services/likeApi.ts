@@ -1,5 +1,3 @@
-// 좋아요 API (PUT/DELETE /api/likes/{targetType}/{targetId}) — runvas/backend의 LikeController와 연동됨.
-// docs/api-contract.md §Like APIs 기준으로 targetType은 'courses' | 'posts'를 받는다.
 import { LikeResponse } from '../types';
 import { parseApiErrorMessage } from '../utils/apiError';
 

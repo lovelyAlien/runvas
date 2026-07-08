@@ -1,29 +1,37 @@
 import React, { useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { AppState, AppStateStatus, StyleSheet } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
-import { Coordinate, GeoBounds, RoutePoint } from '../types';
+import { Coordinate, GeoBounds } from '../types';
 
 // 카카오 로그인용 REST API 키(EXPO_PUBLIC_KAKAO_APP_KEY)와는 다른 키다.
 // 카카오 지도 JS SDK(dapi.kakao.com/v2/maps/sdk.js)는 JavaScript 키만 인식하며,
 // REST API 키를 넣으면 지도 타일이 그려지지 않고 빈 화면으로 남는다.
 const KAKAO_JS_KEY = process.env.EXPO_PUBLIC_KAKAO_JS_KEY ?? '';
 
+export interface PublicCourseMarker {
+  id: string;
+  title: string;
+  centerLat: number;
+  centerLng: number;
+}
+
 export interface KakaoMapViewRef {
   moveToLocation: (coord: Coordinate) => void;
-  addWaypoint: (coord: Coordinate, index: number) => void; // 마커만 추가
-  addRouteSegment: (coords: Coordinate[]) => void; // 실제 경로 폴리라인 추가
-  fitBounds: (bounds: GeoBounds) => void; // 카메라를 주어진 영역에 맞춤 (저장된 코스 보기, 코스 상세 보기용)
-  getBounds: () => Promise<GeoBounds>; // 현재 지도에 보이는 영역 조회 (코스 조회 버튼용)
-  previewCourse: (path: RoutePoint[]) => void; // 조회한 공개 코스의 경로를 지도에 미리보기로 표시 (카메라 이동 없음)
-  showCourseWaypoints: (waypoints: RoutePoint[]) => void; // 코스 상세 보기 시 경로 순서(번호 핀)를 표시
-  clearCoursePreview: () => void; // 코스 탐색 종료/재시작 시 미리보기 경로와 순서 핀을 지움
+  addWaypoint: (coord: Coordinate, index: number) => void;
+  addRouteSegment: (coords: Coordinate[]) => void;
+  fitBounds: (bounds: GeoBounds) => void;
   undoLast: () => void;
   clearMap: () => void;
+  showPublicCourses: (courses: PublicCourseMarker[]) => void;
+  clearPublicCourses: () => void;
+  setBrowseMode: (enabled: boolean) => void;
 }
 
 interface Props {
   onMapPress: (coord: Coordinate) => void;
-  onMapReady?: () => void; // 지도가 로드 완료된 뒤에만 안전하게 메시지를 보낼 수 있다
+  onMapReady?: () => void;
+  onBoundsChange?: (bounds: GeoBounds) => void;
+  onCourseMarkerPress?: (courseId: string) => void;
 }
 
 function buildMapHtml(appKey: string): string {
@@ -100,6 +108,52 @@ function buildMapHtml(appKey: string): string {
       font-weight: 800;
       line-height: 1;
     }
+    .course-marker-pin {
+      width: 28px;
+      height: 28px;
+      border-radius: 50% 50% 50% 0;
+      background: #ea580c;
+      border: 3px solid #fff;
+      box-shadow: 0 4px 12px rgba(234,88,12,0.4);
+      transform: rotate(-45deg);
+      cursor: pointer;
+    }
+    .course-bubble {
+      background: #fff;
+      border: 1.5px solid #ea580c;
+      border-radius: 8px;
+      padding: 6px 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 12px;
+      max-width: 180px;
+    }
+    .course-bubble-title {
+      font-weight: 700;
+      color: #111;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .course-bubble-btn {
+      display: block;
+      padding: 3px 8px;
+      background: #ea580c;
+      color: #fff;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+    .course-wrapper {
+      position: relative;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      justify-content: center;
+    }
   </style>
 </head>
 <body>
@@ -109,12 +163,14 @@ function buildMapHtml(appKey: string): string {
   </script>
   <script>
     var map;
-    var waypointMarkers = []; // 사용자가 탭한 마커
-    var currentLocationOverlay; // 현재 위치 표시용 핀
-    var segmentPolylines = []; // 각 구간별 폴리라인
-    var routePolyline;         // 전체 경로 폴리라인
-    var previewPolyline;       // 코스 조회로 선택한 공개 코스 미리보기 폴리라인 (사용자가 그리는 경로와 별개)
-    var courseWaypointMarkers = []; // 코스 상세 보기 시 표시하는 경로 순서 번호 핀
+    var waypointMarkers = [];
+    var currentLocationOverlay;
+    var segmentPolylines = [];
+    var routePolyline;
+    var publicCourseOverlays = [];
+    var publicCourses = []; // 숫자 인덱스로만 참조 — 사용자 입력값을 onclick 속성에 직접 삽입하지 않기 위함
+    var activeBubbleOverlay = null;
+    var isBrowseMode = false;
 
     kakao.maps.load(function() {
       var container = document.getElementById('map');
@@ -131,8 +187,8 @@ function buildMapHtml(appKey: string): string {
       });
       routePolyline.setMap(map);
 
-      // 지도 탭 → RN으로 좌표 전송
       kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
+        if (isBrowseMode) return;
         var latlng = mouseEvent.latLng;
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'MAP_PRESS',
@@ -141,21 +197,74 @@ function buildMapHtml(appKey: string): string {
         }));
       });
 
+      // 지도 이동 완료 후 현재 범위를 RN으로 전달
+      kakao.maps.event.addListener(map, 'idle', function() {
+        var bounds = map.getBounds();
+        var sw = bounds.getSouthWest();
+        var ne = bounds.getNorthEast();
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'MAP_BOUNDS_CHANGE',
+          swLat: sw.getLat(),
+          swLng: sw.getLng(),
+          neLat: ne.getLat(),
+          neLng: ne.getLng()
+        }));
+      });
+
       // WebView 초기 레이아웃이 안정되기 전에 지도가 생성되면 카카오맵 SDK가
       // 실제보다 작은 컨테이너 크기를 캐싱해 이후 재렌더링 시 하단에 흰 공백이 남는다.
       // 레이아웃이 안정된 뒤 한 번 더 relayout을 걸어 캐시된 크기를 갱신한다.
       setTimeout(function() { map.relayout(); }, 300);
 
-      // 지도 로드 완료 알림 — RN이 이걸 받기 전에 보낸 메시지는 map이 아직 없어 무시될 수 있다.
       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MAP_READY' }));
     });
+
+    function closeActiveBubble() {
+      if (activeBubbleOverlay) {
+        activeBubbleOverlay.setMap(null);
+        activeBubbleOverlay = null;
+      }
+    }
+
+    function onCourseMarkerClick(index) {
+      var course = publicCourses[index];
+      if (!course) return;
+      closeActiveBubble();
+      var latlng = new kakao.maps.LatLng(course.centerLat, course.centerLng);
+      var rawTitle = course.title.length > 20 ? course.title.substring(0, 20) + '...' : course.title;
+
+      // DOM 조작으로 말풍선 생성 — textContent 사용으로 사용자 입력값이 HTML로 파싱되지 않음
+      var bubble = document.createElement('div');
+      bubble.className = 'course-bubble';
+      var titleEl = document.createElement('div');
+      titleEl.className = 'course-bubble-title';
+      titleEl.textContent = rawTitle;
+      var btn = document.createElement('div');
+      btn.className = 'course-bubble-btn';
+      btn.textContent = '자세히 보기';
+      btn.onclick = function() {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'COURSE_MARKER_PRESS',
+          courseId: course.id
+        }));
+      };
+      bubble.appendChild(titleEl);
+      bubble.appendChild(btn);
+
+      activeBubbleOverlay = new kakao.maps.CustomOverlay({
+        position: latlng,
+        yAnchor: 3.2,
+        content: bubble
+      });
+      activeBubbleOverlay.setMap(map);
+    }
 
     function handleRNMessage(data) {
       var msg = JSON.parse(data);
 
       if (msg.type === 'ADD_WAYPOINT') {
         var latlng = new kakao.maps.LatLng(msg.latitude, msg.longitude);
-        var idx = msg.index; // 1-based
+        var idx = msg.index;
         var colorClass = idx === 1 ? 'start' : 'mid';
         var overlay = new kakao.maps.CustomOverlay({
           position: latlng,
@@ -166,13 +275,10 @@ function buildMapHtml(appKey: string): string {
         waypointMarkers.push(overlay);
 
       } else if (msg.type === 'ADD_ROUTE_SEGMENT') {
-        // T-MAP에서 받은 상세 경로 좌표로 폴리라인 추가
-        var coords = msg.coords; // [{latitude, longitude}, ...]
+        var coords = msg.coords;
         var segPath = coords.map(function(c) {
           return new kakao.maps.LatLng(c.latitude, c.longitude);
         });
-
-        // 새 구간 폴리라인 생성
         var seg = new kakao.maps.Polyline({
           path: segPath,
           strokeWeight: 5,
@@ -184,10 +290,8 @@ function buildMapHtml(appKey: string): string {
         segmentPolylines.push(seg);
 
       } else if (msg.type === 'UNDO_LAST') {
-        // 마지막 마커 제거
         var lastMarker = waypointMarkers.pop();
         if (lastMarker) lastMarker.setMap(null);
-        // 마지막 구간 폴리라인 제거
         var lastSeg = segmentPolylines.pop();
         if (lastSeg) lastSeg.setMap(null);
 
@@ -199,60 +303,6 @@ function buildMapHtml(appKey: string): string {
         var ne = new kakao.maps.LatLng(msg.neLat, msg.neLng);
         var llBounds = new kakao.maps.LatLngBounds(sw, ne);
         map.setBounds(llBounds);
-
-      } else if (msg.type === 'GET_BOUNDS') {
-        var currentBounds = map.getBounds();
-        var boundsSw = currentBounds.getSouthWest();
-        var boundsNe = currentBounds.getNorthEast();
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'BOUNDS_RESULT',
-          swLat: boundsSw.getLat(),
-          swLng: boundsSw.getLng(),
-          neLat: boundsNe.getLat(),
-          neLng: boundsNe.getLng()
-        }));
-
-      } else if (msg.type === 'PREVIEW_COURSE') {
-        if (previewPolyline) {
-          previewPolyline.setMap(null);
-          previewPolyline = null;
-        }
-        courseWaypointMarkers.forEach(function(m) { m.setMap(null); });
-        courseWaypointMarkers = [];
-        var previewPath = msg.coords.map(function(c) {
-          return new kakao.maps.LatLng(c.latitude, c.longitude);
-        });
-        previewPolyline = new kakao.maps.Polyline({
-          path: previewPath,
-          strokeWeight: 3,
-          strokeColor: '#F97316',
-          strokeOpacity: 0.9,
-          strokeStyle: 'solid'
-        });
-        previewPolyline.setMap(map);
-
-      } else if (msg.type === 'SHOW_COURSE_WAYPOINTS') {
-        courseWaypointMarkers.forEach(function(m) { m.setMap(null); });
-        courseWaypointMarkers = [];
-        msg.waypoints.forEach(function(wp, i) {
-          var latlng = new kakao.maps.LatLng(wp.latitude, wp.longitude);
-          var colorClass = i === 0 ? 'start' : (i === msg.waypoints.length - 1 ? 'end' : 'mid');
-          var overlay = new kakao.maps.CustomOverlay({
-            position: latlng,
-            yAnchor: 1,
-            content: '<div class="waypoint-pin ' + colorClass + '"><span class="num">' + (i + 1) + '</span></div>'
-          });
-          overlay.setMap(map);
-          courseWaypointMarkers.push(overlay);
-        });
-
-      } else if (msg.type === 'CLEAR_COURSE_PREVIEW') {
-        if (previewPolyline) {
-          previewPolyline.setMap(null);
-          previewPolyline = null;
-        }
-        courseWaypointMarkers.forEach(function(m) { m.setMap(null); });
-        courseWaypointMarkers = [];
 
       } else if (msg.type === 'CLEAR') {
         waypointMarkers.forEach(function(m) { m.setMap(null); });
@@ -267,17 +317,51 @@ function buildMapHtml(appKey: string): string {
         var currentLatLng = new kakao.maps.LatLng(msg.latitude, msg.longitude);
         map.setCenter(currentLatLng);
         map.setLevel(3);
-
-        if (currentLocationOverlay) {
-          currentLocationOverlay.setMap(null);
-        }
-
+        if (currentLocationOverlay) currentLocationOverlay.setMap(null);
         currentLocationOverlay = new kakao.maps.CustomOverlay({
           position: currentLatLng,
           yAnchor: 1,
           content: '<div class="current-location-wrapper"><div class="current-location-pin"></div><div class="current-location-label">내 위치</div></div>'
         });
         currentLocationOverlay.setMap(map);
+
+      } else if (msg.type === 'SET_BROWSE_MODE') {
+        isBrowseMode = msg.enabled;
+        if (msg.enabled && map) {
+          var modeBounds = map.getBounds();
+          var modeSw = modeBounds.getSouthWest();
+          var modeNe = modeBounds.getNorthEast();
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'MAP_BOUNDS_CHANGE',
+            swLat: modeSw.getLat(),
+            swLng: modeSw.getLng(),
+            neLat: modeNe.getLat(),
+            neLng: modeNe.getLng()
+          }));
+        }
+
+      } else if (msg.type === 'SHOW_PUBLIC_COURSES') {
+        publicCourseOverlays.forEach(function(o) { o.setMap(null); });
+        publicCourseOverlays = [];
+        publicCourses = msg.courses; // 전역 배열에 저장, onclick에서 숫자 인덱스로만 참조
+        closeActiveBubble();
+
+        msg.courses.forEach(function(course, i) {
+          var latlng = new kakao.maps.LatLng(course.centerLat, course.centerLng);
+          // 인라인 onclick에 숫자만 삽입 — 사용자 입력값(title, id)은 HTML 속성에 직접 넣지 않음
+          var pinOverlay = new kakao.maps.CustomOverlay({
+            position: latlng,
+            yAnchor: 1,
+            content: '<div class="course-wrapper"><div class="course-marker-pin" onclick="onCourseMarkerClick(' + i + ')"></div></div>'
+          });
+          pinOverlay.setMap(map);
+          publicCourseOverlays.push(pinOverlay);
+        });
+
+      } else if (msg.type === 'CLEAR_PUBLIC_COURSES') {
+        publicCourseOverlays.forEach(function(o) { o.setMap(null); });
+        publicCourseOverlays = [];
+        closeActiveBubble();
 
       } else if (msg.type === 'RELAYOUT') {
         // 안드로이드 권한 다이얼로그 등 다른 Activity가 잠깐 떴다가 사라지면
@@ -296,9 +380,8 @@ function buildMapHtml(appKey: string): string {
 }
 
 const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
-  ({ onMapPress, onMapReady }, ref) => {
+  ({ onMapPress, onMapReady, onBoundsChange, onCourseMarkerPress }, ref) => {
     const webViewRef = useRef<WebView>(null);
-    const boundsResolverRef = useRef<((bounds: GeoBounds) => void) | null>(null);
 
     const postMessage = (msg: object) => {
       webViewRef.current?.postMessage(JSON.stringify(msg));
@@ -338,39 +421,20 @@ const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
           neLng: bounds.northEast.longitude,
         });
       },
-      getBounds: () => {
-        return new Promise<GeoBounds>((resolve, reject) => {
-          const timeoutId = setTimeout(() => {
-            boundsResolverRef.current = null;
-            reject(new Error('지도 범위를 가져오지 못했습니다.'));
-          }, 5000);
-          boundsResolverRef.current = (bounds) => {
-            clearTimeout(timeoutId);
-            resolve(bounds);
-          };
-          postMessage({ type: 'GET_BOUNDS' });
-        });
-      },
-      previewCourse: (path: RoutePoint[]) => {
-        postMessage({
-          type: 'PREVIEW_COURSE',
-          coords: path.map((p) => ({ latitude: p.latitude, longitude: p.longitude })),
-        });
-      },
-      showCourseWaypoints: (waypoints: RoutePoint[]) => {
-        postMessage({
-          type: 'SHOW_COURSE_WAYPOINTS',
-          waypoints: waypoints.map((w) => ({ latitude: w.latitude, longitude: w.longitude })),
-        });
-      },
-      clearCoursePreview: () => {
-        postMessage({ type: 'CLEAR_COURSE_PREVIEW' });
-      },
       undoLast: () => {
         postMessage({ type: 'UNDO_LAST' });
       },
       clearMap: () => {
         postMessage({ type: 'CLEAR' });
+      },
+      showPublicCourses: (courses: PublicCourseMarker[]) => {
+        postMessage({ type: 'SHOW_PUBLIC_COURSES', courses });
+      },
+      clearPublicCourses: () => {
+        postMessage({ type: 'CLEAR_PUBLIC_COURSES' });
+      },
+      setBrowseMode: (enabled: boolean) => {
+        postMessage({ type: 'SET_BROWSE_MODE', enabled });
       },
     }));
 
@@ -381,12 +445,13 @@ const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
           onMapPress({ latitude: data.latitude, longitude: data.longitude });
         } else if (data.type === 'MAP_READY') {
           onMapReady?.();
-        } else if (data.type === 'BOUNDS_RESULT') {
-          boundsResolverRef.current?.({
+        } else if (data.type === 'MAP_BOUNDS_CHANGE') {
+          onBoundsChange?.({
             southWest: { latitude: data.swLat, longitude: data.swLng },
             northEast: { latitude: data.neLat, longitude: data.neLng },
           });
-          boundsResolverRef.current = null;
+        } else if (data.type === 'COURSE_MARKER_PRESS') {
+          onCourseMarkerPress?.(data.courseId);
         }
       } catch (_) {}
     };

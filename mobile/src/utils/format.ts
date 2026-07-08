@@ -20,10 +20,18 @@ export function formatDuration(seconds: number): string {
   return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
 }
 
-// 2026-07-05 → "2026.07.05" — 게시글 작성 화면의 기본 제목([후기] 코스명 - 날짜)에 사용.
-export function formatDateYYYYMMDD(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}.${m}.${d}`;
+// ISO 8601 문자열을 "방금 전" ~ "n일 전" 상대 시각으로, 그 이후는 "YYYY.MM.DD"로 표시한다.
+export function formatRelativeTime(isoString: string): string {
+  const elapsedSeconds = Math.max(0, (Date.now() - new Date(isoString).getTime()) / 1000);
+
+  if (elapsedSeconds < 60) return '방금 전';
+  if (elapsedSeconds < 3600) return `${Math.floor(elapsedSeconds / 60)}분 전`;
+  if (elapsedSeconds < 86400) return `${Math.floor(elapsedSeconds / 3600)}시간 전`;
+  if (elapsedSeconds < 86400 * 7) return `${Math.floor(elapsedSeconds / 86400)}일 전`;
+
+  const date = new Date(isoString);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}.${mm}.${dd}`;
 }

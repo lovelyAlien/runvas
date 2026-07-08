@@ -153,7 +153,6 @@
 | `post.tags` | 최대 10개 |
 | `comment.body` | 1-1000자 |
 | `courseComment.body` | 1-1000자 |
-| `courseComment.image` | jpg/jpeg/png/webp, 최대 5MB, 댓글당 1장 |
 
 ## Routing APIs
 
@@ -318,6 +317,7 @@
     "tags": ["heart", "city"],
     "likeCount": 0,
     "likedByMe": false,
+    "bookmarkedByMe": false,
     "createdAt": "2026-06-22T08:00:00Z",
     "updatedAt": "2026-06-22T08:00:00Z"
   }
@@ -784,11 +784,8 @@ bounds 4개 중 일부만 전달하거나, bounds/q/tag를 모두 생략하면 `
 
 공개(`PUBLIC`) 코스에만 댓글을 달 수 있습니다. `PRIVATE` 코스에 댓글을 시도하면 `400 VALIDATION_ERROR`를 반환합니다.
 
-댓글에는 러닝 인증 이미지를 최대 1장 첨부할 수 있습니다. 이미지 업로드는 별도 API 없이 댓글 작성/수정 요청에 `multipart/form-data`로 함께 보냅니다.
-
-댓글은 최상위 댓글과 그 댓글에 달리는 대댓글(reply), 총 2단계까지만 허용합니다. 대댓글에는 다시
-대댓글을 달 수 없습니다(`400 VALIDATION_ERROR`). 최상위 댓글을 삭제하면 그 댓글에 달린 대댓글도
-함께 삭제됩니다(첨부 이미지 포함).
+댓글은 최상위 댓글과 그 댓글에 달리는 대댓글로 구성되며, 대댓글에도 다시 대댓글을 달 수 있습니다
+(단계 제한 없음). 댓글을 삭제하면 그 댓글에 달린 모든 하위 댓글도 함께 삭제됩니다.
 
 ### GET /courses/{courseId}/comments
 
@@ -827,7 +824,6 @@ bounds 4개 중 일부만 전달하거나, bounds/q/tag를 모두 생략하면 `
         "bio": null
       },
       "body": "오늘 이 코스 완주했습니다!",
-      "imageUrl": "http://localhost:8080/uploads/course-comments/course_123/8f1c.jpg",
       "replyCount": 2,
       "createdAt": "2026-06-22T09:30:00Z",
       "updatedAt": "2026-06-22T09:30:00Z"
@@ -839,8 +835,8 @@ bounds 4개 중 일부만 전달하거나, bounds/q/tag를 모두 생략하면 `
 }
 ```
 
-`parentCommentId`가 `null`이면 최상위 댓글입니다. `replyCount`는 해당 댓글에 달린 대댓글 수입니다
-(대댓글 응답에서는 항상 `0`).
+`parentCommentId`가 `null`이면 최상위 댓글입니다. `replyCount`는 해당 댓글에 달린 직계 대댓글
+수이며, 대댓글에도 다시 대댓글이 달릴 수 있으므로 대댓글 응답에서도 0보다 클 수 있습니다.
 
 #### Errors
 
@@ -850,7 +846,9 @@ bounds 4개 중 일부만 전달하거나, bounds/q/tag를 모두 생략하면 `
 
 ### GET /courses/{courseId}/comments/{commentId}/replies
 
-특정 최상위 댓글에 달린 대댓글 목록을 오래된 순으로 전체 조회합니다(페이지네이션 없음, 최대 200개).
+특정 댓글에 달린 직계 대댓글 목록을 오래된 순으로 전체 조회합니다(페이지네이션 없음, 최대 200개).
+`commentId`는 최상위 댓글뿐 아니라 대댓글도 지정할 수 있습니다 — 대댓글의 대댓글을 조회하려면
+그 대댓글의 id로 다시 호출합니다.
 
 #### Auth
 
@@ -861,7 +859,7 @@ bounds 4개 중 일부만 전달하거나, bounds/q/tag를 모두 생략하면 `
 | 이름 | 타입 | 설명 |
 | --- | --- | --- |
 | `courseId` | string | 코스 ID |
-| `commentId` | string | 대댓글을 조회할 최상위 댓글 ID |
+| `commentId` | string | 대댓글을 조회할 댓글 ID (최상위 댓글 또는 대댓글) |
 
 #### Response: 200 OK
 
@@ -879,7 +877,6 @@ bounds 4개 중 일부만 전달하거나, bounds/q/tag를 모두 생략하면 `
         "bio": null
       },
       "body": "저도 어제 뛰었어요!",
-      "imageUrl": null,
       "replyCount": 0,
       "createdAt": "2026-06-22T10:00:00Z",
       "updatedAt": "2026-06-22T10:00:00Z"
@@ -912,8 +909,7 @@ bounds 4개 중 일부만 전달하거나, bounds/q/tag를 모두 생략하면 `
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | `body` | string (form field) | Y | 댓글 본문 |
-| `image` | file (form part) | N | 러닝 인증 이미지. jpg/jpeg/png/webp, 최대 5MB |
-| `parentCommentId` | string (form field) | N | 대댓글을 작성할 최상위 댓글 ID. 생략하면 최상위 댓글로 작성 |
+| `parentCommentId` | string (form field) | N | 대댓글을 작성할 부모 댓글 ID (최상위 댓글 또는 대댓글). 생략하면 최상위 댓글로 작성 |
 
 #### Response: 201 Created
 
@@ -932,7 +928,6 @@ bounds 4개 중 일부만 전달하거나, bounds/q/tag를 모두 생략하면 `
       "bio": null
     },
     "body": "오늘 이 코스 완주했습니다!",
-    "imageUrl": "http://localhost:8080/uploads/course-comments/course_123/8f1c.jpg",
     "replyCount": 0,
     "createdAt": "2026-06-22T09:30:00Z",
     "updatedAt": "2026-06-22T09:30:00Z"
@@ -942,7 +937,7 @@ bounds 4개 중 일부만 전달하거나, bounds/q/tag를 모두 생략하면 `
 
 #### Errors
 
-- `400 VALIDATION_ERROR`: `body` 제한값 위반, 코스가 `PUBLIC`이 아님, 이미지 형식/용량 초과, `parentCommentId`가 다른 코스의 댓글이거나 이미 대댓글임(2단계 초과)
+- `400 VALIDATION_ERROR`: `body` 제한값 위반, 코스가 `PUBLIC`이 아님
 - `401 UNAUTHORIZED`: 로그인하지 않음
 - `404 NOT_FOUND`: 코스 또는 `parentCommentId`로 지정한 댓글이 없음
 
@@ -966,8 +961,6 @@ bounds 4개 중 일부만 전달하거나, bounds/q/tag를 모두 생략하면 `
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | `body` | string (form field) | N | 댓글 본문 |
-| `image` | file (form part) | N | 새 이미지로 교체. jpg/jpeg/png/webp, 최대 5MB |
-| `removeImage` | boolean (form field) | N | `true`면 기존 이미지를 제거. `image`와 동시에 보내면 `image`가 우선 |
 
 #### Response: 200 OK
 
@@ -975,14 +968,14 @@ bounds 4개 중 일부만 전달하거나, bounds/q/tag를 모두 생략하면 `
 
 #### Errors
 
-- `400 VALIDATION_ERROR`: `body` 제한값 위반, 이미지 형식/용량 초과
+- `400 VALIDATION_ERROR`: `body` 제한값 위반
 - `401 UNAUTHORIZED`: 로그인하지 않음
 - `403 FORBIDDEN`: 작성자가 아님
 - `404 NOT_FOUND`: 코스 또는 댓글이 없음
 
 ### DELETE /courses/{courseId}/comments/{commentId}
 
-댓글을 삭제합니다. 작성자 본인만 삭제할 수 있습니다. 삭제 시 첨부 이미지도 함께 제거합니다.
+댓글을 삭제합니다. 작성자 본인만 삭제할 수 있습니다.
 
 #### Auth
 
@@ -1179,14 +1172,11 @@ MVP에서는 refresh token을 응답하지 않습니다.
 
 | 이름 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| `attachedCourseId` | string | N | 첨부된 코스 ID로 필터링 |
 | `q` | string | N | 제목 또는 본문 검색어 |
 | `tag` | string | N | 단일 태그 필터 |
 | `sort` | string | N | `createdAtDesc`, `popularDesc`. 기본 `createdAtDesc` |
 | `limit` | number | N | 기본 20, 최대 50 |
 | `cursor` | string | N | 다음 페이지 조회용 커서 |
-
-검색과 필터 조건이 함께 전달되면 서버는 모든 조건을 만족하는 게시글만 반환합니다.
 
 #### Response: 200 OK
 

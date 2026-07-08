@@ -15,19 +15,13 @@ import com.runvas.backend.course.CourseRepository;
 import com.runvas.backend.course.CourseVisibility;
 import com.runvas.user.domain.User;
 import com.runvas.user.repository.UserRepository;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -45,9 +39,6 @@ class CourseCommentControllerTest {
 	@Container
 	static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 
-	@TempDir
-	static Path uploadDir;
-
 	@DynamicPropertySource
 	static void properties(DynamicPropertyRegistry registry) {
 		registry.add("spring.datasource.url", postgres::getJdbcUrl);
@@ -55,23 +46,6 @@ class CourseCommentControllerTest {
 		registry.add("spring.datasource.password", postgres::getPassword);
 		registry.add("runvas.jwt.secret", () -> "dev-secret-dev-secret-dev-secret-dev-secret");
 		registry.add("runvas.jwt.expiration-seconds", () -> "3600");
-		registry.add("runvas.upload.dir", () -> uploadDir.toString());
-		registry.add("runvas.upload.base-url", () -> "http://localhost:8921");
-	}
-
-	@AfterAll
-	static void cleanupUploadDir() throws Exception {
-		if (Files.exists(uploadDir)) {
-			try (var paths = Files.walk(uploadDir)) {
-				paths.sorted((a, b) -> b.compareTo(a)).forEach(path -> {
-					try {
-						Files.deleteIfExists(path);
-					} catch (Exception ignored) {
-						// best-effort cleanup
-					}
-				});
-			}
-		}
 	}
 
 	@Autowired
@@ -111,7 +85,7 @@ class CourseCommentControllerTest {
 	}
 
 	@Test
-	void createCommentOnPublicCourseSucceedsWithoutImage() throws Exception {
+	void createCommentOnPublicCourseSucceeds() throws Exception {
 		String token = createUserToken("author1");
 		String courseId = createCourse(authorIdFromToken(token), CourseVisibility.PUBLIC);
 
@@ -121,7 +95,6 @@ class CourseCommentControllerTest {
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.comment.courseId").value(courseId))
 				.andExpect(jsonPath("$.comment.body").value("오늘 완주했습니다!"))
-				.andExpect(jsonPath("$.comment.imageUrl").doesNotExist())
 				.andExpect(jsonPath("$.comment.author.nickname").value("author1"));
 	}
 
@@ -135,36 +108,6 @@ class CourseCommentControllerTest {
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
-	}
-
-	@Test
-	void createCommentWithInvalidImageExtensionReturns400() throws Exception {
-		String token = createUserToken("author3");
-		String courseId = createCourse(authorIdFromToken(token), CourseVisibility.PUBLIC);
-		MockMultipartFile invalidImage =
-				new MockMultipartFile("image", "photo.gif", "image/gif", "not-a-real-image".getBytes());
-
-		mockMvc.perform(multipart("/api/courses/" + courseId + "/comments")
-						.file(invalidImage)
-						.param("body", "잘못된 이미지 형식")
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
-	}
-
-	@Test
-	void createCommentWithOversizedImageReturns400() throws Exception {
-		String token = createUserToken("author4");
-		String courseId = createCourse(authorIdFromToken(token), CourseVisibility.PUBLIC);
-		byte[] oversizedContent = new byte[6 * 1024 * 1024];
-		MockMultipartFile oversizedImage =
-				new MockMultipartFile("image", "photo.jpg", "image/jpeg", oversizedContent);
-
-		mockMvc.perform(multipart("/api/courses/" + courseId + "/comments")
-						.file(oversizedImage)
-						.param("body", "용량 초과 이미지")
-						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-				.andExpect(status().isBadRequest());
 	}
 
 	@Test
@@ -249,32 +192,45 @@ class CourseCommentControllerTest {
 	}
 
 	@Test
-	void replyToReplyIsRejected() throws Exception {
+	void replyToReplySucceedsAndNestsCorrectly() throws Exception {
 		String token = createUserToken("author9");
 		String courseId = createCourse(authorIdFromToken(token), CourseVisibility.PUBLIC);
 		String parentId = createComment(courseId, token, "원본 댓글");
 		String replyId = createReply(courseId, token, parentId, "1차 대댓글");
 
 		mockMvc.perform(multipart("/api/courses/" + courseId + "/comments")
-						.param("body", "2차 대댓글 시도")
+						.param("body", "2차 대댓글")
 						.param("parentCommentId", replyId)
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.comment.parentCommentId").value(replyId));
+
+		mockMvc.perform(get("/api/courses/" + courseId + "/comments/" + parentId + "/replies"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.replies[0].id").value(replyId))
+				.andExpect(jsonPath("$.replies[0].replyCount").value(1));
+
+		mockMvc.perform(get("/api/courses/" + courseId + "/comments/" + replyId + "/replies"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.replies[0].body").value("2차 대댓글"))
+				.andExpect(jsonPath("$.replies[0].parentCommentId").value(replyId));
 	}
 
 	@Test
-	void deletingParentCommentCascadesToReplies() throws Exception {
+	void deletingParentCommentCascadesToNestedReplies() throws Exception {
 		String token = createUserToken("author10");
 		String courseId = createCourse(authorIdFromToken(token), CourseVisibility.PUBLIC);
 		String parentId = createComment(courseId, token, "원본 댓글");
-		createReply(courseId, token, parentId, "대댓글");
+		String replyId = createReply(courseId, token, parentId, "1차 대댓글");
+		createReply(courseId, token, replyId, "2차 대댓글");
 
 		mockMvc.perform(delete("/api/courses/" + courseId + "/comments/" + parentId)
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
 				.andExpect(status().isNoContent());
 
 		mockMvc.perform(get("/api/courses/" + courseId + "/comments/" + parentId + "/replies"))
+				.andExpect(status().isNotFound());
+		mockMvc.perform(get("/api/courses/" + courseId + "/comments/" + replyId + "/replies"))
 				.andExpect(status().isNotFound());
 	}
 

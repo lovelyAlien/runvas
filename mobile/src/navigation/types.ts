@@ -10,8 +10,5 @@ export type RootTabParamList = {
 export type RootStackParamList = {
   Tabs: NavigatorScreenParams<RootTabParamList> | undefined;
   CourseDetail: { courseId: string };
-  PostCreate: { attachedCourseId?: string; attachedCourseTitle?: string };
-  PostDetail: { postId: string };
-  CourseBoard: { courseId: string; courseTitle: string };
   CourseEdit: { courseId: string };
 };

@@ -36,27 +36,22 @@ public class CourseComment {
 	@Column(nullable = false, length = 1000)
 	private String body;
 
-	@Column(length = 1000)
-	private String imageUrl;
-
 	@Column(nullable = false)
 	private Instant createdAt = Instant.now();
 
 	@Column(nullable = false)
 	private Instant updatedAt = Instant.now();
 
-	public CourseComment(String courseId, String authorId, String body, String imageUrl) {
+	public CourseComment(String courseId, String authorId, String body) {
 		this.courseId = courseId;
 		this.authorId = authorId;
 		this.body = body;
-		this.imageUrl = imageUrl;
 	}
 
-	public CourseComment(String courseId, String authorId, String parentCommentId, String body, String imageUrl) {
+	public CourseComment(String courseId, String authorId, String parentCommentId, String body) {
 		this.courseId = courseId;
 		this.authorId = authorId;
 		this.parentCommentId = parentCommentId;
 		this.body = body;
-		this.imageUrl = imageUrl;
 	}
 }

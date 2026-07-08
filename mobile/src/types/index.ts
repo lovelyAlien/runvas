@@ -151,8 +151,8 @@ export interface CourseSummary {
   updatedAt: string;
 }
 
-// docs/data-model.md PublicProfile과 1:1 대응. 공개 화면·커뮤니티 응답에서는 User 전체가 아니라
-// 이 필드만 노출한다.
+// docs/data-model.md PublicProfile과 1:1 대응. 공개 화면/커뮤니티 응답에서 User 전체 대신
+// 노출되는 축소된 프로필 형태.
 export interface PublicProfile {
   id: string;
   nickname: string;
@@ -160,58 +160,14 @@ export interface PublicProfile {
   bio: string | null;
 }
 
-// docs/data-model.md Post와 1:1 대응.
-export interface Post {
-  id: string;
-  author: PublicProfile;
-  title: string;
-  body: string;
-  attachedCourseId: string | null;
-  tags: string[];
-  likeCount: number;
-  likedByMe: boolean;
-  commentCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// docs/data-model.md Comment와 1:1 대응.
-export interface Comment {
-  id: string;
-  postId: string;
-  author: PublicProfile;
-  body: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// docs/api-contract.md POST /posts 요청 본문과 1:1 대응.
-export interface CreatePostRequestBody {
-  title: string;
-  body: string;
-  attachedCourseId?: string | null;
-  tags?: string[];
-}
-
-// docs/api-contract.md POST /posts/{postId}/comments 요청 본문과 1:1 대응.
-export interface CreateCommentRequestBody {
-  body: string;
-}
-
-// docs/api-contract.md PATCH /comments/{commentId} 요청 본문과 1:1 대응.
-export interface UpdateCommentRequestBody {
-  body: string;
-}
-
 // docs/data-model.md CourseComment와 1:1 대응. PUBLIC 코스에만 존재할 수 있다.
-// parentCommentId가 null이면 최상위 댓글, 아니면 대댓글(2단계까지만 허용).
+// parentCommentId가 null이면 최상위 댓글, 아니면 대댓글(대댓글에도 다시 대댓글 가능, 단계 제한 없음).
 export interface CourseComment {
   id: string;
   courseId: string;
   parentCommentId: string | null;
   author: PublicProfile;
   body: string;
-  imageUrl: string | null;
   replyCount: number;
   createdAt: string;
   updatedAt: string;

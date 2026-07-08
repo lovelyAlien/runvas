@@ -9,7 +9,6 @@ import com.runvas.backend.community.dto.PublicProfile;
 import com.runvas.backend.course.Course;
 import com.runvas.backend.course.CourseRepository;
 import com.runvas.backend.course.CourseVisibility;
-import com.runvas.backend.storage.ImageStorageService;
 import com.runvas.user.domain.User;
 import com.runvas.user.repository.UserRepository;
 import java.time.Instant;
@@ -22,7 +21,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -38,7 +36,6 @@ public class CourseCommentService {
 	private final CourseRepository courseRepository;
 	private final UserRepository userRepository;
 	private final CurrentUserProvider currentUserProvider;
-	private final ImageStorageService imageStorageService;
 
 	@Transactional(readOnly = true)
 	public ListResult list(String courseId, Integer limit, String cursor) {
@@ -75,11 +72,14 @@ public class CourseCommentService {
 
 		List<CourseComment> replies = courseCommentRepository.findByParentCommentIdOrderByCreatedAtAsc(
 				parentCommentId, PageRequest.of(0, MAX_REPLIES));
-		return replies.stream().map(reply -> toResponse(reply, 0L)).toList();
+		Map<String, Long> replyCounts = replyCountsFor(replies);
+		return replies.stream()
+				.map(reply -> toResponse(reply, replyCounts.getOrDefault(reply.getId(), 0L)))
+				.toList();
 	}
 
 	@Transactional
-	public CourseCommentResponse create(String courseId, String body, MultipartFile image, String parentCommentId) {
+	public CourseCommentResponse create(String courseId, String body, String parentCommentId) {
 		String authorId = currentUserProvider.requireUserId();
 		Course course = findCourseOrThrow(courseId);
 		requirePublicCourse(course);
@@ -88,16 +88,13 @@ public class CourseCommentService {
 			validateParentComment(courseId, parentCommentId);
 		}
 
-		String imageUrl = image != null && !image.isEmpty() ? imageStorageService.store(courseId, image) : null;
-
-		CourseComment comment = new CourseComment(courseId, authorId, parentCommentId, body, imageUrl);
+		CourseComment comment = new CourseComment(courseId, authorId, parentCommentId, body);
 		courseCommentRepository.save(comment);
 		return toResponse(comment, 0L);
 	}
 
 	@Transactional
-	public CourseCommentResponse update(
-			String courseId, String commentId, String body, MultipartFile image, Boolean removeImage) {
+	public CourseCommentResponse update(String courseId, String commentId, String body) {
 		CourseComment comment = findCommentOrThrow(courseId, commentId);
 		requireAuthor(comment);
 
@@ -106,17 +103,8 @@ public class CourseCommentService {
 			comment.setBody(body);
 		}
 
-		if (image != null && !image.isEmpty()) {
-			imageStorageService.delete(comment.getImageUrl());
-			comment.setImageUrl(imageStorageService.store(courseId, image));
-		} else if (Boolean.TRUE.equals(removeImage)) {
-			imageStorageService.delete(comment.getImageUrl());
-			comment.setImageUrl(null);
-		}
-
 		comment.setUpdatedAt(Instant.now());
-		long replyCount = comment.getParentCommentId() == null ? countReplies(comment.getId()) : 0L;
-		return toResponse(comment, replyCount);
+		return toResponse(comment, countReplies(comment.getId()));
 	}
 
 	@Transactional
@@ -126,14 +114,6 @@ public class CourseCommentService {
 			return;
 		}
 		requireAuthor(comment);
-		if (comment.getParentCommentId() == null) {
-			// 최상위 댓글을 지우면 DB가 대댓글 행을 CASCADE로 지우지만, 첨부 이미지 파일은
-			// DB가 지워주지 않으므로 먼저 직접 삭제한다.
-			courseCommentRepository
-					.findByParentCommentIdOrderByCreatedAtAsc(commentId, Pageable.unpaged())
-					.forEach(reply -> imageStorageService.delete(reply.getImageUrl()));
-		}
-		imageStorageService.delete(comment.getImageUrl());
 		courseCommentRepository.delete(comment);
 	}
 
@@ -143,9 +123,6 @@ public class CourseCommentService {
 				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "부모 댓글이 없습니다"));
 		if (!parent.getCourseId().equals(courseId)) {
 			throw new ApiException(ErrorCode.NOT_FOUND, "부모 댓글이 없습니다");
-		}
-		if (parent.getParentCommentId() != null) {
-			throw new ApiException(ErrorCode.VALIDATION_ERROR, "대댓글에는 답글을 달 수 없습니다");
 		}
 	}
 

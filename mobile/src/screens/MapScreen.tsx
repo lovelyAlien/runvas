@@ -1,6 +1,5 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
 import {
-  Animated,
   View,
   TouchableOpacity,
   StyleSheet,
@@ -9,21 +8,15 @@ import {
   Modal,
   Text,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CompositeScreenProps } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { CompositeScreenProps } from '@react-navigation/native';
 
 import Header from '../components/Header';
-import KakaoMapView, { KakaoMapViewRef } from '../components/KakaoMapView';
-import CourseSearchSheet, {
-  CourseSearchSheetRef,
-  SHEET_HANDLE_HEIGHT,
-} from '../components/CourseSearchSheet';
+import KakaoMapView, { KakaoMapViewRef, PublicCourseMarker } from '../components/KakaoMapView';
 import RouteStatsBar from '../components/RouteStatsBar';
 import PaceSelector from '../components/PaceSelector';
 import { useRoute, DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
@@ -31,19 +24,12 @@ import { useLocation } from '../hooks/useLocation';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchPedestrianRoute } from '../services/routingApi';
 import { exportGpx } from '../utils/exportGpx';
-import {
-  postCourse,
-  buildCreateCourseRequest,
-  getCourse,
-  getCourses,
-  searchPublicCourses,
-  searchPublicCoursesByTag,
-} from '../services/courseApi';
+import { postCourse, buildCreateCourseRequest, getPublicCourses, searchPublicCourses, searchPublicCoursesByTag } from '../services/courseApi';
 import CourseSearchBar from '../components/CourseSearchBar';
 import { patchMe } from '../services/authApi';
 import Toast from 'react-native-toast-message';
 import { Colors } from '../constants/theme';
-import { Coordinate, Course, CourseSummary, CourseVisibility } from '../types';
+import { Coordinate, GeoBounds } from '../types';
 import { formatPace } from '../utils/format';
 import { RootTabParamList, RootStackParamList } from '../navigation/types';
 
@@ -52,12 +38,8 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-const FLOATING_BUTTONS_DEFAULT_BOTTOM = 16;
-const FLOATING_BUTTONS_SHEET_GAP = 12; // 시트 상단과 우측 FAB 스택 사이 여백
-
 export default function MapScreen({ navigation }: Props) {
   const mapRef = useRef<KakaoMapViewRef>(null);
-  const courseSheetRef = useRef<CourseSearchSheetRef>(null);
   const { accessToken, requireAuth, user, updateUser } = useAuth();
   const { getCurrentLocation } = useLocation();
 
@@ -77,22 +59,67 @@ export default function MapScreen({ navigation }: Props) {
   } = useRoute(selectedPace);
 
   const [isExporting, setIsExporting] = useState(false);
-  const [isRouting, setIsRouting] = useState(false); // 경로 탐색 중 여부
+  const [isRouting, setIsRouting] = useState(false);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [routeTitle, setRouteTitle] = useState('');
-  const [routeVisibility, setRouteVisibility] = useState<CourseVisibility>('PRIVATE');
   const [isPaceSelectorOpen, setIsPaceSelectorOpen] = useState(false);
   const [isSavingPace, setIsSavingPace] = useState(false);
-  const [isCourseSheetOpen, setIsCourseSheetOpen] = useState(false);
-  const [nearbyCourses, setNearbyCourses] = useState<CourseSummary[]>([]);
-  const [isLoadingCourses, setIsLoadingCourses] = useState(false);
-  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-  const [selectedCourseDetail, setSelectedCourseDetail] = useState<Course | null>(null);
-  const [isCourseSheetCollapsed, setIsCourseSheetCollapsed] = useState(false);
-  const searchButtonBottom = useRef(new Animated.Value(FLOATING_BUTTONS_DEFAULT_BOTTOM)).current;
-  const sheetContentHeightRef = useRef(0);
+  const [isBrowseMode, setIsBrowseMode] = useState(false);
+  const [isFetchingCourses, setIsFetchingCourses] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isPedestrianRouteEnabled, setIsPedestrianRouteEnabled] = useState(true);
+
+  const boundsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchPublicCourses = useCallback(
+    async (bounds: GeoBounds) => {
+      setIsFetchingCourses(true);
+      try {
+        const { courses } = await getPublicCourses(
+          {
+            swLat: bounds.southWest.latitude,
+            swLng: bounds.southWest.longitude,
+            neLat: bounds.northEast.latitude,
+            neLng: bounds.northEast.longitude,
+            limit: 50,
+          },
+          accessToken ?? undefined
+        );
+        const markers: PublicCourseMarker[] = courses.map((c) => ({
+          id: c.id,
+          title: c.title,
+          centerLat: (c.bounds.southWest.latitude + c.bounds.northEast.latitude) / 2,
+          centerLng: (c.bounds.southWest.longitude + c.bounds.northEast.longitude) / 2,
+        }));
+        mapRef.current?.showPublicCourses(markers);
+      } catch (error: unknown) {
+        console.error('공개 코스 조회 실패:', error);
+      } finally {
+        setIsFetchingCourses(false);
+      }
+    },
+    [accessToken]
+  );
+
+  const handleBoundsChange = useCallback(
+    (bounds: GeoBounds) => {
+      if (!isBrowseMode) return;
+      if (boundsTimerRef.current) clearTimeout(boundsTimerRef.current);
+      boundsTimerRef.current = setTimeout(() => fetchPublicCourses(bounds), 1000);
+    },
+    [isBrowseMode, fetchPublicCourses]
+  );
+
+  const handleCourseMarkerPress = useCallback(
+    (courseId: string) => {
+      navigation.navigate('CourseDetail', { courseId });
+    },
+    [navigation]
+  );
+
+  const toggleBrowseMode = useCallback(() => {
+    setIsBrowseMode((prev) => !prev);
+  }, []);
 
   const togglePedestrianRoute = useCallback(() => {
     setIsPedestrianRouteEnabled((prev) => {
@@ -125,45 +152,29 @@ export default function MapScreen({ navigation }: Props) {
     [navigation]
   );
 
-  // 탐색 버튼은 시트가 열려 있는 동안 사라지지 않고, 시트의 실시간 위치(드래그 중에도)를 그대로
-  // 따라다닌다. translateY는 native driver로도 움직이므로, addListener로 JS 쪽 값을 동기화한다.
+  // isBrowseMode 변화에 따른 지도 상태 동기화 + 언마운트 시 타이머 정리
   useEffect(() => {
-    if (!isCourseSheetOpen) {
-      searchButtonBottom.setValue(FLOATING_BUTTONS_DEFAULT_BOTTOM);
-      return;
+    mapRef.current?.setBrowseMode(isBrowseMode);
+    if (!isBrowseMode) {
+      mapRef.current?.clearPublicCourses();
     }
-    const sheet = courseSheetRef.current;
-    if (!sheet) return;
-    const listenerId = sheet.translateY.addListener(({ value }) => {
-      const target =
-        SHEET_HANDLE_HEIGHT + sheetContentHeightRef.current + FLOATING_BUTTONS_SHEET_GAP - value;
-      searchButtonBottom.setValue(target);
-    });
-    return () => sheet.translateY.removeListener(listenerId);
-  }, [isCourseSheetOpen, searchButtonBottom]);
+    return () => {
+      if (boundsTimerRef.current) clearTimeout(boundsTimerRef.current);
+    };
+  }, [isBrowseMode]);
 
   const handleMapPress = useCallback(
     async (coord: Coordinate) => {
-      if (isRouting) return; // 이미 경로 탐색 중이면 무시
-      if (isCourseSheetOpen) return; // 코스 탐색 중에는 지도 탭이 내 경로에 웨이포인트를 추가하지 않게 한다
+      if (isBrowseMode) return;
+      if (isRouting) return;
 
-      // 첫 번째 포인트: 마커만 추가
       if (waypoints.length === 0) {
         addFirstPoint(coord);
         mapRef.current?.addWaypoint(coord, 1);
         return;
       }
 
-      // 두 번째 이후: 보행로 API는 비로그인 사용자도 호출 가능 (docs/api-contract.md Auth: None)
       const prevWaypoint = waypoints[waypoints.length - 1];
-
-      if (!isPedestrianRouteEnabled) {
-        const straightSegment = [prevWaypoint, coord];
-        addSegment(coord, straightSegment);
-        mapRef.current?.addWaypoint(coord, waypoints.length + 1);
-        mapRef.current?.addRouteSegment(straightSegment);
-        return;
-      }
 
       setIsRouting(true);
       try {
@@ -172,8 +183,6 @@ export default function MapScreen({ navigation }: Props) {
         mapRef.current?.addWaypoint(coord, waypoints.length + 1);
         mapRef.current?.addRouteSegment(segmentCoords);
       } catch (error: unknown) {
-        // 백엔드 호출 실패 시 직선으로 대체 (T-Map 자체 실패는 백엔드가 이미 직선으로 폴백함).
-        // 실패 원인이 안 보이면 디버깅이 안 되므로 콘솔에는 남긴다.
         console.error('보행로 API 호출 실패:', error);
         const straightSegment = [prevWaypoint, coord];
         addSegment(coord, straightSegment);
@@ -183,15 +192,7 @@ export default function MapScreen({ navigation }: Props) {
         setIsRouting(false);
       }
     },
-    [
-      waypoints,
-      isRouting,
-      isCourseSheetOpen,
-      isPedestrianRouteEnabled,
-      accessToken,
-      addFirstPoint,
-      addSegment,
-    ]
+    [waypoints, isRouting, isBrowseMode, isPedestrianRouteEnabled, accessToken, addFirstPoint, addSegment]
   );
 
   const handleLocate = async () => {
@@ -201,73 +202,6 @@ export default function MapScreen({ navigation }: Props) {
       return;
     }
     mapRef.current?.moveToLocation(coord);
-  };
-
-  const handleOpenCourseSearch = async () => {
-    if (!mapRef.current) return;
-    setIsLoadingCourses(true);
-    setIsCourseSheetOpen(true);
-    setSelectedCourseId(null);
-    setSelectedCourseDetail(null);
-    setIsCourseSheetCollapsed(false);
-    sheetContentHeightRef.current = 0;
-    mapRef.current.clearCoursePreview();
-    courseSheetRef.current?.expand();
-    try {
-      const bounds = await mapRef.current.getBounds();
-      const courses = await getCourses(bounds, accessToken ?? undefined);
-      setNearbyCourses(courses);
-    } catch (e: unknown) {
-      Alert.alert('조회 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
-      setIsCourseSheetOpen(false);
-    } finally {
-      setIsLoadingCourses(false);
-    }
-  };
-
-  const handleCloseCourseSearch = () => {
-    setIsCourseSheetOpen(false);
-    setSelectedCourseId(null);
-    setSelectedCourseDetail(null);
-    setIsCourseSheetCollapsed(false);
-    mapRef.current?.clearCoursePreview();
-  };
-
-  // 목록에서 코스를 선택: 현재 지도 범위를 유지한 채 경로만 미리보기로 그린다 (카메라 이동 없음).
-  const handleSelectCourse = async (courseId: string) => {
-    setSelectedCourseId(courseId);
-    try {
-      const course = await getCourse(courseId, accessToken ?? undefined);
-      setSelectedCourseDetail(course);
-      mapRef.current?.previewCourse(course.path);
-    } catch (e: unknown) {
-      Alert.alert('불러오기 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
-      setSelectedCourseId(null);
-      setSelectedCourseDetail(null);
-    }
-  };
-
-  // "상세 보기" 버튼: 선택된 코스의 좌표로 카메라를 이동하고 경로 순서(웨이포인트 번호)를 표시한다.
-  const handleViewCourseDetail = (courseId: string) => {
-    if (!selectedCourseDetail || selectedCourseDetail.id !== courseId) return;
-    mapRef.current?.fitBounds(selectedCourseDetail.bounds);
-    mapRef.current?.showCourseWaypoints(selectedCourseDetail.waypoints);
-  };
-
-  const handlePressWritePost = () => {
-    if (!requireAuth() || !selectedCourseDetail) return;
-    navigation.navigate('PostCreate', {
-      attachedCourseId: selectedCourseDetail.id,
-      attachedCourseTitle: selectedCourseDetail.title,
-    });
-  };
-
-  const handlePressCourseBoard = () => {
-    if (!selectedCourseDetail) return;
-    navigation.navigate('CourseBoard', {
-      courseId: selectedCourseDetail.id,
-      courseTitle: selectedCourseDetail.title,
-    });
   };
 
   const handleUndo = () => {
@@ -300,8 +234,8 @@ export default function MapScreen({ navigation }: Props) {
     setIsExporting(true);
     try {
       await exportGpx(toRoutePoints());
-    } catch (e: any) {
-      Alert.alert('내보내기 실패', e.message ?? '알 수 없는 오류가 발생했습니다.');
+    } catch (e: unknown) {
+      Alert.alert('내보내기 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
       setIsExporting(false);
     }
@@ -329,7 +263,6 @@ export default function MapScreen({ navigation }: Props) {
       return;
     }
     setRouteTitle('');
-    setRouteVisibility('PRIVATE');
     setIsSaveModalOpen(true);
   };
 
@@ -349,12 +282,11 @@ export default function MapScreen({ navigation }: Props) {
           distanceMeters: stats.distanceMeters,
           estimatedDurationSeconds: stats.estimatedDurationSeconds,
           bounds,
-          visibility: routeVisibility,
         }),
         accessToken
       );
-    } catch (e: any) {
-      Alert.alert('저장 실패', e.message ?? '알 수 없는 오류가 발생했습니다.');
+    } catch (e: unknown) {
+      Alert.alert('저장 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
       return;
     }
 
@@ -363,6 +295,7 @@ export default function MapScreen({ navigation }: Props) {
   };
 
   const canSave = routeCoords.length >= 2;
+  const isLoading = isRouting || isFetchingCourses;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -375,42 +308,18 @@ export default function MapScreen({ navigation }: Props) {
       />
 
       <View style={styles.mapContainer}>
-        <KakaoMapView ref={mapRef} onMapPress={handleMapPress} />
+        <KakaoMapView
+          ref={mapRef}
+          onMapPress={handleMapPress}
+          onBoundsChange={handleBoundsChange}
+          onCourseMarkerPress={handleCourseMarkerPress}
+        />
 
-        {/* 경로 탐색 중 오버레이 */}
-        {isRouting && (
+        {isLoading && (
           <View style={styles.routingOverlay}>
             <ActivityIndicator size="large" color={Colors.primary} />
           </View>
         )}
-
-        {/* 좌측 하단 코스 조회/이름 검색 버튼 — 시트가 열려 있는 동안 사라지지 않고, 시트가 펼쳐지고
-            접히는 움직임을 그대로 따라다닌다. "주변 코스 찾기"는 지도 bounds로 목록을 가져오는
-            주요 동작이라 텍스트 라벨이 있는 pill 버튼으로, "검색"은 이름/태그 검색창을 여는 보조
-            동작이라 아이콘 전용 FAB로 남겨 서로 다른 동작임을 형태로 구분한다. */}
-        <Animated.View style={[styles.bottomLeftButtons, { bottom: searchButtonBottom }]}>
-          <TouchableOpacity
-            style={[styles.nearbyCoursesButton, isLoadingCourses && styles.nearbyCoursesButtonDisabled]}
-            onPress={handleOpenCourseSearch}
-            disabled={isLoadingCourses}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="navigate"
-              size={18}
-              color={isLoadingCourses ? Colors.gray400 : Colors.white}
-            />
-            <Text
-              style={[
-                styles.nearbyCoursesButtonLabel,
-                isLoadingCourses && styles.nearbyCoursesButtonLabelDisabled,
-              ]}
-            >
-              주변 코스 찾기
-            </Text>
-          </TouchableOpacity>
-          <FAB icon="search" onPress={() => setIsSearchOpen(true)} />
-        </Animated.View>
 
         {isSearchOpen && (
           <CourseSearchBar
@@ -421,64 +330,35 @@ export default function MapScreen({ navigation }: Props) {
           />
         )}
 
-        {/* 우측 플로팅 버튼 — 코스 탐색 시트가 닫혀 있을 때만 보이는 '내 경로' 도구 모음.
-            시트가 열려 있는 동안은 맥락에 안 맞으므로(펼침/접힘 모두) 완전히 숨긴다. */}
-        {!isCourseSheetOpen && (
-          <View style={[styles.floatingButtons, { bottom: FLOATING_BUTTONS_DEFAULT_BOTTOM }]}>
-            <FAB icon="locate" onPress={handleLocate} />
-            <FAB
-              icon={isPedestrianRouteEnabled ? 'walk' : 'walk-outline'}
-              onPress={togglePedestrianRoute}
-              color={isPedestrianRouteEnabled ? Colors.primary : Colors.gray400}
-            />
-            <FAB
-              icon="arrow-undo"
-              onPress={handleUndo}
-              disabled={waypoints.length === 0 || isRouting}
-            />
-            <FAB icon="save-outline" onPress={handleOpenSaveModal} disabled={!canSave} />
-            <FAB
-              icon="trash-outline"
-              onPress={handleClear}
-              disabled={waypoints.length === 0 || isRouting}
-              color={Colors.danger}
-            />
-          </View>
-        )}
-
-        {/* 코스 커뮤니티 액션 버튼 — 코스 탐색 시트가 열려 있는 동안(펼침/접힘 모두) 보이고,
-            좌측 탐색 버튼과 같은 방식으로 시트 상단 위치를 따라간다. 현재 위치 버튼은 항상 함께
-            보이고, 후기 작성/목록 버튼은 코스를 선택해야 눌린다. */}
-        {isCourseSheetOpen && (
-          <Animated.View style={[styles.floatingButtons, { bottom: searchButtonBottom }]}>
-            <FAB icon="locate" onPress={handleLocate} />
-            <FAB
-              icon="create-outline"
-              onPress={handlePressWritePost}
-              disabled={!selectedCourseDetail}
-            />
-            <FAB
-              icon="list-outline"
-              onPress={handlePressCourseBoard}
-              disabled={!selectedCourseDetail}
-            />
-          </Animated.View>
-        )}
-
-        <CourseSearchSheet
-          ref={courseSheetRef}
-          visible={isCourseSheetOpen}
-          courses={nearbyCourses}
-          isLoading={isLoadingCourses}
-          selectedCourseId={selectedCourseId}
-          onSelectCourse={handleSelectCourse}
-          onViewDetail={handleViewCourseDetail}
-          onClose={handleCloseCourseSearch}
-          onCollapsedChange={setIsCourseSheetCollapsed}
-          onContentHeightChange={(height) => {
-            sheetContentHeightRef.current = height;
-          }}
-        />
+        <View style={styles.floatingButtons}>
+          <FAB
+            icon="search"
+            onPress={() => setIsSearchOpen(true)}
+            color={Colors.gray500}
+          />
+          <FAB icon="locate" onPress={handleLocate} />
+          {!isBrowseMode && (
+            <>
+              <FAB
+                icon={isPedestrianRouteEnabled ? 'walk' : 'walk-outline'}
+                onPress={togglePedestrianRoute}
+                color={isPedestrianRouteEnabled ? Colors.primary : Colors.gray400}
+              />
+              <FAB
+                icon="arrow-undo"
+                onPress={handleUndo}
+                disabled={waypoints.length === 0 || isRouting}
+              />
+              <FAB icon="save-outline" onPress={handleOpenSaveModal} disabled={!canSave} />
+              <FAB
+                icon="trash-outline"
+                onPress={handleClear}
+                disabled={waypoints.length === 0 || isRouting}
+                color={Colors.danger}
+              />
+            </>
+          )}
+        </View>
       </View>
 
       <RouteStatsBar
@@ -498,10 +378,7 @@ export default function MapScreen({ navigation }: Props) {
       />
 
       <Modal visible={isSaveModalOpen} transparent animationType="fade">
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
+        <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>코스 저장</Text>
             <TextInput
@@ -512,42 +389,6 @@ export default function MapScreen({ navigation }: Props) {
               onChangeText={setRouteTitle}
               autoFocus
             />
-            <View style={styles.visibilityToggle}>
-              <TouchableOpacity
-                style={[
-                  styles.visibilityOption,
-                  routeVisibility === 'PRIVATE' && styles.visibilityOptionSelected,
-                ]}
-                onPress={() => setRouteVisibility('PRIVATE')}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.visibilityOptionLabel,
-                    routeVisibility === 'PRIVATE' && styles.visibilityOptionLabelSelected,
-                  ]}
-                >
-                  비공개
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.visibilityOption,
-                  routeVisibility === 'PUBLIC' && styles.visibilityOptionSelected,
-                ]}
-                onPress={() => setRouteVisibility('PUBLIC')}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.visibilityOptionLabel,
-                    routeVisibility === 'PUBLIC' && styles.visibilityOptionLabelSelected,
-                  ]}
-                >
-                  공개
-                </Text>
-              </TouchableOpacity>
-            </View>
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.modalCancelButton}
@@ -560,7 +401,7 @@ export default function MapScreen({ navigation }: Props) {
               </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -587,146 +428,79 @@ function FAB({ icon, onPress, disabled, color = Colors.primary }: FABProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.white,
-  },
-  mapContainer: {
-    flex: 1,
-    overflow: 'hidden', // 코스 시트가 접힘 애니메이션으로 내려갈 때 이 경계 밖으로 새어나가지 않게 자른다
-  },
+  container: { flex: 1, backgroundColor: Colors.gray50 },
+  mapContainer: { flex: 1, position: 'relative' },
   routingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.4)',
-    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.45)',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   floatingButtons: {
     position: 'absolute',
     right: 16,
+    bottom: 16,
     gap: 10,
-  },
-  bottomLeftButtons: {
-    position: 'absolute',
-    left: 16,
-    gap: 10,
+    alignItems: 'center',
   },
   fab: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.white,
-    alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  fabDisabled: {
-    backgroundColor: Colors.gray50,
-  },
-  nearbyCoursesButton: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    height: 46,
-    paddingHorizontal: 16,
-    borderRadius: 23,
-    backgroundColor: Colors.primary,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
     elevation: 4,
   },
-  nearbyCoursesButtonDisabled: {
-    backgroundColor: Colors.gray100,
-  },
-  nearbyCoursesButtonLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.white,
-  },
-  nearbyCoursesButtonLabelDisabled: {
-    color: Colors.gray400,
-  },
+  fabDisabled: { opacity: 0.4 },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     padding: 24,
   },
   modalCard: {
     width: '100%',
     backgroundColor: Colors.white,
-    borderRadius: 14,
-    padding: 20,
+    borderRadius: 16,
+    padding: 24,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: Colors.gray900,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   modalInput: {
     borderWidth: 1,
     borderColor: Colors.gray100,
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
+    padding: 12,
+    fontSize: 15,
     color: Colors.gray900,
+    marginBottom: 20,
   },
-  visibilityToggle: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-  },
-  visibilityOption: {
+  modalActions: { flexDirection: 'row', gap: 12 },
+  modalCancelButton: {
     flex: 1,
-    paddingVertical: 10,
+    padding: 12,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: Colors.gray100,
     alignItems: 'center',
   },
-  visibilityOptionSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  visibilityOptionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.gray500,
-  },
-  visibilityOptionLabelSelected: {
-    color: Colors.white,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-    marginTop: 16,
-  },
-  modalCancelButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  modalCancelLabel: {
-    color: Colors.gray500,
-    fontWeight: '600',
-  },
+  modalCancelLabel: { fontSize: 15, color: Colors.gray500 },
   modalSaveButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    flex: 1,
+    padding: 12,
     borderRadius: 8,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
   },
-  modalSaveLabel: {
-    color: Colors.white,
-    fontWeight: '700',
-  },
+  modalSaveLabel: { fontSize: 15, fontWeight: '700', color: Colors.white },
 });
