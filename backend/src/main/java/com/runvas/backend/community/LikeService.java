@@ -16,59 +16,79 @@ public class LikeService {
 
 	private final LikeRepository likeRepository;
 	private final CourseRepository courseRepository;
+	private final PostRepository postRepository;
 	private final CurrentUserProvider currentUserProvider;
 
 	@Transactional
-	public LikeResponse put(String targetTypeSegment, String targetId) {
+	public LikeResponse like(String targetTypePathValue, String targetId) {
+		LikeTargetType targetType = parseTargetType(targetTypePathValue);
 		String userId = currentUserProvider.requireUserId();
-		LikeTargetType targetType = resolveTargetType(targetTypeSegment);
-		Like.LikeId likeId = new Like.LikeId(userId, targetType, targetId);
 
-		if (!likeRepository.existsById(likeId)) {
-			likeRepository.save(new Like(userId, targetType, targetId));
-			adjustLikeCount(targetType, targetId, 1);
+		Like.LikeId likeId = new Like.LikeId(userId, targetType, targetId);
+		if (likeRepository.existsById(likeId)) {
+			return new LikeResponse(targetTypePathValue, targetId, true, currentLikeCount(targetType, targetId));
 		}
 
-		int likeCount = getCurrentLikeCount(targetType, targetId);
-		return new LikeResponse(targetType.name(), targetId, true, likeCount);
+		requireTargetExists(targetType, targetId);
+		likeRepository.save(new Like(userId, targetType, targetId));
+		incrementLikeCount(targetType, targetId);
+
+		return new LikeResponse(targetTypePathValue, targetId, true, currentLikeCount(targetType, targetId));
 	}
 
 	@Transactional
-	public LikeResponse delete(String targetTypeSegment, String targetId) {
+	public LikeResponse unlike(String targetTypePathValue, String targetId) {
+		LikeTargetType targetType = parseTargetType(targetTypePathValue);
 		String userId = currentUserProvider.requireUserId();
-		LikeTargetType targetType = resolveTargetType(targetTypeSegment);
+
 		Like.LikeId likeId = new Like.LikeId(userId, targetType, targetId);
-
-		if (likeRepository.existsById(likeId)) {
-			likeRepository.deleteById(likeId);
-			adjustLikeCount(targetType, targetId, -1);
+		if (!likeRepository.existsById(likeId)) {
+			return new LikeResponse(targetTypePathValue, targetId, false, currentLikeCount(targetType, targetId));
 		}
 
-		int likeCount = getCurrentLikeCount(targetType, targetId);
-		return new LikeResponse(targetType.name(), targetId, false, likeCount);
+		requireTargetExists(targetType, targetId);
+		likeRepository.deleteById(likeId);
+		decrementLikeCount(targetType, targetId);
+
+		return new LikeResponse(targetTypePathValue, targetId, false, currentLikeCount(targetType, targetId));
 	}
 
-	private LikeTargetType resolveTargetType(String segment) {
-		return switch (segment) {
-			case "courses" -> LikeTargetType.COURSE;
-			default -> throw new ApiException(ErrorCode.VALIDATION_ERROR, "지원하지 않는 대상 타입입니다: " + segment);
+	private LikeTargetType parseTargetType(String value) {
+		if ("courses".equals(value)) return LikeTargetType.COURSE;
+		if ("posts".equals(value)) return LikeTargetType.POST;
+		throw new ApiException(ErrorCode.VALIDATION_ERROR, "unsupported targetType: " + value);
+	}
+
+	private void requireTargetExists(LikeTargetType targetType, String targetId) {
+		boolean exists = switch (targetType) {
+			case COURSE -> courseRepository.existsById(targetId);
+			case POST -> postRepository.existsById(targetId);
 		};
-	}
-
-	private void adjustLikeCount(LikeTargetType targetType, String targetId, int delta) {
-		if (targetType == LikeTargetType.COURSE) {
-			Course course = courseRepository.findById(targetId)
-					.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "코스를 찾을 수 없습니다."));
-			course.setLikeCount(Math.max(0, course.getLikeCount() + delta));
+		if (!exists) {
+			throw new ApiException(ErrorCode.NOT_FOUND, "대상이 없습니다");
 		}
 	}
 
-	private int getCurrentLikeCount(LikeTargetType targetType, String targetId) {
-		if (targetType == LikeTargetType.COURSE) {
-			return courseRepository.findById(targetId)
-					.map(Course::getLikeCount)
-					.orElse(0);
+	private void incrementLikeCount(LikeTargetType targetType, String targetId) {
+		switch (targetType) {
+			case COURSE -> courseRepository.findById(targetId)
+					.ifPresent(course -> course.setLikeCount(course.getLikeCount() + 1));
+			case POST -> postRepository.findById(targetId).ifPresent(Post::incrementLikeCount);
 		}
-		return 0;
+	}
+
+	private void decrementLikeCount(LikeTargetType targetType, String targetId) {
+		switch (targetType) {
+			case COURSE -> courseRepository.findById(targetId)
+					.ifPresent(course -> course.setLikeCount(Math.max(0, course.getLikeCount() - 1)));
+			case POST -> postRepository.findById(targetId).ifPresent(Post::decrementLikeCount);
+		}
+	}
+
+	private Integer currentLikeCount(LikeTargetType targetType, String targetId) {
+		return switch (targetType) {
+			case COURSE -> courseRepository.findById(targetId).map(Course::getLikeCount).orElse(0);
+			case POST -> postRepository.findById(targetId).map(Post::getLikeCount).orElse(0);
+		};
 	}
 }

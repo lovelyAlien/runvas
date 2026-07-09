@@ -30,3 +30,11 @@ export function formatDateTime(isoString: string): string {
   const min = String(date.getMinutes()).padStart(2, '0');
   return `${yyyy}.${mm}.${dd} ${hh}:${min}`;
 }
+
+// 2026-07-05 → "2026.07.05" — 게시글 작성 화면의 기본 제목([후기] 코스명 - 날짜)에 사용.
+export function formatDateYYYYMMDD(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}.${m}.${d}`;
+}

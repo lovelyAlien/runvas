@@ -141,6 +141,23 @@ docs(api): 카카오 인증 계약 정리
 
 이 hook은 로컬 편의 장치입니다. 최종 검증은 PR의 CI에서 수행합니다.
 
+### push 전 체크리스트
+
+원격에 push하거나 PR을 열기 전에, 변경한 영역에 해당하는 CI 검증을 로컬에서 먼저 실행합니다.
+CI 워크플로우(`.github/workflows/`)와 로컬 확인 방법의 대응은 다음과 같습니다.
+
+| 변경 영역 | CI 워크플로우 | 로컬 확인 명령 |
+| --- | --- | --- |
+| `backend/**` | `backend-test.yml` | `cd backend && ./gradlew test` |
+| `mobile/**` | `mobile-typecheck.yml` | `cd mobile && npx tsc --noEmit` |
+| 커밋 메시지 | `commit-message.yml` | `setup-git-hooks.sh` 활성화 시 커밋할 때 자동 검증 |
+
+`backend-test.yml`은 Redis 서비스 컨테이너에 의존하므로, 로컬에서 `./gradlew test`를 실행하려면
+Redis가 로컬에 떠 있어야 합니다.
+
+`commit-message.yml`은 각 커밋 메시지뿐 아니라 PR 제목도 검증합니다. PR 제목은 GitHub에서 PR을
+열 때 정해지므로 로컬 hook만으로는 완전히 재현할 수 없고, 최종 확인은 CI에서 이뤄집니다.
+
 ## 완료 기준
 
 공통 기준 변경은 다음 조건을 만족해야 완료로 봅니다.
