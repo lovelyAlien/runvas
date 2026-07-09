@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Colors } from '../constants/theme';
 import { CourseComment } from '../types';
-import { formatRelativeTime } from '../utils/format';
+import { formatDateTime } from '../utils/format';
 
 interface Props {
   comment: CourseComment;
@@ -87,7 +87,7 @@ export default function CourseCommentItem({
           <Text style={styles.nickname} numberOfLines={1}>
             {comment.author.nickname}
           </Text>
-          <Text style={styles.time}>{formatRelativeTime(comment.createdAt)}</Text>
+          <Text style={styles.time}>{formatDateTime(comment.createdAt)}</Text>
         </View>
         {isMine && !isEditing && (
           <View style={styles.headerActions}>

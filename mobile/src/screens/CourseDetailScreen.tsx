@@ -202,7 +202,7 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
     setIsSubmittingComment(true);
     try {
       const created = await createCourseComment(courseId, trimmedBody, accessToken);
-      setComments((prev) => [created, ...prev]);
+      setComments((prev) => [...prev, created]);
       setCommentBody('');
     } catch (e: unknown) {
       Alert.alert('댓글 작성 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');

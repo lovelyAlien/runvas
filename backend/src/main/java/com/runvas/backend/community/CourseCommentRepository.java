@@ -9,19 +9,19 @@ import org.springframework.data.repository.query.Param;
 
 public interface CourseCommentRepository extends JpaRepository<CourseComment, String> {
 
-	// createdAt desc, id desc 기준 keyset pagination의 첫 페이지. 대댓글은 제외(최상위 댓글만).
+	// createdAt asc, id asc 기준 keyset pagination의 첫 페이지(먼저 작성된 댓글이 먼저). 대댓글은 제외(최상위 댓글만).
 	@Query(
 			"select c from CourseComment c where c.courseId = :courseId "
-					+ "and c.parentCommentId is null order by c.createdAt desc, c.id desc")
+					+ "and c.parentCommentId is null order by c.createdAt asc, c.id asc")
 	List<CourseComment> findFirstPage(@Param("courseId") String courseId, Pageable pageable);
 
-	// cursor로 넘어온 댓글보다 이전(더 오래된) 최상위 댓글만 조회한다.
+	// cursor로 넘어온 댓글보다 이후(더 최근) 최상위 댓글만 조회한다.
 	@Query(
 			"select c from CourseComment c where c.courseId = :courseId "
 					+ "and c.parentCommentId is null "
-					+ "and (c.createdAt < :cursorCreatedAt "
-					+ "or (c.createdAt = :cursorCreatedAt and c.id < :cursorId)) "
-					+ "order by c.createdAt desc, c.id desc")
+					+ "and (c.createdAt > :cursorCreatedAt "
+					+ "or (c.createdAt = :cursorCreatedAt and c.id > :cursorId)) "
+					+ "order by c.createdAt asc, c.id asc")
 	List<CourseComment> findNextPage(
 			@Param("courseId") String courseId,
 			@Param("cursorCreatedAt") Instant cursorCreatedAt,

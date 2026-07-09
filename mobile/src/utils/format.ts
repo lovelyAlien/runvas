@@ -20,18 +20,13 @@ export function formatDuration(seconds: number): string {
   return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
 }
 
-// ISO 8601 문자열을 "방금 전" ~ "n일 전" 상대 시각으로, 그 이후는 "YYYY.MM.DD"로 표시한다.
-export function formatRelativeTime(isoString: string): string {
-  const elapsedSeconds = Math.max(0, (Date.now() - new Date(isoString).getTime()) / 1000);
-
-  if (elapsedSeconds < 60) return '방금 전';
-  if (elapsedSeconds < 3600) return `${Math.floor(elapsedSeconds / 60)}분 전`;
-  if (elapsedSeconds < 86400) return `${Math.floor(elapsedSeconds / 3600)}시간 전`;
-  if (elapsedSeconds < 86400 * 7) return `${Math.floor(elapsedSeconds / 86400)}일 전`;
-
+// ISO 8601 문자열을 상대 시각("n분 전" 등) 없이 "YYYY.MM.DD HH:mm" 실제 시각으로 표시한다.
+export function formatDateTime(isoString: string): string {
   const date = new Date(isoString);
   const yyyy = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   const dd = String(date.getDate()).padStart(2, '0');
-  return `${yyyy}.${mm}.${dd}`;
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${yyyy}.${mm}.${dd} ${hh}:${min}`;
 }

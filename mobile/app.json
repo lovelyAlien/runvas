@@ -11,8 +11,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.runvas.mobile",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "러닝 코스 생성을 위해 현재 위치가 필요합니다.",
-        "NSPhotoLibraryUsageDescription": "러닝 인증 이미지를 첨부하기 위해 사진 라이브러리 접근이 필요합니다."
+        "NSLocationWhenInUseUsageDescription": "러닝 코스 생성을 위해 현재 위치가 필요합니다."
       }
     },
     "android": {
@@ -24,8 +23,7 @@
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "READ_MEDIA_IMAGES"
+        "ACCESS_COARSE_LOCATION"
       ]
     },
     "web": {
@@ -38,13 +36,7 @@
           "locationWhenInUsePermission": "러닝 코스 생성을 위해 현재 위치가 필요합니다."
         }
       ],
-      "expo-secure-store",
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "러닝 인증 이미지를 첨부하기 위해 사진 라이브러리 접근이 필요합니다."
-        }
-      ]
+      "expo-secure-store"
     ]
   }
 }
