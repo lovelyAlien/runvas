@@ -9,26 +9,48 @@
 - `backend/`: 서버 API, 인증, 데이터 저장, 검증, GPX 응답을 구현합니다.
 - `mobile/`: 앱 화면, 지도 인터랙션, 카카오 로그인 UI, API 연동을 구현합니다.
 
-## 작업 규칙
+## 문서 우선 원칙
 
 - `backend/` 또는 `mobile/`을 변경하기 전에 관련 `docs/` 문서를 먼저 읽습니다.
-- 요청 필드, 응답 필드, 상태 코드, 에러 코드, 인증 방식, 데이터 타입, 좌표 규칙, 백엔드와 모바일의 책임이 바뀌면 `docs/`를 먼저 수정합니다.
+- 기능을 구현할 때는 먼저 `docs/product-scope.md`에서 MVP 범위인지 확인합니다.
+- 요청 필드, 응답 필드, 상태 코드, 에러 코드, 인증 방식, 데이터 타입, 좌표 규칙, 백엔드와 모바일의
+  책임이 바뀌면 구현보다 아래 해당 문서를 먼저 수정합니다.
+  - API 요청/응답/인증 필요 여부/에러 케이스/예시: `docs/api-contract.md`
+  - 저장 모델·응답 모델 노출 범위: `docs/data-model.md`
+  - 지도 좌표, 거리, bounds, 경로 순서: `docs/geo-conventions.md`
+  - GPX 다운로드: `docs/gpx-export.md`
 - 문서에 없는 API 필드를 구현에서 임의로 추가하지 않습니다.
 - `docs/api-contract.md`의 예시 요청과 응답은 실제 구현 동작과 맞게 유지합니다.
+- 백엔드와 모바일이 같은 예시 요청과 응답으로 동작하는지 확인한 뒤 기능을 완료로 봅니다.
+
+## API 공통 규칙
+
 - 인증이 필요한 Runvas API 요청에는 `Authorization: Bearer <accessToken>`을 사용합니다.
 - `providerUserId` 같은 소셜 로그인 제공자의 내부 식별자는 API 응답에 노출하지 않습니다.
 
-## 기능 개발 원칙
+## Codex 하이브리드 실행
 
-- 기능을 구현할 때는 먼저 `docs/product-scope.md`에서 MVP 범위인지 확인합니다.
-- API를 추가하거나 변경할 때는 `docs/api-contract.md`에 요청, 응답, 인증 필요 여부, 에러 케이스, 예시를 함께 남깁니다.
-- 저장 모델이나 응답 모델이 바뀌면 `docs/data-model.md`를 함께 확인합니다.
-- 지도 좌표, 거리, bounds, 경로 순서와 관련된 기능은 `docs/geo-conventions.md`를 따릅니다.
-- GPX 다운로드 기능은 `docs/gpx-export.md`를 기준으로 구현합니다.
-- 백엔드와 모바일이 같은 예시 요청과 응답으로 동작하는지 확인한 뒤 기능을 완료로 봅니다.
+`superpowers:subagent-driven-development`로 기능을 구현할 때, implementer 서브에이전트 디스패치는
+작업 성격에 따라 Claude와 Codex(`codex:codex-rescue`)로 나눠서 위임합니다. 이 스킬의 "Model
+Selection" 기준(기계적 작업 vs 통합/판단 작업)을 Codex 위임 여부 판단에도 그대로 적용합니다.
+
+- **`codex:codex-rescue`로 위임**: 1-2개 파일, 스펙이 명확하고 통합 판단이 필요 없는 기계적 작업.
+  task brief 파일 경로를 프롬프트에 넘기고, 커밋 메시지에 도구/저작자 표시(`Co-Authored-By`,
+  `codex`, `claude` 등)를 넣지 말라고 매번 명시적으로 지시합니다.
+- **Claude 서브에이전트가 계속 담당**: 여러 파일에 걸친 통합 작업, 설계 판단이나 폭넓은 코드베이스
+  이해가 필요한 작업. 최종 whole-branch 리뷰는 항상 Claude(가장 강력한 모델)가 담당합니다.
+- 위임 대상과 무관하게 task-reviewer(스펙 준수 + 코드 품질 검증)는 항상 Claude 서브에이전트가
+  수행합니다. Codex가 완료로 보고해도 이 리뷰 게이트를 생략하지 않습니다.
+- 이 저장소의 Git 작업 규칙(아래, 특히 커밋 훅과 커밋 메시지 형식)은 Codex에 위임한 작업에도
+  동일하게 적용됩니다.
 
 ## Git 작업 규칙
 
+- 새 작업을 시작하기 전에 `git worktree list`로 기존 워크트리를 확인합니다. 저장소 루트(메인
+  워크트리)가 다른 브랜치를 체크아웃 중이거나 다른 작업에 쓰이고 있다면 그 워크트리에서 바로
+  브랜치를 만들거나 커밋하지 말고, `.claude/worktrees/<slug>`에 전용 워크트리를 새로 만들어 그
+  안에서 작업합니다. 여러 세션(Claude, Codex 등)이 이 저장소에서 동시에 작업하는 경우가 흔하므로,
+  공유 워크트리에서 브랜치 전환이나 커밋을 하면 다른 세션의 커밋 전 변경사항이 유실될 수 있습니다.
 - 새 클론이나 워크트리에서 처음 작업을 시작할 때는 `sh scripts/setup-git-hooks.sh`를 먼저
   실행해 로컬 `commit-msg` 훅을 활성화합니다. `core.hooksPath`는 저장소 공통 설정이라 워크트리마다
   따로 설정해야 하며, 활성화하지 않으면 커밋 메시지에 도구/저작자 표시(`Co-Authored-By` 등)가
@@ -45,7 +67,7 @@
 
 ## 현재 확정된 인증 방향
 
-Runvas 모바일 앱은 카카오 SDK로 `authorizationCode`를 받습니다.
-모바일 앱은 이 코드를 `POST /api/auth/kakao`로 백엔드에 전달합니다.
-백엔드는 이 코드를 카카오 서버와 교환해 카카오 사용자 정보를 조회하고, Runvas 사용자를 생성하거나 조회한 뒤 Runvas JWT와 사용자 정보를 반환합니다.
-카카오 액세스 토큰은 Runvas API 인증 토큰이 아니며, 모바일 앱에 반환하지 않습니다.
+카카오 로그인 흐름(모바일이 `authorizationCode`를 받아 백엔드에 전달하고, 백엔드가 카카오 서버와
+교환해 Runvas JWT를 발급하는 방식)은 이미 확정되어 재논의 대상이 아닙니다. 상세 계약은
+`docs/api-contract.md`의 `POST /api/auth/kakao`를, 구현 관점 규칙은 `backend/AGENTS.md`의
+"현재 확정된 인증 방향"을 참고하세요.

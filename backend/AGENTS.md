@@ -26,3 +26,11 @@
 - 카카오 사용자 ID는 내부적으로 `providerUserId`로 저장하고, API 응답에는 절대 포함하지 않습니다.
 - Runvas JWT를 `accessToken`으로 반환합니다.
 - 카카오 액세스 토큰은 백엔드 내부 검증용으로만 사용하며, Runvas API 인증 토큰으로 취급하지 않습니다.
+
+## 변경 후 검증 (매번)
+
+1. `./gradlew test`로 관련 단위/통합 테스트(JUnit 5, MockMvc, Testcontainers)를 통과시킵니다.
+2. 요청/응답 필드나 상태 코드가 바뀌었다면 `../docs/api-contract.md`의 예시와 실제 응답이
+   일치하는지 확인합니다.
+3. `./gradlew bootRun`으로 로컬 기동 후 변경한 엔드포인트를 직접 호출해 확인합니다 — 테스트만으로는
+   잡히지 않는 설정/마이그레이션 오류가 있을 수 있습니다.
