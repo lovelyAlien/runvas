@@ -1,5 +1,6 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
 import {
+  Animated,
   View,
   TouchableOpacity,
   StyleSheet,
@@ -17,6 +18,10 @@ import { CompositeScreenProps } from '@react-navigation/native';
 
 import Header from '../components/Header';
 import KakaoMapView, { KakaoMapViewRef, PublicCourseMarker } from '../components/KakaoMapView';
+import CourseSearchSheet, {
+  CourseSearchSheetRef,
+  SHEET_HANDLE_HEIGHT,
+} from '../components/CourseSearchSheet';
 import RouteStatsBar from '../components/RouteStatsBar';
 import PaceSelector from '../components/PaceSelector';
 import { useRoute, DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
@@ -24,12 +29,19 @@ import { useLocation } from '../hooks/useLocation';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchPedestrianRoute } from '../services/routingApi';
 import { exportGpx } from '../utils/exportGpx';
-import { postCourse, buildCreateCourseRequest, getPublicCourses, searchPublicCourses, searchPublicCoursesByTag } from '../services/courseApi';
+import {
+  postCourse,
+  buildCreateCourseRequest,
+  getCourse,
+  getPublicCourses,
+  searchPublicCourses,
+  searchPublicCoursesByTag,
+} from '../services/courseApi';
 import CourseSearchBar from '../components/CourseSearchBar';
 import { patchMe } from '../services/authApi';
 import Toast from 'react-native-toast-message';
 import { Colors } from '../constants/theme';
-import { Coordinate, GeoBounds } from '../types';
+import { Coordinate, Course, CourseSummary, GeoBounds } from '../types';
 import { formatPace } from '../utils/format';
 import { RootTabParamList, RootStackParamList } from '../navigation/types';
 
@@ -38,8 +50,12 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
+const FLOATING_BUTTONS_DEFAULT_BOTTOM = 16;
+const FLOATING_BUTTONS_SHEET_GAP = 12; // 시트 상단과 우측 FAB 스택 사이 여백
+
 export default function MapScreen({ navigation }: Props) {
   const mapRef = useRef<KakaoMapViewRef>(null);
+  const courseSheetRef = useRef<CourseSearchSheetRef>(null);
   const { accessToken, requireAuth, user, updateUser } = useAuth();
   const { getCurrentLocation } = useLocation();
 
@@ -68,8 +84,108 @@ export default function MapScreen({ navigation }: Props) {
   const [isFetchingCourses, setIsFetchingCourses] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isPedestrianRouteEnabled, setIsPedestrianRouteEnabled] = useState(true);
+  const [isCourseSheetOpen, setIsCourseSheetOpen] = useState(false);
+  const [nearbyCourses, setNearbyCourses] = useState<CourseSummary[]>([]);
+  const [isLoadingCourses, setIsLoadingCourses] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [selectedCourseDetail, setSelectedCourseDetail] = useState<Course | null>(null);
+  const [isCourseSheetCollapsed, setIsCourseSheetCollapsed] = useState(false);
+  const searchButtonBottom = useRef(new Animated.Value(FLOATING_BUTTONS_DEFAULT_BOTTOM)).current;
+  const sheetContentHeightRef = useRef(0);
 
   const boundsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 탐색 버튼은 시트가 열려 있는 동안 사라지지 않고, 시트의 실시간 위치(드래그 중에도)를 그대로
+  // 따라다닌다. translateY는 native driver로도 움직이므로, addListener로 JS 쪽 값을 동기화한다.
+  useEffect(() => {
+    if (!isCourseSheetOpen) {
+      searchButtonBottom.setValue(FLOATING_BUTTONS_DEFAULT_BOTTOM);
+      return;
+    }
+    const sheet = courseSheetRef.current;
+    if (!sheet) return;
+    const listenerId = sheet.translateY.addListener(({ value }) => {
+      const target =
+        SHEET_HANDLE_HEIGHT + sheetContentHeightRef.current + FLOATING_BUTTONS_SHEET_GAP - value;
+      searchButtonBottom.setValue(target);
+    });
+    return () => sheet.translateY.removeListener(listenerId);
+  }, [isCourseSheetOpen, searchButtonBottom]);
+
+  const handleOpenCourseSearch = async () => {
+    if (!mapRef.current) return;
+    setIsLoadingCourses(true);
+    setIsCourseSheetOpen(true);
+    setSelectedCourseId(null);
+    setSelectedCourseDetail(null);
+    setIsCourseSheetCollapsed(false);
+    sheetContentHeightRef.current = 0;
+    mapRef.current.clearCoursePreview();
+    courseSheetRef.current?.expand();
+    try {
+      const bounds = await mapRef.current.getBounds();
+      const { courses } = await getPublicCourses(
+        {
+          swLat: bounds.southWest.latitude,
+          swLng: bounds.southWest.longitude,
+          neLat: bounds.northEast.latitude,
+          neLng: bounds.northEast.longitude,
+        },
+        accessToken ?? undefined
+      );
+      setNearbyCourses(courses);
+    } catch (e: unknown) {
+      Alert.alert('조회 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+      setIsCourseSheetOpen(false);
+    } finally {
+      setIsLoadingCourses(false);
+    }
+  };
+
+  const handleCloseCourseSearch = () => {
+    setIsCourseSheetOpen(false);
+    setSelectedCourseId(null);
+    setSelectedCourseDetail(null);
+    setIsCourseSheetCollapsed(false);
+    mapRef.current?.clearCoursePreview();
+  };
+
+  // 목록에서 코스를 선택: 현재 지도 범위를 유지한 채 경로만 미리보기로 그린다 (카메라 이동 없음).
+  const handleSelectCourse = async (courseId: string) => {
+    setSelectedCourseId(courseId);
+    try {
+      const course = await getCourse(courseId, accessToken ?? undefined);
+      setSelectedCourseDetail(course);
+      mapRef.current?.previewCourse(course.path);
+    } catch (e: unknown) {
+      Alert.alert('불러오기 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+      setSelectedCourseId(null);
+      setSelectedCourseDetail(null);
+    }
+  };
+
+  // "상세 보기" 버튼: 선택된 코스의 좌표로 카메라를 이동하고 경로 순서(웨이포인트 번호)를 표시한다.
+  const handleViewCourseDetail = (courseId: string) => {
+    if (!selectedCourseDetail || selectedCourseDetail.id !== courseId) return;
+    mapRef.current?.fitBounds(selectedCourseDetail.bounds);
+    mapRef.current?.showCourseWaypoints(selectedCourseDetail.waypoints);
+  };
+
+  const handlePressWritePost = () => {
+    if (!requireAuth() || !selectedCourseDetail) return;
+    navigation.navigate('PostCreate', {
+      attachedCourseId: selectedCourseDetail.id,
+      attachedCourseTitle: selectedCourseDetail.title,
+    });
+  };
+
+  const handlePressCourseBoard = () => {
+    if (!selectedCourseDetail) return;
+    navigation.navigate('CourseBoard', {
+      courseId: selectedCourseDetail.id,
+      courseTitle: selectedCourseDetail.title,
+    });
+  };
 
   const fetchPublicCourses = useCallback(
     async (bounds: GeoBounds) => {
@@ -166,6 +282,7 @@ export default function MapScreen({ navigation }: Props) {
   const handleMapPress = useCallback(
     async (coord: Coordinate) => {
       if (isBrowseMode) return;
+      if (isCourseSheetOpen) return; // 코스 탐색 중에는 지도 탭이 내 경로에 웨이포인트를 추가하지 않게 한다
       if (isRouting) return;
 
       if (waypoints.length === 0) {
@@ -192,7 +309,7 @@ export default function MapScreen({ navigation }: Props) {
         setIsRouting(false);
       }
     },
-    [waypoints, isRouting, isBrowseMode, isPedestrianRouteEnabled, accessToken, addFirstPoint, addSegment]
+    [waypoints, isRouting, isBrowseMode, isCourseSheetOpen, isPedestrianRouteEnabled, accessToken, addFirstPoint, addSegment]
   );
 
   const handleLocate = async () => {
@@ -330,35 +447,98 @@ export default function MapScreen({ navigation }: Props) {
           />
         )}
 
-        <View style={styles.floatingButtons}>
+        {/* 좌측 하단: "주변 코스 찾기"는 지도 bounds로 목록을 가져오는 주요 동작이라 텍스트
+            라벨이 있는 pill 버튼으로, "검색"은 이름/태그 검색창을 여는 보조 동작이라 아이콘
+            전용 FAB로 남겨 서로 다른 동작임을 형태로 구분한다. 시트가 열려 있는 동안도 사라지지
+            않고 시트 상단 위치를 따라간다. */}
+        <Animated.View style={[styles.bottomLeftButtons, { bottom: searchButtonBottom }]}>
+          <TouchableOpacity
+            style={[styles.nearbyCoursesButton, isLoadingCourses && styles.nearbyCoursesButtonDisabled]}
+            onPress={handleOpenCourseSearch}
+            disabled={isLoadingCourses}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="navigate"
+              size={16}
+              color={isLoadingCourses ? Colors.gray400 : Colors.white}
+            />
+            <Text
+              style={[
+                styles.nearbyCoursesButtonLabel,
+                isLoadingCourses && styles.nearbyCoursesButtonLabelDisabled,
+              ]}
+            >
+              주변 코스 찾기
+            </Text>
+          </TouchableOpacity>
           <FAB
             icon="search"
             onPress={() => setIsSearchOpen(true)}
             color={Colors.gray500}
           />
-          <FAB icon="locate" onPress={handleLocate} />
-          {!isBrowseMode && (
-            <>
-              <FAB
-                icon={isPedestrianRouteEnabled ? 'walk' : 'walk-outline'}
-                onPress={togglePedestrianRoute}
-                color={isPedestrianRouteEnabled ? Colors.primary : Colors.gray400}
-              />
-              <FAB
-                icon="arrow-undo"
-                onPress={handleUndo}
-                disabled={waypoints.length === 0 || isRouting}
-              />
-              <FAB icon="save-outline" onPress={handleOpenSaveModal} disabled={!canSave} />
-              <FAB
-                icon="trash-outline"
-                onPress={handleClear}
-                disabled={waypoints.length === 0 || isRouting}
-                color={Colors.danger}
-              />
-            </>
-          )}
-        </View>
+        </Animated.View>
+
+        {/* 우측: 코스 탐색 시트가 닫혀 있을 때는 기존 '내 경로' 도구 모음, 열려 있을 때는
+            위치 + 후기 작성/목록 버튼으로 전환. 시트가 열린 동안은 '내 경로' 도구가 맥락에
+            안 맞으므로 숨긴다. */}
+        {!isCourseSheetOpen && (
+          <View style={styles.floatingButtons}>
+            <FAB icon="locate" onPress={handleLocate} />
+            {!isBrowseMode && (
+              <>
+                <FAB
+                  icon={isPedestrianRouteEnabled ? 'walk' : 'walk-outline'}
+                  onPress={togglePedestrianRoute}
+                  color={isPedestrianRouteEnabled ? Colors.primary : Colors.gray400}
+                />
+                <FAB
+                  icon="arrow-undo"
+                  onPress={handleUndo}
+                  disabled={waypoints.length === 0 || isRouting}
+                />
+                <FAB icon="save-outline" onPress={handleOpenSaveModal} disabled={!canSave} />
+                <FAB
+                  icon="trash-outline"
+                  onPress={handleClear}
+                  disabled={waypoints.length === 0 || isRouting}
+                  color={Colors.danger}
+                />
+              </>
+            )}
+          </View>
+        )}
+
+        {isCourseSheetOpen && (
+          <Animated.View style={[styles.floatingButtons, { bottom: searchButtonBottom }]}>
+            <FAB icon="locate" onPress={handleLocate} />
+            <FAB
+              icon="create-outline"
+              onPress={handlePressWritePost}
+              disabled={!selectedCourseDetail}
+            />
+            <FAB
+              icon="list-outline"
+              onPress={handlePressCourseBoard}
+              disabled={!selectedCourseDetail}
+            />
+          </Animated.View>
+        )}
+
+        <CourseSearchSheet
+          ref={courseSheetRef}
+          visible={isCourseSheetOpen}
+          courses={nearbyCourses}
+          isLoading={isLoadingCourses}
+          selectedCourseId={selectedCourseId}
+          onSelectCourse={handleSelectCourse}
+          onViewDetail={handleViewCourseDetail}
+          onClose={handleCloseCourseSearch}
+          onCollapsedChange={setIsCourseSheetCollapsed}
+          onContentHeightChange={(height) => {
+            sheetContentHeightRef.current = height;
+          }}
+        />
       </View>
 
       <RouteStatsBar
@@ -442,6 +622,37 @@ const styles = StyleSheet.create({
     bottom: 16,
     gap: 10,
     alignItems: 'center',
+  },
+  bottomLeftButtons: {
+    position: 'absolute',
+    left: 16,
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  nearbyCoursesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    backgroundColor: Colors.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  nearbyCoursesButtonDisabled: {
+    backgroundColor: Colors.gray100,
+  },
+  nearbyCoursesButtonLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.white,
+  },
+  nearbyCoursesButtonLabelDisabled: {
+    color: Colors.gray400,
   },
   fab: {
     width: 44,
