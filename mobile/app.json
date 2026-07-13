@@ -18,6 +18,7 @@
       }
     },
     "android": {
+      "package": "com.runvas.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -39,7 +40,14 @@
           "locationWhenInUsePermission": "러닝 코스 생성을 위해 현재 위치가 필요합니다."
         }
       ],
-      "expo-secure-store"
-    ]
+      "expo-secure-store",
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ed81a4b8-1fbe-4a1e-b016-7387171b1299"
+      }
+    },
+    "owner": "runvas"
   }
 }
