@@ -555,7 +555,7 @@ const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
       <WebView
         ref={webViewRef}
         style={styles.map}
-        source={{ html: buildMapHtml(KAKAO_JS_KEY), baseUrl: 'http://localhost' }}
+        source={{ html: buildMapHtml(KAKAO_JS_KEY) }}
         originWhitelist={['*']}
         javaScriptEnabled
         onMessage={handleMessage}
