@@ -1,7 +1,7 @@
 import React, { useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { AppState, AppStateStatus, StyleSheet } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
-import { Coordinate, GeoBounds } from '../types';
+import { Coordinate, GeoBounds, RoutePoint } from '../types';
 
 // 카카오 로그인용 REST API 키(EXPO_PUBLIC_KAKAO_APP_KEY)와는 다른 키다.
 // 카카오 지도 JS SDK(dapi.kakao.com/v2/maps/sdk.js)는 JavaScript 키만 인식하며,
@@ -20,6 +20,10 @@ export interface KakaoMapViewRef {
   addWaypoint: (coord: Coordinate, index: number) => void;
   addRouteSegment: (coords: Coordinate[]) => void;
   fitBounds: (bounds: GeoBounds) => void;
+  getBounds: () => Promise<GeoBounds>; // 현재 지도에 보이는 영역 1회 조회 ("주변 코스 찾기" 버튼용)
+  previewCourse: (path: RoutePoint[]) => void; // 선택한 공개 코스 경로를 미리보기로 표시 (카메라 이동 없음)
+  showCourseWaypoints: (waypoints: RoutePoint[]) => void; // "상세 보기" 시 경로 순서 번호 핀 표시
+  clearCoursePreview: () => void; // 미리보기 경로/순서 핀 제거
   undoLast: () => void;
   clearMap: () => void;
   showPublicCourses: (courses: PublicCourseMarker[]) => void;
@@ -171,6 +175,8 @@ function buildMapHtml(appKey: string): string {
     var publicCourses = []; // 숫자 인덱스로만 참조 — 사용자 입력값을 onclick 속성에 직접 삽입하지 않기 위함
     var activeBubbleOverlay = null;
     var isBrowseMode = false;
+    var previewPolyline;       // 코스 조회로 선택한 공개 코스 미리보기 폴리라인 (사용자가 그리는 경로와 별개)
+    var courseWaypointMarkers = []; // 코스 상세 보기 시 표시하는 경로 순서 번호 핀
 
     kakao.maps.load(function() {
       var container = document.getElementById('map');
@@ -304,6 +310,60 @@ function buildMapHtml(appKey: string): string {
         var llBounds = new kakao.maps.LatLngBounds(sw, ne);
         map.setBounds(llBounds);
 
+      } else if (msg.type === 'GET_BOUNDS') {
+        var currentBounds = map.getBounds();
+        var boundsSw = currentBounds.getSouthWest();
+        var boundsNe = currentBounds.getNorthEast();
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'BOUNDS_RESULT',
+          swLat: boundsSw.getLat(),
+          swLng: boundsSw.getLng(),
+          neLat: boundsNe.getLat(),
+          neLng: boundsNe.getLng()
+        }));
+
+      } else if (msg.type === 'PREVIEW_COURSE') {
+        if (previewPolyline) {
+          previewPolyline.setMap(null);
+          previewPolyline = null;
+        }
+        courseWaypointMarkers.forEach(function(m) { m.setMap(null); });
+        courseWaypointMarkers = [];
+        var previewPath = msg.coords.map(function(c) {
+          return new kakao.maps.LatLng(c.latitude, c.longitude);
+        });
+        previewPolyline = new kakao.maps.Polyline({
+          path: previewPath,
+          strokeWeight: 3,
+          strokeColor: '#F97316',
+          strokeOpacity: 0.9,
+          strokeStyle: 'solid'
+        });
+        previewPolyline.setMap(map);
+
+      } else if (msg.type === 'SHOW_COURSE_WAYPOINTS') {
+        courseWaypointMarkers.forEach(function(m) { m.setMap(null); });
+        courseWaypointMarkers = [];
+        msg.waypoints.forEach(function(wp, i) {
+          var latlng = new kakao.maps.LatLng(wp.latitude, wp.longitude);
+          var colorClass = i === 0 ? 'start' : (i === msg.waypoints.length - 1 ? 'end' : 'mid');
+          var overlay = new kakao.maps.CustomOverlay({
+            position: latlng,
+            yAnchor: 1,
+            content: '<div class="waypoint-pin ' + colorClass + '"><span class="num">' + (i + 1) + '</span></div>'
+          });
+          overlay.setMap(map);
+          courseWaypointMarkers.push(overlay);
+        });
+
+      } else if (msg.type === 'CLEAR_COURSE_PREVIEW') {
+        if (previewPolyline) {
+          previewPolyline.setMap(null);
+          previewPolyline = null;
+        }
+        courseWaypointMarkers.forEach(function(m) { m.setMap(null); });
+        courseWaypointMarkers = [];
+
       } else if (msg.type === 'CLEAR') {
         waypointMarkers.forEach(function(m) { m.setMap(null); });
         waypointMarkers = [];
@@ -382,6 +442,7 @@ function buildMapHtml(appKey: string): string {
 const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
   ({ onMapPress, onMapReady, onBoundsChange, onCourseMarkerPress }, ref) => {
     const webViewRef = useRef<WebView>(null);
+    const boundsResolverRef = useRef<((bounds: GeoBounds) => void) | null>(null);
 
     const postMessage = (msg: object) => {
       webViewRef.current?.postMessage(JSON.stringify(msg));
@@ -421,6 +482,34 @@ const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
           neLng: bounds.northEast.longitude,
         });
       },
+      getBounds: () => {
+        return new Promise<GeoBounds>((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            boundsResolverRef.current = null;
+            reject(new Error('지도 범위를 가져오지 못했습니다.'));
+          }, 5000);
+          boundsResolverRef.current = (bounds) => {
+            clearTimeout(timeoutId);
+            resolve(bounds);
+          };
+          postMessage({ type: 'GET_BOUNDS' });
+        });
+      },
+      previewCourse: (path: RoutePoint[]) => {
+        postMessage({
+          type: 'PREVIEW_COURSE',
+          coords: path.map((p) => ({ latitude: p.latitude, longitude: p.longitude })),
+        });
+      },
+      showCourseWaypoints: (waypoints: RoutePoint[]) => {
+        postMessage({
+          type: 'SHOW_COURSE_WAYPOINTS',
+          waypoints: waypoints.map((w) => ({ latitude: w.latitude, longitude: w.longitude })),
+        });
+      },
+      clearCoursePreview: () => {
+        postMessage({ type: 'CLEAR_COURSE_PREVIEW' });
+      },
       undoLast: () => {
         postMessage({ type: 'UNDO_LAST' });
       },
@@ -452,6 +541,12 @@ const KakaoMapView = forwardRef<KakaoMapViewRef, Props>(
           });
         } else if (data.type === 'COURSE_MARKER_PRESS') {
           onCourseMarkerPress?.(data.courseId);
+        } else if (data.type === 'BOUNDS_RESULT') {
+          boundsResolverRef.current?.({
+            southWest: { latitude: data.swLat, longitude: data.swLng },
+            northEast: { latitude: data.neLat, longitude: data.neLng },
+          });
+          boundsResolverRef.current = null;
         }
       } catch (_) {}
     };
