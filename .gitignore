@@ -7,3 +7,5 @@ backend/.env
 .vscode/
 .idea/
 .worktrees/
+.env
+*.pem
