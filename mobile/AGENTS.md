@@ -23,6 +23,21 @@ SDK 메이저 버전이 올라가면 네이티브 모듈 API가 자주 바뀝니
 - **`app.json`의 `plugins` 배열에 `expo-sharing`을 넣지 마세요.** config plugin이 없는 패키지입니다.
   `expo-location`처럼 실제 config plugin이 있는 패키지만 `plugins`에 넣으세요.
 
+## 카카오 지도 SDK — iOS ATS 문제 (반복하지 말 것)
+
+- 카카오 지도 JS SDK(`dapi.kakao.com/v2/maps/sdk.js`)는 `kakao.maps.load()` 호출 시 내부적으로
+  `http://t1.daumcdn.net/mapjsapi/js/main/...` 같은 **평문 HTTP** 리소스를 동적으로 추가 로드합니다.
+  iOS는 기본적으로 App Transport Security(ATS)가 HTTP 요청을 전부 차단하는데, 이 리소스가
+  차단되면 `kakao.maps.load()`의 콜백이 에러 하나 없이 조용히 영원히 호출되지 않고 지도는
+  완전히 빈 화면으로 남습니다. Expo Go는 자체 Info.plist에 ATS 예외가 있어 이 문제가 안 보이지만,
+  EAS Build로 만든 커스텀 dev-client/standalone 빌드는 `app.json`의 `ios.infoPlist` 설정을
+  그대로 씁니다. `app.json`의 `ios.infoPlist.NSAppTransportSecurity.NSAllowsArbitraryLoads: true`로
+  ATS를 비활성화해야 합니다 (로컬 백엔드로 가는 평문 HTTP 요청도 같은 이유로 필요).
+- 지도가 안 보이는데 원인이 애매하면, WebView `source`에 `baseUrl`을 지정해 origin을
+  `about:blank`가 아니게 만드는 것부터 의심하지 말고 — 먼저 `document.createElement`를
+  가로채서 카카오 SDK가 동적으로 추가하는 `<script>`의 `src`와 로드 성공/실패를 확인하세요.
+  이 저장소에서는 도메인 등록(Web 플랫폼) 문제가 아니라 위 ATS 문제였습니다.
+
 ## 모바일 구현 원칙
 
 - 화면과 사용자 흐름은 `../docs/product-scope.md`의 MVP 범위를 기준으로 구현합니다.
