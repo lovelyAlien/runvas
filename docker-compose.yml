@@ -22,5 +22,35 @@ services:
     ports:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"
 
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    profiles: ["deploy"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      SERVER_PORT: 8921
+      DATABASE_URL: jdbc:postgresql://postgres:5432/runvas
+      DATABASE_USERNAME: runvas
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-runvas}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-3600}
+      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET}
+      TMAP_APP_KEY: ${TMAP_APP_KEY}
+      UPLOAD_DIR: /app/uploads
+      UPLOAD_BASE_URL: ${UPLOAD_BASE_URL:-http://localhost:8921}
+    volumes:
+      - uploads_data:/app/uploads
+    ports:
+      - "127.0.0.1:8921:8921"
+
 volumes:
   postgres_data:
+  uploads_data:
