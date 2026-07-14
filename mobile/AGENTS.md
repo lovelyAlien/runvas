@@ -23,7 +23,7 @@ SDK 메이저 버전이 올라가면 네이티브 모듈 API가 자주 바뀝니
 - **`app.json`의 `plugins` 배열에 `expo-sharing`을 넣지 마세요.** config plugin이 없는 패키지입니다.
   `expo-location`처럼 실제 config plugin이 있는 패키지만 `plugins`에 넣으세요.
 
-## 카카오 지도 SDK — iOS ATS 문제 (반복하지 말 것)
+## 카카오 지도 SDK — iOS ATS / Android cleartext traffic 문제 (반복하지 말 것)
 
 - 카카오 지도 JS SDK(`dapi.kakao.com/v2/maps/sdk.js`)는 `kakao.maps.load()` 호출 시 내부적으로
   `http://t1.daumcdn.net/mapjsapi/js/main/...` 같은 **평문 HTTP** 리소스를 동적으로 추가 로드합니다.
@@ -33,6 +33,12 @@ SDK 메이저 버전이 올라가면 네이티브 모듈 API가 자주 바뀝니
   EAS Build로 만든 커스텀 dev-client/standalone 빌드는 `app.json`의 `ios.infoPlist` 설정을
   그대로 씁니다. `app.json`의 `ios.infoPlist.NSAppTransportSecurity.NSAllowsArbitraryLoads: true`로
   ATS를 비활성화해야 합니다 (로컬 백엔드로 가는 평문 HTTP 요청도 같은 이유로 필요).
+- **Android도 같은 문제가 있습니다.** API 28(Android 9) 이상을 타겟하는 앱은 기본적으로
+  평문 HTTP 트래픽을 전부 차단합니다(`android:usesCleartextTraffic` 기본값 `false`) — iOS ATS와
+  동일한 이유로 카카오 SDK의 내부 HTTP 리소스가 막혀 지도가 빈 화면으로 남습니다.
+  `expo-build-properties` 플러그인을 설치하고 `app.json`의 `plugins`에
+  `["expo-build-properties", { "android": { "usesCleartextTraffic": true } }]`를 추가해야
+  합니다. 두 플랫폼 다 네이티브 설정 변경이라 EAS로 재빌드해야 반영됩니다.
 - 지도가 안 보이는데 원인이 애매하면, WebView `source`에 `baseUrl`을 지정해 origin을
   `about:blank`가 아니게 만드는 것부터 의심하지 말고 — 먼저 `document.createElement`를
   가로채서 카카오 SDK가 동적으로 추가하는 `<script>`의 `src`와 로드 성공/실패를 확인하세요.
