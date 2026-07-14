@@ -41,7 +41,7 @@ import CourseSearchBar from '../components/CourseSearchBar';
 import { patchMe } from '../services/authApi';
 import Toast from 'react-native-toast-message';
 import { Colors } from '../constants/theme';
-import { Coordinate, Course, CourseSummary, GeoBounds } from '../types';
+import { Coordinate, Course, CourseSummary, CourseVisibility, GeoBounds } from '../types';
 import { formatPace } from '../utils/format';
 import { RootTabParamList, RootStackParamList } from '../navigation/types';
 
@@ -78,6 +78,7 @@ export default function MapScreen({ navigation }: Props) {
   const [isRouting, setIsRouting] = useState(false);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [routeTitle, setRouteTitle] = useState('');
+  const [routeVisibility, setRouteVisibility] = useState<CourseVisibility>('PRIVATE');
   const [isPaceSelectorOpen, setIsPaceSelectorOpen] = useState(false);
   const [isSavingPace, setIsSavingPace] = useState(false);
   const [isBrowseMode, setIsBrowseMode] = useState(false);
@@ -380,6 +381,7 @@ export default function MapScreen({ navigation }: Props) {
       return;
     }
     setRouteTitle('');
+    setRouteVisibility('PRIVATE');
     setIsSaveModalOpen(true);
   };
 
@@ -399,6 +401,7 @@ export default function MapScreen({ navigation }: Props) {
           distanceMeters: stats.distanceMeters,
           estimatedDurationSeconds: stats.estimatedDurationSeconds,
           bounds,
+          visibility: routeVisibility,
         }),
         accessToken
       );
@@ -569,6 +572,37 @@ export default function MapScreen({ navigation }: Props) {
               onChangeText={setRouteTitle}
               autoFocus
             />
+            <Text style={styles.modalLabel}>공개 설정</Text>
+            <View style={styles.visibilityRow}>
+              <TouchableOpacity
+                style={[styles.visibilityOption, routeVisibility === 'PUBLIC' && styles.visibilityActive]}
+                onPress={() => setRouteVisibility('PUBLIC')}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="globe-outline"
+                  size={16}
+                  color={routeVisibility === 'PUBLIC' ? Colors.primary : Colors.gray500}
+                />
+                <Text style={[styles.visibilityText, routeVisibility === 'PUBLIC' && styles.visibilityActiveText]}>
+                  공개
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.visibilityOption, routeVisibility === 'PRIVATE' && styles.visibilityActive]}
+                onPress={() => setRouteVisibility('PRIVATE')}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={16}
+                  color={routeVisibility === 'PRIVATE' ? Colors.primary : Colors.gray500}
+                />
+                <Text style={[styles.visibilityText, routeVisibility === 'PRIVATE' && styles.visibilityActiveText]}>
+                  비공개
+                </Text>
+              </TouchableOpacity>
+            </View>
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.modalCancelButton}
@@ -695,6 +729,39 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.gray900,
     marginBottom: 20,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.gray900,
+    marginBottom: 6,
+  },
+  visibilityRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  visibilityOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: Colors.gray100,
+    borderRadius: 8,
+  },
+  visibilityActive: {
+    borderColor: Colors.primary,
+  },
+  visibilityText: {
+    fontSize: 14,
+    color: Colors.gray500,
+  },
+  visibilityActiveText: {
+    color: Colors.primary,
+    fontWeight: '600',
   },
   modalActions: { flexDirection: 'row', gap: 12 },
   modalCancelButton: {
