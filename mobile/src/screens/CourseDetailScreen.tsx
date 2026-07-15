@@ -167,6 +167,20 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
 
   const handlePressWriteReview = () => {
     if (!requireAuth() || !course) return;
+    if (course.visibility !== 'PUBLIC') {
+      Alert.alert(
+        '비공개 코스',
+        '비공개 코스는 후기를 쓸 수 없어요. 코스를 공개로 전환할까요?',
+        [
+          { text: '취소', style: 'cancel' },
+          {
+            text: '공개로 전환',
+            onPress: () => navigation.navigate('CourseEdit', { courseId: course.id }),
+          },
+        ]
+      );
+      return;
+    }
     navigation.navigate('PostCreate', {
       attachedCourseId: course.id,
       attachedCourseTitle: course.title,
