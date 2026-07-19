@@ -266,4 +266,21 @@ class PostControllerTest {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
 	}
+
+	@Test
+	void showsWithdrawnPlaceholderWhenAuthorNoLongerExists() throws Exception {
+		String accessToken = createUserAndToken("author-to-withdraw");
+		String postId = createPost(accessToken, "탈퇴 전 작성한 글", "본문");
+		User author = userRepository.findAll().stream()
+				.filter(u -> u.getNickname().equals("author-to-withdraw"))
+				.findFirst()
+				.orElseThrow();
+		userRepository.delete(author);
+
+		mockMvc.perform(get("/api/posts/" + postId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.post.author.nickname").value("탈퇴한 사용자"))
+				.andExpect(jsonPath("$.post.author.profileImageUrl").doesNotExist())
+				.andExpect(jsonPath("$.post.author.bio").doesNotExist());
+	}
 }

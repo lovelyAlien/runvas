@@ -65,6 +65,23 @@ class KakaoAuthServiceTest {
     }
 
     @Test
+    void loginRestoresSoftDeletedUserAndClearsDeletedAt() {
+        KakaoLoginRequest request = new KakaoLoginRequest("KAKAO", "authorization-code", "runvas://auth/kakao");
+        User withdrawnUser = persisted(User.createKakaoUser("kakao-123", "runner@example.com", "Seoul Runner", null));
+        withdrawnUser.markWithdrawn();
+        when(kakaoAuthClient.fetchUserInfo("authorization-code", "runvas://auth/kakao"))
+                .thenReturn(new KakaoUserInfo("kakao-123", "runner@example.com", "Seoul Runner", null));
+        when(userRepository.findByProviderAndProviderUserId(AuthProvider.KAKAO, "kakao-123"))
+                .thenReturn(Optional.of(withdrawnUser));
+
+        AuthResponse response = kakaoAuthService.login(request);
+
+        assertThat(response.isNewUser()).isFalse();
+        assertThat(withdrawnUser.isDeleted()).isFalse();
+        verify(userRepository).save(withdrawnUser);
+    }
+
+    @Test
     void treatsDuplicateCreateRaceAsExistingUserLogin() {
         KakaoLoginRequest request = new KakaoLoginRequest("KAKAO", "authorization-code", "runvas://auth/kakao");
         User existingUser = persisted(User.createKakaoUser("kakao-123", "runner@example.com", "Seoul Runner", null));

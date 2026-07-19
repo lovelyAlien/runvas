@@ -9,7 +9,6 @@ import com.runvas.backend.community.dto.PublicProfile;
 import com.runvas.backend.course.Course;
 import com.runvas.backend.course.CourseRepository;
 import com.runvas.backend.course.CourseVisibility;
-import com.runvas.user.domain.User;
 import com.runvas.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.List;
@@ -197,10 +196,9 @@ public class CourseCommentService {
 	}
 
 	private PublicProfile resolveAuthor(String authorId) {
-		User author = userRepository
-				.findById(UUID.fromString(authorId))
-				.orElseThrow(() -> new ApiException(ErrorCode.INTERNAL_ERROR, "작성자를 찾을 수 없습니다"));
-		return PublicProfile.from(author);
+		return userRepository.findById(UUID.fromString(authorId))
+				.map(PublicProfile::from)
+				.orElseGet(() -> PublicProfile.withdrawn(authorId));
 	}
 
 	public record ListResult(List<CourseCommentResponse> comments, PageInfo pageInfo) {

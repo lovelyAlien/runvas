@@ -7,7 +7,6 @@ import com.runvas.backend.common.PageInfo;
 import com.runvas.backend.community.dto.CommentResponse;
 import com.runvas.backend.community.dto.CreateCommentRequest;
 import com.runvas.backend.community.dto.UpdateCommentRequest;
-import com.runvas.user.domain.User;
 import com.runvas.user.dto.PublicProfileResponse;
 import com.runvas.user.repository.UserRepository;
 import java.time.Instant;
@@ -94,9 +93,10 @@ public class CommentService {
 	}
 
 	private CommentResponse toResponse(Comment comment) {
-		User author = userRepository.findById(UUID.fromString(comment.getAuthorId()))
-				.orElseThrow(() -> new ApiException(ErrorCode.INTERNAL_ERROR, "작성자를 찾을 수 없습니다"));
-		return CommentResponse.from(comment, PublicProfileResponse.from(author));
+		PublicProfileResponse author = userRepository.findById(UUID.fromString(comment.getAuthorId()))
+				.map(PublicProfileResponse::from)
+				.orElseGet(() -> PublicProfileResponse.withdrawn(comment.getAuthorId()));
+		return CommentResponse.from(comment, author);
 	}
 
 	public record ListResult(List<CommentResponse> comments, PageInfo pageInfo) {

@@ -215,3 +215,10 @@ export interface CreateCommentRequestBody {
 export interface UpdateCommentRequestBody {
   body: string;
 }
+
+export type WithdrawalReason =
+  | 'NOT_USING'
+  | 'MISSING_FEATURES'
+  | 'BUGS_OR_ERRORS'
+  | 'PRIVACY_CONCERN'
+  | 'OTHER';

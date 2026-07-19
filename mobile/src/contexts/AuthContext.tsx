@@ -7,8 +7,8 @@ import React, {
   useState,
 } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { User } from '../types';
-import { postAuthKakao, postAuthLogout } from '../services/authApi';
+import { User, WithdrawalReason } from '../types';
+import { deleteMe, postAuthKakao, postAuthLogout } from '../services/authApi';
 import { KAKAO_REDIRECT_URI, KAKAO_REST_API_KEY } from '../config/auth';
 import { shouldRestoreStoredSession } from '../utils/authSession';
 
@@ -25,6 +25,7 @@ interface AuthContextValue {
   isKakaoWebViewVisible: boolean;
   kakaoLogin: () => void;
   logout: () => Promise<void>;
+  withdraw: (reason: WithdrawalReason, reasonDetail: string | null) => Promise<void>;
   requireAuth: () => boolean;
   closeLoginModal: () => void;
   consumeNewUserRedirect: () => boolean;
@@ -120,6 +121,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setPendingNewUserRedirect(false);
   }, [accessToken]);
 
+  const withdraw = useCallback(
+    async (reason: WithdrawalReason, reasonDetail: string | null) => {
+      if (!accessToken) return;
+      await deleteMe(reason, reasonDetail, accessToken);
+      await Promise.all([
+        SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {}),
+        SecureStore.deleteItemAsync(USER_KEY).catch(() => {}),
+      ]);
+      setUser(null);
+      setAccessToken(null);
+      setPendingNewUserRedirect(false);
+    },
+    [accessToken],
+  );
+
   const requireAuth = useCallback((): boolean => {
     if (user) return true;
     setIsLoginModalVisible(true);
@@ -152,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isKakaoWebViewVisible,
       kakaoLogin,
       logout,
+      withdraw,
       requireAuth,
       closeLoginModal,
       consumeNewUserRedirect,
@@ -169,6 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isKakaoWebViewVisible,
       kakaoLogin,
       logout,
+      withdraw,
       requireAuth,
       closeLoginModal,
       consumeNewUserRedirect,
