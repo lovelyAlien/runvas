@@ -2,7 +2,7 @@ package com.runvas.user.service;
 
 import com.runvas.auth.service.KakaoUnlinkClient;
 import com.runvas.backend.community.BookmarkRepository;
-import com.runvas.backend.community.LikeRepository;
+import com.runvas.backend.community.LikeService;
 import com.runvas.user.domain.AuthProvider;
 import com.runvas.user.domain.User;
 import com.runvas.user.repository.UserRepository;
@@ -21,18 +21,18 @@ public class AccountPurgeService {
     private static final int GRACE_PERIOD_DAYS = 30;
 
     private final UserRepository userRepository;
-    private final LikeRepository likeRepository;
+    private final LikeService likeService;
     private final BookmarkRepository bookmarkRepository;
     private final KakaoUnlinkClient kakaoUnlinkClient;
 
     public AccountPurgeService(
             UserRepository userRepository,
-            LikeRepository likeRepository,
+            LikeService likeService,
             BookmarkRepository bookmarkRepository,
             KakaoUnlinkClient kakaoUnlinkClient
     ) {
         this.userRepository = userRepository;
-        this.likeRepository = likeRepository;
+        this.likeService = likeService;
         this.bookmarkRepository = bookmarkRepository;
         this.kakaoUnlinkClient = kakaoUnlinkClient;
     }
@@ -54,7 +54,7 @@ public class AccountPurgeService {
                 log.warn("Kakao unlink failed for user {}, proceeding with deletion", user.getId(), exception);
             }
         }
-        likeRepository.deleteAllByIdUserId(user.getId().toString());
+        likeService.unlikeAllByUser(user.getId().toString());
         bookmarkRepository.deleteAllByIdUserId(user.getId().toString());
         userRepository.delete(user);
     }

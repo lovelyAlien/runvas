@@ -2,7 +2,7 @@ package com.runvas.user.service;
 
 import com.runvas.auth.service.KakaoUnlinkClient;
 import com.runvas.backend.community.BookmarkRepository;
-import com.runvas.backend.community.LikeRepository;
+import com.runvas.backend.community.LikeService;
 import com.runvas.user.domain.User;
 import com.runvas.user.repository.UserRepository;
 import java.time.Instant;
@@ -21,11 +21,11 @@ import static org.mockito.Mockito.when;
 class AccountPurgeServiceTest {
 
     private final UserRepository userRepository = mock(UserRepository.class);
-    private final LikeRepository likeRepository = mock(LikeRepository.class);
+    private final LikeService likeService = mock(LikeService.class);
     private final BookmarkRepository bookmarkRepository = mock(BookmarkRepository.class);
     private final KakaoUnlinkClient kakaoUnlinkClient = mock(KakaoUnlinkClient.class);
     private final AccountPurgeService accountPurgeService =
-            new AccountPurgeService(userRepository, likeRepository, bookmarkRepository, kakaoUnlinkClient);
+            new AccountPurgeService(userRepository, likeService, bookmarkRepository, kakaoUnlinkClient);
 
     private static User kakaoUser(String providerUserId) {
         User user = User.createKakaoUser(providerUserId, null, "탈퇴예정", null);
@@ -42,7 +42,7 @@ class AccountPurgeServiceTest {
         accountPurgeService.purgeExpiredAccounts();
 
         verify(kakaoUnlinkClient).unlink("kakao-expired");
-        verify(likeRepository).deleteAllByIdUserId(expired.getId().toString());
+        verify(likeService).unlikeAllByUser(expired.getId().toString());
         verify(bookmarkRepository).deleteAllByIdUserId(expired.getId().toString());
         verify(userRepository).delete(expired);
     }
@@ -68,7 +68,7 @@ class AccountPurgeServiceTest {
 
         accountPurgeService.purgeExpiredAccounts();
 
-        verify(likeRepository).deleteAllByIdUserId(expired.getId().toString());
+        verify(likeService).unlikeAllByUser(expired.getId().toString());
         verify(bookmarkRepository).deleteAllByIdUserId(expired.getId().toString());
         verify(userRepository).delete(expired);
     }
