@@ -158,6 +158,39 @@ Redis가 로컬에 떠 있어야 합니다.
 `commit-message.yml`은 각 커밋 메시지뿐 아니라 PR 제목도 검증합니다. PR 제목은 GitHub에서 PR을
 열 때 정해지므로 로컬 hook만으로는 완전히 재현할 수 없고, 최종 확인은 CI에서 이뤄집니다.
 
+## 모바일 배포 (EAS Build CI/CD)
+
+두 워크플로가 Git 이벤트에 맞춰 EAS Build를 자동으로 트리거합니다.
+
+| 트리거 | 워크플로 | Job | EAS 프로필 | 용도 |
+| --- | --- | --- | --- | --- |
+| `main` push (`mobile/**` 변경 시) | `mobile-eas-build-preview.yml` | `build-preview` | `preview` | 내부 배포용 상시 빌드 |
+| `mobile-v{semver}` 태그 push (예: `mobile-v1.2.0`) | `mobile-eas-build-production.yml` | `build-production` | `production` | 정식 릴리스 빌드 |
+
+`production` 워크플로는 경로 필터가 없습니다 — 태그가 가리키는 커밋의 파일 변경 여부와 무관하게, 릴리스 태그를 push하면 항상 트리거됩니다.
+
+### 정식 릴리스 절차
+
+1. `main`이 배포 가능한 상태인지 확인합니다 (`build-preview`가 성공한 최신 커밋인지 확인).
+2. 로컬에서 버전 태그를 생성하고 push합니다.
+
+   ```bash
+   git tag mobile-v1.2.0
+   git push origin mobile-v1.2.0
+   ```
+
+3. `build-production` job이 끝나면 GitHub Actions의 Job Summary에서 EAS 빌드 링크를 확인합니다.
+4. 스토어 제출은 자동화돼 있지 않습니다. 산출물을 받아 필요 시 수동으로 `eas submit`을 실행합니다.
+
+### 사전 준비물
+
+- 저장소 Settings → Secrets and variables → Actions에 `EXPO_TOKEN`이 등록돼 있어야 `build-preview`/`build-production`이 EAS에 인증할 수 있습니다. 이 토큰은 [expo.dev/settings/access-tokens](https://expo.dev/settings/access-tokens)에서 발급합니다.
+
+### 범위 밖
+
+- `development` 프로필 빌드는 계속 로컬에서 수동 실행합니다 (`eas build --profile development`).
+- 백엔드 배포 자동화는 별도로 진행합니다.
+
 ## 완료 기준
 
 공통 기준 변경은 다음 조건을 만족해야 완료로 봅니다.
