@@ -1,4 +1,4 @@
-import { AuthResponse, MeResponse, UpdateMeRequest } from '../types';
+import { AuthResponse, MeResponse, UpdateMeRequest, WithdrawalReason } from '../types';
 import { parseApiErrorMessage } from '../utils/apiError';
 import { isLogoutStatusAccepted } from '../utils/authSession';
 
@@ -58,6 +58,29 @@ export async function postAuthLogout(accessToken: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!isLogoutStatusAccepted(response.status)) {
+    throw new Error(await parseApiErrorMessage(response));
+  }
+}
+
+export async function deleteMe(
+  reason: WithdrawalReason,
+  reasonDetail: string | null,
+  accessToken: string,
+): Promise<void> {
+  if (!API_BASE_URL) {
+    throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/me`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ reason, reasonDetail }),
   });
 
   if (!isLogoutStatusAccepted(response.status)) {
