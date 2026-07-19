@@ -48,6 +48,9 @@ public class User {
     @Column(nullable = false)
     private Instant updatedAt;
 
+    @Column
+    private Instant deletedAt;
+
     protected User() {
     }
 
@@ -95,6 +98,19 @@ public class User {
     public int getRunningPaceSecPerKm() { return runningPaceSecPerKm; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+    public Instant getDeletedAt() { return deletedAt; }
+
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
+
+    public void markWithdrawn() {
+        this.deletedAt = Instant.now();
+    }
+
+    public void restore() {
+        this.deletedAt = null;
+    }
 
     public void updateProfile(String nickname, String profileImageUrl, String bio, Integer runningPaceSecPerKm) {
         if (nickname != null) this.nickname = nickname;
