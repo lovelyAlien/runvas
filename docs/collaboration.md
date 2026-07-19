@@ -209,7 +209,7 @@ Redis가 로컬에 떠 있어야 합니다.
    git push origin backend-v1.0.0
    ```
 
-3. `build-and-push` job이 `ghcr.io/lovelyalien/runvas-backend:latest` 이미지를 빌드해 GHCR(private)에 push합니다.
+3. `build-and-push` job이 이미지를 빌드해 `ghcr.io/lovelyalien/runvas-backend:latest`와 `ghcr.io/lovelyalien/runvas-backend:backend-v1.0.0`(태그 이름 그대로) 두 태그로 GHCR(private)에 push합니다.
 4. 이어서 `deploy` job이 SSH로 운영 VPS에 접속해 새 이미지를 pull하고 `docker compose --profile deploy up -d`로 재시작합니다.
 5. 데이터베이스 마이그레이션은 Flyway가 앱 기동 시 자동으로 수행하므로 별도 스텝이 없습니다.
 
@@ -226,7 +226,13 @@ Redis가 로컬에 떠 있어야 합니다.
 ### 범위 밖
 
 - 배포 후 헬스체크 자동 확인 (헬스 엔드포인트가 아직 없음)
-- 실패 시 자동 롤백 (필요하면 이전 태그로 사람이 수동 재배포)
+- 실패 시 자동 롤백. 배포는 항상 `:latest`를 pull하므로, 수동 롤백 시에는 VPS에서 다음을 실행합니다.
+
+  ```bash
+  docker pull ghcr.io/lovelyalien/runvas-backend:backend-v1.0.0   # 되돌릴 이전 버전 태그
+  docker tag ghcr.io/lovelyalien/runvas-backend:backend-v1.0.0 ghcr.io/lovelyalien/runvas-backend:latest
+  docker compose -f <DEPLOY_PATH>/docker-compose.yml --profile deploy up -d --no-build
+  ```
 - `main` push 시 자동 배포 (Continuous Deploy) — 태그 push로만 트리거
 
 ## 완료 기준
