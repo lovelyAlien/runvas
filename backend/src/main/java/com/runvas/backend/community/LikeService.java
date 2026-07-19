@@ -6,6 +6,7 @@ import com.runvas.backend.common.ErrorCode;
 import com.runvas.backend.community.dto.LikeResponse;
 import com.runvas.backend.course.Course;
 import com.runvas.backend.course.CourseRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,6 +52,15 @@ public class LikeService {
 		decrementLikeCount(targetType, targetId);
 
 		return new LikeResponse(targetTypePathValue, targetId, false, currentLikeCount(targetType, targetId));
+	}
+
+	@Transactional
+	public void unlikeAllByUser(String userId) {
+		List<Like> likes = likeRepository.findAllByIdUserId(userId);
+		for (Like like : likes) {
+			decrementLikeCount(like.getId().getTargetType(), like.getId().getTargetId());
+		}
+		likeRepository.deleteAllByIdUserId(userId);
 	}
 
 	private LikeTargetType parseTargetType(String value) {

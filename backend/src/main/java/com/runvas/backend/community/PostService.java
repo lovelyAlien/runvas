@@ -10,7 +10,6 @@ import com.runvas.backend.community.dto.UpdatePostRequest;
 import com.runvas.backend.course.Course;
 import com.runvas.backend.course.CourseRepository;
 import com.runvas.backend.course.CourseVisibility;
-import com.runvas.user.domain.User;
 import com.runvas.user.dto.PublicProfileResponse;
 import com.runvas.user.repository.UserRepository;
 import java.time.Instant;
@@ -141,9 +140,10 @@ public class PostService {
 	}
 
 	private PostResponse toResponse(Post post, boolean likedByMe) {
-		User author = userRepository.findById(UUID.fromString(post.getAuthorId()))
-				.orElseThrow(() -> new ApiException(ErrorCode.INTERNAL_ERROR, "작성자를 찾을 수 없습니다"));
-		return PostResponse.from(post, PublicProfileResponse.from(author), likedByMe);
+		PublicProfileResponse author = userRepository.findById(UUID.fromString(post.getAuthorId()))
+				.map(PublicProfileResponse::from)
+				.orElseGet(() -> PublicProfileResponse.withdrawn(post.getAuthorId()));
+		return PostResponse.from(post, author, likedByMe);
 	}
 
 	public record ListResult(List<PostResponse> posts, PageInfo pageInfo) {

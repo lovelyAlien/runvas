@@ -1,5 +1,6 @@
 package com.runvas.user.controller;
 
+import com.jayway.jsonpath.JsonPath;
 import com.runvas.auth.service.JwtProvider;
 import com.runvas.user.domain.User;
 import com.runvas.user.repository.UserRepository;
@@ -8,15 +9,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -69,6 +74,53 @@ class MeControllerTest {
     @Test
     void unauthenticatedRequestReturns401() throws Exception {
         mockMvc.perform(get("/api/me"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void withdrawMarksAccountDeletedAndBlacklistsToken() throws Exception {
+        User user = userRepository.saveAndFlush(User.createKakaoUser(
+                "kakao-withdraw", "runner@example.com", "Seoul Runner", null
+        ));
+        String accessToken = jwtProvider.createAccessToken(user.getId());
+
+        mockMvc.perform(delete("/api/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "reason": "NOT_USING" }
+                                """))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void withdrawWithOtherReasonRequiresDetail() throws Exception {
+        User user = userRepository.saveAndFlush(User.createKakaoUser(
+                "kakao-withdraw-other", "runner@example.com", "Seoul Runner", null
+        ));
+        String accessToken = jwtProvider.createAccessToken(user.getId());
+
+        mockMvc.perform(delete("/api/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "reason": "OTHER" }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void withdrawWithoutAuthReturns401() throws Exception {
+        mockMvc.perform(delete("/api/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "reason": "NOT_USING" }
+                                """))
                 .andExpect(status().isUnauthorized());
     }
 }

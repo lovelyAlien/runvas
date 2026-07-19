@@ -8,10 +8,15 @@ import com.runvas.user.domain.User;
 import com.runvas.user.dto.MeResponse;
 import com.runvas.user.dto.UpdateMeRequest;
 import com.runvas.user.dto.UserResponse;
+import com.runvas.user.dto.WithdrawRequest;
 import com.runvas.user.repository.UserRepository;
+import com.runvas.user.service.AccountWithdrawalService;
 import jakarta.validation.Valid;
 import java.util.Map;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,10 +29,16 @@ public class MeController {
 
     private final UserRepository userRepository;
     private final BookmarkService bookmarkService;
+    private final AccountWithdrawalService accountWithdrawalService;
 
-    public MeController(UserRepository userRepository, BookmarkService bookmarkService) {
+    public MeController(
+            UserRepository userRepository,
+            BookmarkService bookmarkService,
+            AccountWithdrawalService accountWithdrawalService
+    ) {
         this.userRepository = userRepository;
         this.bookmarkService = bookmarkService;
+        this.accountWithdrawalService = accountWithdrawalService;
     }
 
     @GetMapping("/me")
@@ -62,5 +73,19 @@ public class MeController {
         user.updateProfile(request.nickname(), request.profileImageUrl(), request.bio(), request.runningPaceSecPerKm());
         userRepository.save(user);
         return new MeResponse(UserResponse.from(user));
+    }
+
+    @DeleteMapping("/me")
+    ResponseEntity<Void> withdraw(
+            @AuthenticationPrincipal RunvasPrincipal principal,
+            Authentication authentication,
+            @RequestBody @Valid WithdrawRequest request
+    ) {
+        if (principal == null) {
+            throw new RunvasException(ErrorCode.UNAUTHORIZED);
+        }
+        String token = (String) authentication.getCredentials();
+        accountWithdrawalService.withdraw(principal.userId(), token, request.reason(), request.reasonDetail());
+        return ResponseEntity.noContent().build();
     }
 }

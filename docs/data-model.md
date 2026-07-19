@@ -107,6 +107,32 @@ MVP에서 사용자는 본인이 생성한 코스의 아래 필드를 수정할 
 | `runningPaceSecPerKm` | number | N | 달리기 페이스 (초/km). 기본값 360 (6:00/km). 본인에게만 노출 |
 | `createdAt` | string | Y | ISO 8601 생성 시각 |
 | `updatedAt` | string | Y | ISO 8601 수정 시각 |
+| `deletedAt` | string \| null | N | 탈퇴 신청 시각(ISO 8601). 채워져 있으면 30일 유예기간 중이라는 뜻. API 응답에는 노출하지 않는 내부 저장값 |
+
+## WithdrawalReason
+
+회원 탈퇴 신청 시 선택하는 사유. `DELETE /me` 요청에서만 쓰이며, 사용자 식별자와 연결되지 않는
+별도 익명 통계로만 기록된다 (API 응답에는 등장하지 않음).
+
+| 값 | 설명 |
+| --- | --- |
+| `NOT_USING` | 자주 사용하지 않아요 |
+| `MISSING_FEATURES` | 원하는 코스·기능이 없어요 |
+| `BUGS_OR_ERRORS` | 오류·버그가 많아요 |
+| `PRIVACY_CONCERN` | 개인정보가 걱정돼요 |
+| `OTHER` | 기타 (이 경우 `reasonDetail` 1-200자 필수) |
+
+## 탈퇴한 사용자 표시
+
+계정이 하드 삭제된 뒤에도 그 사용자가 작성한 `Course`/`Post`/`Comment`/`CourseComment`는 삭제되지
+않는다. 이 콘텐츠의 작성자를 나타내는 `PublicProfile`은 다음처럼 고정된 값으로 채워진다.
+
+| 필드 | 값 |
+| --- | --- |
+| `id` | 원래 `authorId` 그대로 유지 |
+| `nickname` | 고정 문구 `"탈퇴한 사용자"` |
+| `profileImageUrl` | `null` |
+| `bio` | `null` |
 
 ## PublicProfile
 

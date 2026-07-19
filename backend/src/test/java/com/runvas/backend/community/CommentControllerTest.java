@@ -189,4 +189,21 @@ class CommentControllerTest {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
 	}
+
+	@Test
+	void showsWithdrawnPlaceholderWhenCommentAuthorNoLongerExists() throws Exception {
+		String accessToken = createUserAndToken("commenter-to-withdraw");
+		String postId = createPost(accessToken);
+		createComment(accessToken, postId, "탈퇴 전 작성한 댓글");
+		User author = userRepository.findAll().stream()
+				.filter(u -> u.getNickname().equals("commenter-to-withdraw"))
+				.findFirst()
+				.orElseThrow();
+		userRepository.delete(author);
+
+		mockMvc.perform(get("/api/posts/" + postId + "/comments"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.comments[0].author.nickname").value("탈퇴한 사용자"))
+				.andExpect(jsonPath("$.comments[0].author.profileImageUrl").doesNotExist());
+	}
 }

@@ -14,16 +14,20 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAuthGate } from '../hooks/useAuthGate';
 import { patchMe } from '../services/authApi';
 import PaceSelector from '../components/PaceSelector';
+import WithdrawalReasonModal from '../components/WithdrawalReasonModal';
+import { WithdrawalReason } from '../types';
 import { DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
 import { formatPace } from '../utils/format';
 import { Colors } from '../constants/theme';
 
 export default function ProfileScreen() {
-  const { user, logout, updateUser, accessToken } = useAuth();
+  const { user, logout, withdraw, updateUser, accessToken } = useAuth();
   const { requireAuth } = useAuthGate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isPaceSelectorOpen, setIsPaceSelectorOpen] = useState(false);
   const [isSavingPace, setIsSavingPace] = useState(false);
+  const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   useEffect(() => {
     requireAuth();
@@ -48,6 +52,21 @@ export default function ProfileScreen() {
       },
     ]);
   }, [logout]);
+
+  const handleWithdraw = useCallback(
+    async (reason: WithdrawalReason, reasonDetail: string | null) => {
+      setIsWithdrawing(true);
+      try {
+        await withdraw(reason, reasonDetail);
+        setIsWithdrawalModalOpen(false);
+      } catch (e: unknown) {
+        Alert.alert('오류', e instanceof Error ? e.message : '탈퇴에 실패했습니다.');
+      } finally {
+        setIsWithdrawing(false);
+      }
+    },
+    [withdraw],
+  );
 
   const handlePaceConfirm = async (paceSecPerKm: number) => {
     if (!accessToken) return;
@@ -106,6 +125,13 @@ export default function ProfileScreen() {
                 <Text style={styles.logoutButtonText}>로그아웃</Text>
               )}
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.withdrawButton}
+              activeOpacity={0.6}
+              onPress={() => setIsWithdrawalModalOpen(true)}
+            >
+              <Text style={styles.withdrawButtonText}>회원 탈퇴</Text>
+            </TouchableOpacity>
           </>
         ) : (
           <Text style={styles.emptyText}>로그인이 필요합니다.</Text>
@@ -118,6 +144,12 @@ export default function ProfileScreen() {
         onConfirm={handlePaceConfirm}
         onClose={() => setIsPaceSelectorOpen(false)}
         isSaving={isSavingPace}
+      />
+      <WithdrawalReasonModal
+        visible={isWithdrawalModalOpen}
+        onConfirm={handleWithdraw}
+        onClose={() => setIsWithdrawalModalOpen(false)}
+        isSubmitting={isWithdrawing}
       />
     </SafeAreaView>
   );
@@ -195,5 +227,15 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 14,
     fontWeight: '600',
+  },
+  withdrawButton: {
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  withdrawButtonText: {
+    color: Colors.gray400,
+    fontSize: 12,
+    fontWeight: '500',
   },
 });

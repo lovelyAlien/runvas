@@ -256,4 +256,21 @@ class CourseCommentControllerTest {
 		com.fasterxml.jackson.databind.JsonNode node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(json);
 		return node.get("comment").get("id").asText();
 	}
+
+	@Test
+	void showsWithdrawnPlaceholderWhenCourseCommentAuthorNoLongerExists() throws Exception {
+		String token = createUserToken("course-commenter-to-withdraw");
+		String courseId = createCourse(authorIdFromToken(token), CourseVisibility.PUBLIC);
+		createComment(courseId, token, "탈퇴 전 작성한 코스 댓글");
+		User author = userRepository.findAll().stream()
+				.filter(u -> u.getNickname().equals("course-commenter-to-withdraw"))
+				.findFirst()
+				.orElseThrow();
+		userRepository.delete(author);
+
+		mockMvc.perform(get("/api/courses/" + courseId + "/comments"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.comments[0].author.nickname").value("탈퇴한 사용자"))
+				.andExpect(jsonPath("$.comments[0].author.profileImageUrl").doesNotExist());
+	}
 }

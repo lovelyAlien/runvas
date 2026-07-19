@@ -39,8 +39,10 @@ runvas:
   kakao:
     token-uri: ${KAKAO_TOKEN_URI:https://kauth.kakao.com/oauth/token}
     user-info-uri: ${KAKAO_USER_INFO_URI:https://kapi.kakao.com/v2/user/me}
+    unlink-uri: ${KAKAO_UNLINK_URI:https://kapi.kakao.com/v1/user/unlink}
     rest-api-key: ${KAKAO_REST_API_KEY:}
     client-secret: ${KAKAO_CLIENT_SECRET:}
+    admin-key: ${KAKAO_ADMIN_KEY:}
   tmap:
     app-key: ${TMAP_APP_KEY:}
   upload:
