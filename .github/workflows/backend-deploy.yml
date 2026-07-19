@@ -18,8 +18,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - run: docker build -t ghcr.io/lovelyalien/runvas-backend:latest ./backend
+      - run: |
+          docker build \
+            -t ghcr.io/lovelyalien/runvas-backend:latest \
+            -t ghcr.io/lovelyalien/runvas-backend:${{ github.ref_name }} \
+            ./backend
       - run: docker push ghcr.io/lovelyalien/runvas-backend:latest
+      - run: docker push ghcr.io/lovelyalien/runvas-backend:${{ github.ref_name }}
 
   deploy:
     needs: build-and-push
