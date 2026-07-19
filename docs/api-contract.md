@@ -1159,6 +1159,44 @@ MVP에서는 refresh token을 응답하지 않습니다.
 - `401 UNAUTHORIZED`: 로그인하지 않음
 - `409 CONFLICT`: 이미 사용 중인 닉네임
 
+### DELETE /me
+
+회원 탈퇴를 신청합니다. 계정을 즉시 삭제하지 않고 30일 유예기간을 둡니다. 유예기간 중 같은 카카오
+계정으로 다시 로그인하면 자동으로 복구됩니다. 유예기간이 지나면 계정은 하드 삭제되고, 이 사용자가
+작성한 코스·게시글·댓글은 삭제되지 않고 작성자 표시만 `"탈퇴한 사용자"`로 바뀝니다
+(`profileImageUrl`/`bio`는 `null`).
+
+#### Auth
+
+`Required`
+
+#### Request Body
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `reason` | string | Y | `NOT_USING`, `MISSING_FEATURES`, `BUGS_OR_ERRORS`, `PRIVACY_CONCERN`, `OTHER` 중 하나 |
+| `reasonDetail` | string \| null | N | `reason`이 `OTHER`일 때만 필수 (1-200자) |
+
+```json
+{
+  "reason": "MISSING_FEATURES",
+  "reasonDetail": null
+}
+```
+
+#### Response: 204 No Content
+
+응답 본문이 없습니다. 요청에 사용된 `accessToken`은 `POST /auth/logout`과 동일하게 즉시
+블랙리스트 처리됩니다 (다른 기기의 세션은 유예기간 동안 계속 유효합니다).
+
+이미 탈퇴 신청되어 유예기간 중인 계정이 다시 이 API를 호출하면 사유를 다시 기록하거나 유예기간을
+연장하지 않고 `204`만 반환합니다 (멱등 처리).
+
+#### Errors
+
+- `400 VALIDATION_ERROR`: `reason` 누락/미지원 값, `reason`이 `OTHER`인데 `reasonDetail` 누락
+- `401 UNAUTHORIZED`: 로그인하지 않음
+
 ## Post APIs
 
 ### GET /posts
