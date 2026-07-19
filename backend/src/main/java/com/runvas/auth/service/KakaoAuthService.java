@@ -39,12 +39,20 @@ public class KakaoAuthService {
                 AuthProvider.KAKAO,
                 kakaoUserInfo.providerUserId()
         );
+        existingUser.ifPresent(this::restoreIfWithdrawn);
         LoginResult loginResult = existingUser
                 .map(user -> new LoginResult(user, false))
                 .orElseGet(() -> createOrFindRacedUser(kakaoUserInfo));
 
         String accessToken = jwtProvider.createAccessToken(loginResult.user().getId());
         return new AuthResponse(accessToken, UserResponse.from(loginResult.user()), loginResult.isNewUser());
+    }
+
+    private void restoreIfWithdrawn(User user) {
+        if (user.isDeleted()) {
+            user.restore();
+            userRepository.save(user);
+        }
     }
 
     private LoginResult createOrFindRacedUser(KakaoUserInfo kakaoUserInfo) {
