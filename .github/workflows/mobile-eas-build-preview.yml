@@ -1,9 +1,7 @@
 name: Mobile EAS Build (Preview)
 
 on:
-  push:
-    branches: [main]
-    paths: ['mobile/**']
+  workflow_dispatch: {}
 
 jobs:
   build-preview:
