@@ -234,8 +234,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   withdrawButtonText: {
-    color: Colors.gray400,
-    fontSize: 12,
-    fontWeight: '500',
+    color: Colors.gray500,
+    fontSize: 14,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });
