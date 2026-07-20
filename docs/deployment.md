@@ -106,6 +106,17 @@ gh run list --workflow=mobile-eas-build-preview.yml --limit 5
 **참고:** `mobile/app.json`의 `ios.infoPlist.ITSAppUsesNonExemptEncryption: false`가 이미
 설정돼 있어, Apple의 수출 규정 준수(암호화 사용 여부) 질문에 추가 응답 없이 자동으로 통과됩니다.
 
+**버전(version)과 빌드 번호(buildNumber)는 별개입니다.** `cli.appVersionSource: "remote"`라
+`mobile/app.json`의 `"version"`은 매 빌드마다 다시 읽지 않고, EAS가 원격으로 관리하는 값을
+씁니다. Git 태그(`mobile-v1.2.0`)는 CI를 트리거하는 신호일 뿐, 그 값을 버전에 반영하는 절차는
+없습니다 — 태그를 새로 만들어도 버전 문자열은 자동으로 안 바뀝니다.
+
+`production` 프로필에는 `"autoIncrement": true`가 설정돼 있어 **빌드 번호(iOS
+buildNumber/Android versionCode)만** 빌드할 때마다 자동으로 +1 됩니다. App Store Connect는
+같은 버전 문자열 안에서 빌드 번호가 겹치면 업로드를 거부하므로("Build number N for app version
+X has already been used"), 같은 버전으로 재제출해야 할 때 이 설정이 필요합니다. 버전 문자열
+자체(예: `1.0.0 → 1.0.1`)를 올리려면 `eas build:version:set`으로 직접 지정해야 합니다.
+
 ### 사전 준비물 (공통)
 
 - 저장소 Settings → Secrets and variables → Actions에 `EXPO_TOKEN`이 등록돼 있어야
