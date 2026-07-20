@@ -23,8 +23,7 @@ services:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"
 
   backend:
-    build:
-      context: ./backend
+    image: ghcr.io/lovelyalien/runvas-backend:latest
     restart: unless-stopped
     profiles: ["deploy"]
     depends_on:

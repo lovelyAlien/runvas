@@ -1,2 +1,5 @@
-*
-!build/libs/*.jar
+build
+docs
+*.md
+.env.example
+gradlew.bat
