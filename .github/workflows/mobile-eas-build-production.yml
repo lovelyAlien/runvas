@@ -19,6 +19,18 @@ jobs:
           cache-dependency-path: mobile/package-lock.json
       - run: npm ci
       - run: npx tsc --noEmit
+      - name: 태그에서 버전/빌드 번호를 app.json에 반영
+        run: |
+          VERSION=${GITHUB_REF_NAME#mobile-v}
+          APP_VERSION="$VERSION" node -e "
+            const fs = require('fs');
+            const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+            const build = process.env.GITHUB_RUN_NUMBER;
+            app.expo.version = process.env.APP_VERSION;
+            app.expo.ios.buildNumber = build;
+            app.expo.android.versionCode = Number(build);
+            fs.writeFileSync('app.json', JSON.stringify(app, null, 2) + '\n');
+          "
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest

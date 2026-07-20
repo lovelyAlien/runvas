@@ -86,7 +86,8 @@ gh run list --workflow=mobile-eas-build-preview.yml --limit 5
    git push origin mobile-v1.2.0
    ```
 
-3. `mobile-eas-build-production.yml`이 자동으로 `eas build --profile production --platform all`을
+3. `mobile-eas-build-production.yml`이 태그 이름에서 버전을, GitHub Actions 실행 번호에서
+   빌드 번호를 뽑아 `mobile/app.json`에 반영한 뒤 `eas build --profile production --platform all`을
    실행합니다 (여기까지만 자동입니다). `build-production` job이 끝나면 GitHub Actions의
    Job Summary에서 EAS 빌드 링크를 확인합니다.
 4. **스토어 제출은 자동화돼 있지 않습니다.** 빌드가 끝나면 사람이 직접 실행합니다.
@@ -106,16 +107,21 @@ gh run list --workflow=mobile-eas-build-preview.yml --limit 5
 **참고:** `mobile/app.json`의 `ios.infoPlist.ITSAppUsesNonExemptEncryption: false`가 이미
 설정돼 있어, Apple의 수출 규정 준수(암호화 사용 여부) 질문에 추가 응답 없이 자동으로 통과됩니다.
 
-**버전(version)과 빌드 번호(buildNumber)는 별개입니다.** `cli.appVersionSource: "remote"`라
-`mobile/app.json`의 `"version"`은 매 빌드마다 다시 읽지 않고, EAS가 원격으로 관리하는 값을
-씁니다. Git 태그(`mobile-v1.2.0`)는 CI를 트리거하는 신호일 뿐, 그 값을 버전에 반영하는 절차는
-없습니다 — 태그를 새로 만들어도 버전 문자열은 자동으로 안 바뀝니다.
+**버전(version)과 빌드 번호(buildNumber)는 별개지만, 둘 다 태그/CI 실행에서 자동으로 정해집니다.**
+`cli.appVersionSource: "local"`이라 EAS는 매 빌드마다 `mobile/app.json`의 값을 그대로 읽습니다.
+`mobile-eas-build-production.yml`의 "태그에서 버전/빌드 번호를 app.json에 반영" 스텝이 `eas build`
+직전에 이 파일을 고쳐씁니다 (커밋하지 않고 그 워크플로 실행 안에서만 바뀝니다).
 
-`production` 프로필에는 `"autoIncrement": true`가 설정돼 있어 **빌드 번호(iOS
-buildNumber/Android versionCode)만** 빌드할 때마다 자동으로 +1 됩니다. App Store Connect는
-같은 버전 문자열 안에서 빌드 번호가 겹치면 업로드를 거부하므로("Build number N for app version
-X has already been used"), 같은 버전으로 재제출해야 할 때 이 설정이 필요합니다. 버전 문자열
-자체(예: `1.0.0 → 1.0.1`)를 올리려면 `eas build:version:set`으로 직접 지정해야 합니다.
+- **버전:** 태그 이름(`mobile-v1.2.0`)에서 `mobile-v` 접두어를 뗀 `1.2.0`이 `app.json`의
+  `"version"`이 됩니다. 태그를 새로 만들 때마다 그 태그가 곧 버전입니다.
+- **빌드 번호:** `${{ github.run_number }}`(이 워크플로가 몇 번째 실행됐는지, 항상 증가하는 값)를
+  iOS `buildNumber`/Android `versionCode`로 씁니다. App Store Connect는 같은 버전 문자열 안에서
+  빌드 번호가 겹치면 업로드를 거부하므로("Build number N for app version X has already been
+  used"), 매 실행마다 값이 겹치지 않게 이 방식을 씁니다.
+
+`development`/`preview` 빌드는 이 CI 스텝을 거치지 않으므로, 저장소에 커밋된 `app.json`의
+`version`/`buildNumber`/`versionCode` 값을 그대로 씁니다 — 내부 테스트용이라 실제 값이 중요하지
+않습니다.
 
 ### 사전 준비물 (공통)
 
