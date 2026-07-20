@@ -47,6 +47,7 @@ Runvas는 사용자가 지도 위에서 직접 러닝 코스를 설계하고 공
 - [좌표 및 지도 규칙](./docs/geo-conventions.md)
 - [GPX 내보내기 규칙](./docs/gpx-export.md)
 - [협업 가이드](./docs/collaboration.md)
+- [배포 가이드](./docs/deployment.md)
 
 ## 팀 개발 설정
 

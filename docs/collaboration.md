@@ -158,87 +158,9 @@ Redis가 로컬에 떠 있어야 합니다.
 `commit-message.yml`은 각 커밋 메시지뿐 아니라 PR 제목도 검증합니다. PR 제목은 GitHub에서 PR을
 열 때 정해지므로 로컬 hook만으로는 완전히 재현할 수 없고, 최종 확인은 CI에서 이뤄집니다.
 
-## 모바일 배포 (EAS Build CI/CD)
+## 배포
 
-두 워크플로가 Git 이벤트에 맞춰 EAS Build를 자동으로 트리거합니다.
-
-| 트리거 | 워크플로 | Job | EAS 프로필 | 용도 |
-| --- | --- | --- | --- | --- |
-| `main` push (`mobile/**` 변경 시) | `mobile-eas-build-preview.yml` | `build-preview` | `preview` | 내부 배포용 상시 빌드 |
-| `mobile-v{semver}` 태그 push (예: `mobile-v1.2.0`) | `mobile-eas-build-production.yml` | `build-production` | `production` | 정식 릴리스 빌드 |
-
-`production` 워크플로는 경로 필터가 없습니다 — 태그가 가리키는 커밋의 파일 변경 여부와 무관하게, 릴리스 태그를 push하면 항상 트리거됩니다.
-
-### 정식 릴리스 절차
-
-1. `main`이 배포 가능한 상태인지 확인합니다 (`build-preview`가 성공한 최신 커밋인지 확인).
-2. 로컬에서 버전 태그를 생성하고 push합니다.
-
-   ```bash
-   git tag mobile-v1.2.0
-   git push origin mobile-v1.2.0
-   ```
-
-3. `build-production` job이 끝나면 GitHub Actions의 Job Summary에서 EAS 빌드 링크를 확인합니다.
-4. 스토어 제출은 자동화돼 있지 않습니다. 산출물을 받아 필요 시 수동으로 `eas submit`을 실행합니다.
-
-### 사전 준비물
-
-- 저장소 Settings → Secrets and variables → Actions에 `EXPO_TOKEN`이 등록돼 있어야 `build-preview`/`build-production`이 EAS에 인증할 수 있습니다. 이 토큰은 [expo.dev/settings/access-tokens](https://expo.dev/settings/access-tokens)에서 발급합니다.
-
-### 범위 밖
-
-- `development` 프로필 빌드는 계속 로컬에서 수동 실행합니다 (`eas build --profile development`).
-- 백엔드 배포 자동화는 별도로 진행합니다.
-
-## 백엔드 배포 (Docker + GHCR)
-
-`backend-deploy.yml` 워크플로가 릴리스 태그 push에 맞춰 백엔드를 자동으로 빌드하고 배포합니다.
-
-| 트리거 | 워크플로 | Job | 용도 |
-| --- | --- | --- | --- |
-| `backend-v{semver}` 태그 push (예: `backend-v1.0.0`) | `backend-deploy.yml` | `build-and-push` → `deploy` | GHCR에 이미지 push 후 운영 VPS에 배포 |
-
-### 정식 배포 절차
-
-1. `main`이 배포 가능한 상태인지 확인합니다 (`backend-test.yml`이 성공한 최신 커밋인지 확인).
-2. 로컬에서 버전 태그를 생성하고 push합니다.
-
-   ```bash
-   git tag backend-v1.0.0
-   git push origin backend-v1.0.0
-   ```
-
-3. `build-and-push` job이 이미지를 빌드해 `ghcr.io/lovelyalien/runvas-backend:latest`와 `ghcr.io/lovelyalien/runvas-backend:backend-v1.0.0`(태그 이름 그대로) 두 태그로 GHCR(private)에 push합니다.
-4. 이어서 `deploy` job이 SSH로 운영 VPS에 접속해 새 이미지를 pull하고 `docker compose --profile deploy up -d`로 재시작합니다.
-5. 데이터베이스 마이그레이션은 Flyway가 앱 기동 시 자동으로 수행하므로 별도 스텝이 없습니다.
-
-### 사전 준비물
-
-- 저장소 Settings → Secrets and variables → Actions → **Secrets**에 다음을 등록합니다.
-  - `DEPLOY_SSH_HOST`: 운영 VPS 주소
-  - `DEPLOY_SSH_USER`: SSH 접속 계정
-  - `DEPLOY_SSH_KEY`: SSH 개인키 (대응하는 공개키가 VPS의 `~/.ssh/authorized_keys`에 등록돼 있어야 함)
-- 같은 화면의 **Variables**에 `DEPLOY_PATH`(VPS에 저장소가 clone된 절대 경로, 예: `/home/deploy/runvas`)를 등록합니다.
-- `deploy` job은 `docker compose pull/up`만 실행할 뿐 VPS의 git 저장소는 갱신하지 않습니다. `docker-compose.yml`이 바뀔 때마다(이번 백엔드 배포 자동화 도입 시 포함) VPS에서 먼저 `git pull`로 동기화해야 합니다.
-  ```bash
-  cd <DEPLOY_PATH> && git pull origin main
-  ```
-  동기화 전에는 `docker compose pull backend`가 `Skipped - No image to be pulled`로 아무 동작도 하지 않고, 기존 컨테이너가 교체되지 않은 채 그대로 남습니다.
-- 첫 배포 태그 push 이후, GitHub 저장소의 Packages 화면에서 `runvas-backend` 패키지의 Visibility가 **Private**로 설정돼 있는지 확인합니다 (`ghcr.io/lovelyalien/runvas-backend` package settings → Change visibility). 리포지토리가 public이라도 패키지 visibility는 별도로 관리되므로, 첫 push 후 반드시 수동으로 확인해야 합니다.
-- VPS에서 1회 `docker login ghcr.io`를 실행해 GHCR 인증 상태를 남겨둡니다 (이미지가 private이라 pull에 인증이 필요, `read:packages` 권한의 GitHub PAT 사용).
-
-### 범위 밖
-
-- 배포 후 헬스체크 자동 확인 (헬스 엔드포인트가 아직 없음)
-- 실패 시 자동 롤백. 배포는 항상 `:latest`를 pull하므로, 수동 롤백 시에는 VPS에서 다음을 실행합니다.
-
-  ```bash
-  docker pull ghcr.io/lovelyalien/runvas-backend:backend-v1.0.0   # 되돌릴 이전 버전 태그
-  docker tag ghcr.io/lovelyalien/runvas-backend:backend-v1.0.0 ghcr.io/lovelyalien/runvas-backend:latest
-  docker compose -f <DEPLOY_PATH>/docker-compose.yml --profile deploy up -d --no-build
-  ```
-- `main` push 시 자동 배포 (Continuous Deploy) — 태그 push로만 트리거
+모바일(EAS Build/TestFlight)과 백엔드(Docker/GHCR) 배포 절차는 `docs/deployment.md`를 참고하세요.
 
 ## 완료 기준
 
