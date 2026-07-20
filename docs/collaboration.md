@@ -160,35 +160,117 @@ Redis가 로컬에 떠 있어야 합니다.
 
 ## 모바일 배포 (EAS Build CI/CD)
 
-두 워크플로가 Git 이벤트에 맞춰 EAS Build를 자동으로 트리거합니다.
+두 워크플로가 Git 이벤트에 맞춰 EAS Build를 자동으로 트리거합니다. `development`는 CI 대상이
+아니라 로컬에서 수동으로만 실행합니다.
 
-| 트리거 | 워크플로 | Job | EAS 프로필 | 용도 |
+| 프로필 | 트리거 | 워크플로 / Job | 배포 대상 | 스토어(TestFlight) 경유 |
 | --- | --- | --- | --- | --- |
-| `main` push (`mobile/**` 변경 시) | `mobile-eas-build-preview.yml` | `build-preview` | `preview` | 내부 배포용 상시 빌드 |
-| `mobile-v{semver}` 태그 push (예: `mobile-v1.2.0`) | `mobile-eas-build-production.yml` | `build-production` | `production` | 정식 릴리스 빌드 |
+| `development` | 로컬에서 수동 `eas build --profile development` | 없음 (CI 미연동) | 개발자 본인 기기 | 아님 (직접 설치) |
+| `preview` | `main` push (`mobile/**` 변경 시) | `mobile-eas-build-preview.yml` → `build-preview` | 팀 내부 상시 빌드 | 아님 (EAS ad-hoc 링크로 직접 설치) |
+| `production` | `mobile-v{semver}` 태그 push (예: `mobile-v1.2.0`) | `mobile-eas-build-production.yml` → `build-production` | 정식 릴리스 / TestFlight | 맞음 (수동 `eas submit` 필요) |
 
 `production` 워크플로는 경로 필터가 없습니다 — 태그가 가리키는 커밋의 파일 변경 여부와 무관하게, 릴리스 태그를 push하면 항상 트리거됩니다.
 
-### 정식 릴리스 절차
+각 프로필의 세부 설정은 `mobile/eas.json`을 참고하세요.
+
+### development — 로컬 개발용 dev-client
+
+**용도:** 개발자가 실기기 또는 시뮬레이터에서 로컬 Metro 서버(`./scripts/mobile.sh`)에 실시간으로
+붙여 코드 변경을 즉시 확인합니다. 네이티브 의존성이 바뀌지 않는 한 이 dev-client를 다시 빌드할
+필요는 없습니다 — JS는 매번 Metro가 실시간으로 갈아 끼웁니다.
+
+**사전 준비물:**
+
+- Apple Developer Program(유료) 계정이 EAS 프로젝트에 연결돼 있어야 iOS 실기기용 서명이 가능합니다.
+- 설치할 기기의 UDID가 Apple 계정에 등록돼 있어야 합니다: `eas device:create`로 추가합니다.
+- `mobile/eas.json`의 `development.ios.simulator`가 `false`여야 실기기용으로 빌드됩니다
+  (`true`면 Mac의 iOS 시뮬레이터 전용 빌드가 나오고, 실기기에는 설치할 수 없습니다).
+
+**빌드:**
+
+```bash
+cd mobile
+eas build --profile development --platform ios   # 또는 android, all
+```
+
+CI로 자동화돼 있지 않습니다 — 사람이 필요할 때 직접 실행합니다.
+
+**설치 및 사용:**
+
+1. 빌드 완료 후 EAS가 안내하는 링크/QR로 기기에 직접 설치합니다 (스토어를 거치지 않습니다).
+2. 이후 `./scripts/mobile.sh` 실행 → 터미널에 뜨는 QR을 스캔 → 설치된 dev-client가 열리며
+   "Fetching JavaScript bundle"이 표시됩니다. 이후로는 코드 저장 시 Fast Refresh로 실시간 반영됩니다.
+
+### preview — 내부 상시 빌드
+
+**용도:** `main`의 최신 상태를 팀원/이해관계자가 스토어 심사 없이 수시로 설치해서 확인합니다.
+
+**트리거:** `mobile/**` 변경이 `main`에 push될 때마다 `mobile-eas-build-preview.yml`이 자동
+실행됩니다. 사람이 직접 트리거할 필요가 없습니다.
+
+**빌드 확인:**
+
+```bash
+gh run list --workflow=mobile-eas-build-preview.yml --limit 5
+```
+
+또는 GitHub Actions 실행 결과의 Job Summary에서 EAS 빌드 링크를 확인합니다.
+
+**설치:** EAS의 `internal` 배포 링크로 직접 설치합니다. App Store Connect나 TestFlight를 거치지
+않는, production과는 별개의 배포 경로입니다.
+
+**주의:** 현재 `mobile/eas.json`의 `preview.ios.simulator`가 `true`로 되어 있어 iOS는 시뮬레이터
+빌드만 나옵니다. 실기기에 preview 빌드를 설치하려면 `development`와 마찬가지로 이 값을 `false`로
+바꿔야 합니다 (아직 바뀌지 않은 상태입니다).
+
+### production — 정식 릴리스 / TestFlight
+
+**용도:** 스토어 출시 또는 TestFlight를 통한 정식 배포.
+
+**트리거:** 사람이 직접 버전 태그를 push할 때만 동작합니다 (자동 트리거 없음 — 릴리스 시점을
+사람이 결정하도록 의도적으로 설계됨).
+
+**절차:**
 
 1. `main`이 배포 가능한 상태인지 확인합니다 (`build-preview`가 성공한 최신 커밋인지 확인).
-2. 로컬에서 버전 태그를 생성하고 push합니다.
+2. 로컬에서 버전 태그를 생성하고 push합니다. 기존에 쓴 태그와 겹치지 않는 semver를 씁니다
+   (`git tag -l "mobile-v*"`로 확인).
 
    ```bash
    git tag mobile-v1.2.0
    git push origin mobile-v1.2.0
    ```
 
-3. `build-production` job이 끝나면 GitHub Actions의 Job Summary에서 EAS 빌드 링크를 확인합니다.
-4. 스토어 제출은 자동화돼 있지 않습니다. 산출물을 받아 필요 시 수동으로 `eas submit`을 실행합니다.
+3. `mobile-eas-build-production.yml`이 자동으로 `eas build --profile production --platform all`을
+   실행합니다 (여기까지만 자동입니다). `build-production` job이 끝나면 GitHub Actions의
+   Job Summary에서 EAS 빌드 링크를 확인합니다.
+4. **스토어 제출은 자동화돼 있지 않습니다.** 빌드가 끝나면 사람이 직접 실행합니다.
 
-### 사전 준비물
+   ```bash
+   cd mobile
+   eas submit --profile production --platform ios
+   ```
 
-- 저장소 Settings → Secrets and variables → Actions에 `EXPO_TOKEN`이 등록돼 있어야 `build-preview`/`build-production`이 EAS에 인증할 수 있습니다. 이 토큰은 [expo.dev/settings/access-tokens](https://expo.dev/settings/access-tokens)에서 발급합니다.
+   이 명령이 App Store Connect에 빌드를 업로드하고, 거기서 TestFlight로 이어집니다. `eas submit`을
+   CI에 자동화하지 않은 이유는 `docs/superpowers/specs/2026-07-17-mobile-eas-cicd-design.md`의
+   "범위 밖"을 참고하세요 — 스토어 배포 권한을 가진 자격증명을 CI에 두는 건 보안 영향이 커서
+   별도 논의가 필요하다고 판단했습니다.
+5. App Store Connect의 TestFlight 탭에서 빌드 처리가 끝나면(보통 수 분~수십 분) 테스터 그룹에
+   배정합니다. 이후 테스터의 TestFlight 앱에서 업데이트를 받을 수 있습니다.
+
+**참고:** `mobile/app.json`의 `ios.infoPlist.ITSAppUsesNonExemptEncryption: false`가 이미
+설정돼 있어, Apple의 수출 규정 준수(암호화 사용 여부) 질문에 추가 응답 없이 자동으로 통과됩니다.
+
+### 사전 준비물 (공통)
+
+- 저장소 Settings → Secrets and variables → Actions에 `EXPO_TOKEN`이 등록돼 있어야
+  `build-preview`/`build-production`이 EAS에 인증할 수 있습니다. 이 토큰은
+  [expo.dev/settings/access-tokens](https://expo.dev/settings/access-tokens)에서 발급합니다.
 
 ### 범위 밖
 
-- `development` 프로필 빌드는 계속 로컬에서 수동 실행합니다 (`eas build --profile development`).
+- `eas submit`(스토어 제출) CI 자동화 — 스토어 배포 권한 자격증명을 CI에 두는 문제라 별도 논의 필요.
+- `development`/`preview` 빌드의 CI 자동 트리거 — 필요할 때만 사람이 직접 실행.
 - 백엔드 배포 자동화는 별도로 진행합니다.
 
 ## 백엔드 배포 (Docker + GHCR)
