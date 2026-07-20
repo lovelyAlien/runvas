@@ -220,6 +220,11 @@ Redis가 로컬에 떠 있어야 합니다.
   - `DEPLOY_SSH_USER`: SSH 접속 계정
   - `DEPLOY_SSH_KEY`: SSH 개인키 (대응하는 공개키가 VPS의 `~/.ssh/authorized_keys`에 등록돼 있어야 함)
 - 같은 화면의 **Variables**에 `DEPLOY_PATH`(VPS에 저장소가 clone된 절대 경로, 예: `/home/deploy/runvas`)를 등록합니다.
+- `deploy` job은 `docker compose pull/up`만 실행할 뿐 VPS의 git 저장소는 갱신하지 않습니다. `docker-compose.yml`이 바뀔 때마다(이번 백엔드 배포 자동화 도입 시 포함) VPS에서 먼저 `git pull`로 동기화해야 합니다.
+  ```bash
+  cd <DEPLOY_PATH> && git pull origin main
+  ```
+  동기화 전에는 `docker compose pull backend`가 `Skipped - No image to be pulled`로 아무 동작도 하지 않고, 기존 컨테이너가 교체되지 않은 채 그대로 남습니다.
 - 첫 배포 태그 push 이후, GitHub 저장소의 Packages 화면에서 `runvas-backend` 패키지의 Visibility가 **Private**로 설정돼 있는지 확인합니다 (`ghcr.io/lovelyalien/runvas-backend` package settings → Change visibility). 리포지토리가 public이라도 패키지 visibility는 별도로 관리되므로, 첫 push 후 반드시 수동으로 확인해야 합니다.
 - VPS에서 1회 `docker login ghcr.io`를 실행해 GHCR 인증 상태를 남겨둡니다 (이미지가 private이라 pull에 인증이 필요, `read:packages` 권한의 GitHub PAT 사용).
 
