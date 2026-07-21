@@ -10,6 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.runvas.mobile",
+      "buildNumber": "2",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "러닝 코스 생성을 위해 현재 위치가 필요합니다.",
         "NSAppTransportSecurity": {
@@ -20,6 +21,7 @@
     },
     "android": {
       "package": "com.runvas.mobile",
+      "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
