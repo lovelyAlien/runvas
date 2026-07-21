@@ -10,9 +10,9 @@ import { buildGpxString } from './gpx';
 // `expo-file-system/legacy`의 writeAsStringAsync는 SDK 54부터 호출 시 즉시 에러를
 // 던지므로(legacyWarnings) 사용하지 않습니다. 대신 새 File/Paths 클래스 API를 사용합니다
 // (running-app/src/components/ExportButtons.tsx에서 이미 검증된 패턴 — mobile/WORKLOG.md 참고).
-export async function exportGpx(points: RoutePoint[], routeName = 'Runvas Route'): Promise<void> {
+export async function exportGpx(points: RoutePoint[], routeName = 'RunSketch Route'): Promise<void> {
   const gpxContent = buildGpxString(points, routeName);
-  const fileName = `runvas-route-${Date.now()}.gpx`;
+  const fileName = `runsketch-route-${Date.now()}.gpx`;
 
   const file = new File(Paths.cache, fileName);
   file.write(gpxContent);

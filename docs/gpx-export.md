@@ -17,7 +17,7 @@ GPX는 하나의 `trk`와 하나의 `trkseg`를 포함합니다.
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Runvas">
+<gpx version="1.1" creator="RunSketch">
   <trk>
     <name>Heart Run in Seoul</name>
     <trkseg>

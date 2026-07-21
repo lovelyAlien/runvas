@@ -20,7 +20,7 @@ export default function Header({ pointCount, isRouting, onPressSavedRoutes }: Pr
     <View style={styles.container}>
       <View style={styles.titleRow}>
         <View>
-          <Text style={styles.title}>Runvas</Text>
+          <Text style={styles.title}>RunSketch</Text>
           <Text style={styles.hint}>{hint}</Text>
         </View>
         {onPressSavedRoutes && (
