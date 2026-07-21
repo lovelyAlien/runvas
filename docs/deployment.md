@@ -5,13 +5,15 @@
 
 ## 모바일 배포 (EAS Build CI/CD)
 
-두 워크플로가 Git 이벤트에 맞춰 EAS Build를 자동으로 트리거합니다. `development`는 CI 대상이
-아니라 로컬에서 수동으로만 실행합니다.
+`production`은 Git 이벤트(버전 태그 push)에 맞춰 EAS Build를 자동으로 트리거합니다.
+`development`와 `preview`는 CI 대상이 아니라 필요할 때 사람이 직접 실행합니다 — EAS 빌드 크레딧은
+월간 한도가 있어서, `main`에 머지될 때마다 자동으로 preview 빌드가 도는 건 크레딧을 예상보다
+빨리 소진시킬 수 있다고 판단해 수동 트리거로 바꿨습니다.
 
 | 프로필 | 트리거 | 워크플로 / Job | 배포 대상 | 스토어(TestFlight) 경유 |
 | --- | --- | --- | --- | --- |
 | `development` | 로컬에서 수동 `eas build --profile development` | 없음 (CI 미연동) | 개발자 본인 기기 | 아님 (직접 설치) |
-| `preview` | `main` push (`mobile/**` 변경 시) | `mobile-eas-build-preview.yml` → `build-preview` | 팀 내부 상시 빌드 | 아님 (EAS ad-hoc 링크로 직접 설치) |
+| `preview` | GitHub Actions에서 수동 실행 (`workflow_dispatch`) | `mobile-eas-build-preview.yml` → `build-preview` | 팀 내부 상시 빌드 | 아님 (EAS ad-hoc 링크로 직접 설치) |
 | `production` | `mobile-v{semver}` 태그 push (예: `mobile-v1.2.0`) | `mobile-eas-build-production.yml` → `build-production` | 정식 릴리스 / TestFlight | 맞음 (수동 `eas submit` 필요) |
 
 `production` 워크플로는 경로 필터가 없습니다 — 태그가 가리키는 커밋의 파일 변경 여부와 무관하게, 릴리스 태그를 push하면 항상 트리거됩니다.
@@ -48,10 +50,21 @@ CI로 자동화돼 있지 않습니다 — 사람이 필요할 때 직접 실행
 
 ### preview — 내부 상시 빌드
 
-**용도:** `main`의 최신 상태를 팀원/이해관계자가 스토어 심사 없이 수시로 설치해서 확인합니다.
+**용도:** `main`의 최신 상태를 팀원/이해관계자가 스토어 심사 없이 설치해서 확인합니다.
 
-**트리거:** `mobile/**` 변경이 `main`에 push될 때마다 `mobile-eas-build-preview.yml`이 자동
-실행됩니다. 사람이 직접 트리거할 필요가 없습니다.
+**트리거:** `mobile-eas-build-preview.yml`은 `workflow_dispatch`로만 실행됩니다 — `main`에
+머지돼도 자동으로 돌지 않습니다. EAS 빌드 크레딧이 월간 한도라, 머지마다 자동으로 preview 빌드를
+돌리면 크레딧을 예상보다 빨리 소진해 정작 필요한 production 빌드가 막힐 수 있어서 수동으로
+바꿨습니다.
+
+**수동 실행:**
+
+```bash
+gh workflow run mobile-eas-build-preview.yml
+```
+
+또는 GitHub 저장소의 Actions 탭 → `Mobile EAS Build (Preview)` → **Run workflow** 버튼으로도
+실행할 수 있습니다.
 
 **빌드 확인:**
 
