@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Runvas 관리자 - 게시글</title>
+</head>
+<body>
+<nav th:replace="~{admin/fragments/nav :: nav}"></nav>
+<h1>게시글 목록</h1>
+<form method="get" th:action="@{/admin/posts}">
+    <input type="text" name="q" th:value="${q}" placeholder="제목 검색"/>
+    <button type="submit">검색</button>
+</form>
+<table>
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>제목</th>
+        <th>작성자 ID</th>
+        <th>좋아요 수</th>
+        <th>댓글 수</th>
+        <th>생성일</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="post : ${posts}">
+        <td th:text="${post.id}"></td>
+        <td th:text="${post.title}"></td>
+        <td th:text="${post.authorId}"></td>
+        <td th:text="${post.likeCount}"></td>
+        <td th:text="${post.commentCount}"></td>
+        <td th:text="${post.createdAt}"></td>
+    </tr>
+    </tbody>
+</table>
+<div>
+    <span th:text="'페이지 ' + (${page} + 1) + ' / ' + ${totalPages}"></span>
+    <a th:if="${page > 0}" th:href="@{/admin/posts(q=${q}, page=${page - 1})}">이전</a>
+    <a th:if="${page + 1 < totalPages}" th:href="@{/admin/posts(q=${q}, page=${page + 1})}">다음</a>
+</div>
+</body>
+</html>
