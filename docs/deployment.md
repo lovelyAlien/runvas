@@ -167,7 +167,9 @@ gh run list --workflow=mobile-eas-build-preview.yml --limit 5
    ```
 
 3. `build-and-push` job이 이미지를 빌드해 `ghcr.io/lovelyalien/runvas-backend:latest`와 `ghcr.io/lovelyalien/runvas-backend:backend-v1.0.0`(태그 이름 그대로) 두 태그로 GHCR(private)에 push합니다.
-4. 이어서 `deploy` job이 SSH로 운영 VPS에 접속해 새 이미지를 pull하고 `docker compose --profile deploy up -d`로 재시작합니다.
+4. 이어서 `deploy` job이 SSH로 운영 VPS에 접속해 `DEPLOY_PATH`의 git 저장소를 `origin/main`으로
+   동기화(`git fetch` + `git reset --hard`)한 뒤, 새 이미지를 pull하고 `docker compose --profile
+   deploy up -d`로 재시작합니다.
 5. 데이터베이스 마이그레이션은 Flyway가 앱 기동 시 자동으로 수행하므로 별도 스텝이 없습니다.
 
 ### 사전 준비물
@@ -177,11 +179,11 @@ gh run list --workflow=mobile-eas-build-preview.yml --limit 5
   - `DEPLOY_SSH_USER`: SSH 접속 계정
   - `DEPLOY_SSH_KEY`: SSH 개인키 (대응하는 공개키가 VPS의 `~/.ssh/authorized_keys`에 등록돼 있어야 함)
 - 같은 화면의 **Variables**에 `DEPLOY_PATH`(VPS에 저장소가 clone된 절대 경로, 예: `/home/deploy/runvas`)를 등록합니다.
-- `deploy` job은 `docker compose pull/up`만 실행할 뿐 VPS의 git 저장소는 갱신하지 않습니다. `docker-compose.yml`이 바뀔 때마다(이번 백엔드 배포 자동화 도입 시 포함) VPS에서 먼저 `git pull`로 동기화해야 합니다.
-  ```bash
-  cd <DEPLOY_PATH> && git pull origin main
-  ```
-  동기화 전에는 `docker compose pull backend`가 `Skipped - No image to be pulled`로 아무 동작도 하지 않고, 기존 컨테이너가 교체되지 않은 채 그대로 남습니다.
+- `deploy` job은 `docker compose pull/up` 전에 `DEPLOY_PATH`에서 `git fetch origin main` +
+  `git reset --hard origin/main`을 실행해 VPS의 git 저장소를 항상 최신 `main`으로 맞춥니다.
+  `docker-compose.yml`이 바뀌어도 수동으로 `git pull`할 필요가 없습니다. `DEPLOY_PATH`는 배포
+  전용 clone이어야 합니다 — `reset --hard`가 그 디렉터리의 로컬 변경사항을 모두 버리므로, 수동으로
+  고친 파일을 두면 안 됩니다.
 - 첫 배포 태그 push 이후, GitHub 저장소의 Packages 화면에서 `runvas-backend` 패키지의 Visibility가 **Private**로 설정돼 있는지 확인합니다 (`ghcr.io/lovelyalien/runvas-backend` package settings → Change visibility). 리포지토리가 public이라도 패키지 visibility는 별도로 관리되므로, 첫 push 후 반드시 수동으로 확인해야 합니다.
 - VPS에서 1회 `docker login ghcr.io`를 실행해 GHCR 인증 상태를 남겨둡니다 (이미지가 private이라 pull에 인증이 필요, `read:packages` 권한의 GitHub PAT 사용).
 
