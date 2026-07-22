@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
-<nav th:fragment="nav">
+<nav class="admin-nav" th:fragment="nav">
     <a th:href="@{/admin/dashboard}">대시보드</a>
     <a th:href="@{/admin/users}">회원</a>
     <a th:href="@{/admin/courses}">코스</a>
     <a th:href="@{/admin/posts}">게시글</a>
-    <form method="post" th:action="@{/admin/logout}" style="display:inline;">
-        <button type="submit">로그아웃</button>
+    <form method="post" th:action="@{/admin/logout}">
+        <button type="submit" class="btn">로그아웃</button>
     </form>
 </nav>
 </body>
