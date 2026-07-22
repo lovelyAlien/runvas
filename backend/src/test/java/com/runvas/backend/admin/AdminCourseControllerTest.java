@@ -72,6 +72,13 @@ class AdminCourseControllerTest {
     }
 
     @Test
+    @WithMockUser(username = "operator", roles = "ADMIN")
+    void searchWithNegativePageDoesNotFail() throws Exception {
+        mockMvc.perform(get("/admin/courses").param("page", "-1"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void listRedirectsWhenNotAuthenticated() throws Exception {
         mockMvc.perform(get("/admin/courses"))
                 .andExpect(status().is3xxRedirection());

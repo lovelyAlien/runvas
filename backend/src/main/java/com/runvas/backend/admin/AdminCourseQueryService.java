@@ -18,7 +18,7 @@ public class AdminCourseQueryService {
 
     public Page<Course> search(String q, CourseVisibility visibility, int page, int size) {
         String keyword = q == null ? "" : q;
-        PageRequest pageRequest = PageRequest.of(page, size);
+        PageRequest pageRequest = PageRequest.of(Math.max(0, page), size);
         if (visibility == null) {
             return courseRepository.findByTitleContainingIgnoreCase(keyword, pageRequest);
         }

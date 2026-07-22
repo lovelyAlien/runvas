@@ -18,6 +18,6 @@ public class AdminUserQueryService {
     public Page<User> search(String q, int page, int size) {
         String keyword = q == null ? "" : q;
         return userRepository.findByNicknameContainingIgnoreCaseOrEmailContainingIgnoreCase(
-                keyword, keyword, PageRequest.of(page, size));
+                keyword, keyword, PageRequest.of(Math.max(0, page), size));
     }
 }

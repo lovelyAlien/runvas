@@ -17,6 +17,6 @@ public class AdminPostQueryService {
 
     public Page<Post> search(String q, int page, int size) {
         String keyword = q == null ? "" : q;
-        return postRepository.findByTitleContainingIgnoreCase(keyword, PageRequest.of(page, size));
+        return postRepository.findByTitleContainingIgnoreCase(keyword, PageRequest.of(Math.max(0, page), size));
     }
 }
