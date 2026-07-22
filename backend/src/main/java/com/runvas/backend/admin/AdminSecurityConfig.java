@@ -49,7 +49,7 @@ public class AdminSecurityConfig {
                 .securityMatcher("/admin/**")
                 .authenticationProvider(adminAuthenticationProvider)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/admin/login").permitAll()
+                        .requestMatchers("/admin/login", "/admin/assets/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .formLogin(formLogin -> formLogin

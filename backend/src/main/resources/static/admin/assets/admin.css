@@ -1,0 +1,254 @@
+/*
+  Runvas 관리자 대시보드 — 공용 스타일.
+  컨셉: 트레일맵 계기판. 등고선지도 배경 톤, 이끼/러스트 팔레트,
+  점선 구분선(트레일 라인)을 나눔 요소로 반복 사용한다.
+  전 화면(/admin/**)이 이 파일 하나를 공유한다.
+*/
+
+:root {
+  --bg: #f1f3ef;
+  --surface: #ffffff;
+  --ink: #20261c;
+  --moss: #4f6146;
+  --asphalt: #7c8179;
+  --trail: #b5501e;
+  --border: #d7dbd2;
+  --radius: 3px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+    "Malgun Gothic", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--trail);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+:focus-visible {
+  outline: 2px solid var(--trail);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+.admin-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+
+/* 상단 네비게이션 */
+.admin-nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 12px;
+  margin-bottom: 28px;
+  border-bottom: 1px dashed var(--moss);
+}
+
+.admin-nav a {
+  color: var(--moss);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.admin-nav a:hover,
+.admin-nav a:focus-visible {
+  color: var(--trail);
+  text-decoration: none;
+}
+
+.admin-nav form {
+  margin-left: auto;
+}
+
+h1 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 20px;
+  letter-spacing: -0.01em;
+}
+
+/* 버튼 */
+.btn {
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--surface);
+  background: var(--moss);
+  border: none;
+  border-radius: var(--radius);
+  padding: 7px 14px;
+  cursor: pointer;
+}
+
+.btn:hover,
+.btn:focus-visible {
+  background: var(--trail);
+}
+
+/* 검색/필터 폼 */
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+input[type="text"],
+input[type="password"],
+select {
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+select:focus {
+  border-color: var(--moss);
+}
+
+label {
+  font-size: 13px;
+  color: var(--asphalt);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 로그인 화면 */
+.login-shell {
+  max-width: 360px;
+  margin: 96px auto 0;
+  padding: 0 20px;
+}
+
+.login-error {
+  color: var(--trail);
+  font-size: 13px;
+  margin: -8px 0 16px;
+}
+
+.login-shell .field-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+/* 대시보드 통계 리드아웃 */
+.stat-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  padding: 0 0 24px;
+  margin: 0 0 28px;
+  border-bottom: 1px dashed var(--border);
+  list-style: none;
+}
+
+.stat-readout li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--asphalt);
+}
+
+.stat-value {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--moss);
+}
+
+.chart-shell {
+  margin-bottom: 8px;
+}
+
+/* 목록 테이블 */
+table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--asphalt);
+  font-weight: 600;
+  padding: 0 10px 8px 0;
+  border-bottom: 1px solid var(--moss);
+}
+
+td {
+  padding: 9px 10px 9px 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+td.mono {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+tbody tr:hover td {
+  background: var(--surface);
+}
+
+/* 페이지네이션 */
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 20px;
+  font-size: 13px;
+  color: var(--asphalt);
+}
+
+.pagination .mono {
+  color: var(--ink);
+}
