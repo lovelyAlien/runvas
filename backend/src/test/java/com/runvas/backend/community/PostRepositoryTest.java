@@ -75,4 +75,28 @@ class PostRepositoryTest {
 
 		assertThat(commentRepository.findByPostIdOrderByCreatedAtAsc(post.getId())).isEmpty();
 	}
+
+	@Test
+	void searchByTitleFiltersCaseInsensitively() {
+		postRepository.saveAndFlush(new Post("author-1", "한강 러닝 후기", "본문", null, Set.of()));
+		postRepository.saveAndFlush(new Post("author-1", "남산 등산 후기", "본문", null, Set.of()));
+
+		org.springframework.data.domain.Page<Post> found = postRepository.findByTitleContainingIgnoreCase(
+				"한강", org.springframework.data.domain.PageRequest.of(0, 20));
+
+		assertThat(found.getContent()).hasSize(1);
+		assertThat(found.getContent().get(0).getTitle()).isEqualTo("한강 러닝 후기");
+	}
+
+	@Test
+	void countDailySinceGroupsPostsByCreationDate() {
+		postRepository.saveAndFlush(new Post("author-1", "글1", "본문", null, Set.of()));
+		postRepository.saveAndFlush(new Post("author-1", "글2", "본문", null, Set.of()));
+
+		java.util.List<com.runvas.backend.admin.DailyCountProjection> counts =
+				postRepository.countDailySince(java.time.Instant.now().minusSeconds(3600));
+
+		assertThat(counts).hasSize(1);
+		assertThat(counts.get(0).getCnt()).isEqualTo(2L);
+	}
 }

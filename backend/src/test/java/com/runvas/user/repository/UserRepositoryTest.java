@@ -1,5 +1,6 @@
 package com.runvas.user.repository;
 
+import com.runvas.backend.admin.DailyCountProjection;
 import com.runvas.user.domain.AuthProvider;
 import com.runvas.user.domain.User;
 import java.util.Optional;
@@ -49,5 +50,30 @@ class UserRepositoryTest {
 
         assertThat(found).isPresent();
         assertThat(found.get().getNickname()).isEqualTo("Seoul Runner");
+    }
+
+    @Test
+    void searchFindsUserByNicknameOrEmailIgnoringCase() {
+        userRepository.saveAndFlush(User.createKakaoUser("k1", "seoul@example.com", "서울러너", null));
+        userRepository.saveAndFlush(User.createKakaoUser("k2", "busan@example.com", "부산러너", null));
+
+        org.springframework.data.domain.Page<User> found =
+                userRepository.findByNicknameContainingIgnoreCaseOrEmailContainingIgnoreCase(
+                        "서울", "서울", org.springframework.data.domain.PageRequest.of(0, 20));
+
+        assertThat(found.getContent()).hasSize(1);
+        assertThat(found.getContent().get(0).getNickname()).isEqualTo("서울러너");
+    }
+
+    @Test
+    void countDailySinceGroupsUsersByCreationDate() {
+        userRepository.saveAndFlush(User.createKakaoUser("k3", "a@example.com", "가입자A", null));
+        userRepository.saveAndFlush(User.createKakaoUser("k4", "b@example.com", "가입자B", null));
+
+        java.util.List<DailyCountProjection> counts =
+                userRepository.countDailySince(java.time.Instant.now().minusSeconds(3600));
+
+        assertThat(counts).hasSize(1);
+        assertThat(counts.get(0).getCnt()).isEqualTo(2L);
     }
 }
