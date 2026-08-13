@@ -110,12 +110,23 @@ gh run list --workflow=mobile-eas-build-preview.yml --limit 5
    eas submit --profile production --platform ios
    ```
 
-   이 명령이 App Store Connect에 빌드를 업로드하고, 거기서 TestFlight로 이어집니다. `eas submit`을
-   CI에 자동화하지 않은 이유는 `docs/superpowers/specs/2026-07-17-mobile-eas-cicd-design.md`의
-   "범위 밖"을 참고하세요 — 스토어 배포 권한을 가진 자격증명을 CI에 두는 건 보안 영향이 커서
-   별도 논의가 필요하다고 판단했습니다.
+   이 명령은 **App Store Connect에 바이너리를 업로드하는 것까지만** 합니다 — 실제 심사 제출은
+   아래 6번의 별도 수동 단계입니다. `eas submit`을 CI에 자동화하지 않은 이유는
+   `docs/superpowers/specs/2026-07-17-mobile-eas-cicd-design.md`의 "범위 밖"을 참고하세요 —
+   스토어 배포 권한을 가진 자격증명을 CI에 두는 건 보안 영향이 커서 별도 논의가 필요하다고
+   판단했습니다.
 5. App Store Connect의 TestFlight 탭에서 빌드 처리가 끝나면(보통 수 분~수십 분) 테스터 그룹에
    배정합니다. 이후 테스터의 TestFlight 앱에서 업데이트를 받을 수 있습니다.
+6. **App Store 정식 심사 제출**은 TestFlight 배정과 별개로, App Store Connect에서 직접 진행합니다.
+   업로드된 빌드가 처리 완료(이메일 통지)된 뒤:
+   1. App Store Connect → 앱 → **App Store** 탭 → 해당 버전 선택
+   2. **빌드** 항목에서 방금 업로드된 빌드 번호를 선택
+   3. **App Review Information**에 로그인 데모 계정(카카오 테스트 계정 아이디/비밀번호)을 입력합니다
+      — 이게 없으면 Guideline 2.1.0(데모 계정 누락)으로 자동 리젝됩니다
+   4. **"심사에 제출"(Submit for Review)** 버튼을 눌러야 실제로 심사 큐에 들어갑니다
+
+   이 마지막 클릭은 의도적으로 자동화하지 않았습니다 — 리젝 이력이 있는 계정이라 빌드를
+   실기기에서 한 번 확인한 뒤 사람이 직접 제출하는 것을 원칙으로 합니다.
 
 **참고:** `mobile/app.json`의 `ios.infoPlist.ITSAppUsesNonExemptEncryption: false`가 이미
 설정돼 있어, Apple의 수출 규정 준수(암호화 사용 여부) 질문에 추가 응답 없이 자동으로 통과됩니다.
@@ -142,6 +153,22 @@ gh run list --workflow=mobile-eas-build-preview.yml --limit 5
 - 저장소 Settings → Secrets and variables → Actions에 `EXPO_TOKEN`이 등록돼 있어야
   `build-preview`/`build-production`이 EAS에 인증할 수 있습니다. 이 토큰은
   [expo.dev/settings/access-tokens](https://expo.dev/settings/access-tokens)에서 발급합니다.
+- `eas submit`(iOS)이 App Store Connect API 키로 인증하려면:
+  - `mobile/eas.json`의 `submit.production.ios.ascAppId`에 App Store Connect 앱 고유 숫자 ID를
+    등록해둡니다 (Bundle ID `com.runvas.mobile`과는 다른 값 — App Store Connect 앱 상세 페이지
+    URL의 `/apps/<숫자>/` 부분, 또는 "앱 정보"의 "Apple ID"). 이 값이 있으면 `eas submit`이
+    Apple ID 로그인으로 앱을 조회하는 단계를 건너뜁니다.
+  - 이 프로젝트는 EAS 서버에 이미 관리형 App Store Connect API 키가 저장돼 있어서
+    (`eas submit` 실행 시 "Key Source: EAS servers"로 표시), 로컬에 `.p8` 파일이 없어도
+    `ascAppId`만 있으면 제출이 됩니다.
+  - 로컬에서 직접 키를 관리해야 하는 경우(EAS 관리형 키를 못 쓰는 상황 등), App Store Connect →
+    사용자 및 접근 → 통합(Integrations) → App Store Connect API(**Team Keys** 탭)에서
+    "App Manager" 권한의 키를 생성하고, `.p8` 파일은 **생성 시 1회만 다운로드 가능**하므로
+    바로 저장해야 합니다. `mobile/private/`(gitignore 대상, 커밋되지 않음)에 파일을 두고,
+    `mobile/private/eas-submit.env.sh`에 `EXPO_ASC_API_KEY_PATH`/`EXPO_ASC_KEY_ID`/
+    `EXPO_ASC_ISSUER_ID` 환경변수를 채워 `source`한 뒤 `eas submit`을 실행하면 이 키로
+    인증됩니다 (`.p8` 파일과 이 스크립트는 각자 로컬에 별도로 준비해야 하며, 저장소에는
+    없습니다).
 
 ### 범위 밖
 
