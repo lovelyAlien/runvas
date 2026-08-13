@@ -13,8 +13,8 @@ Runvas는 사용자가 지도 위에서 직접 러닝 코스를 설계하고 공
 ## 저장소 구조
 
 - `docs/`: 백엔드와 모바일이 함께 맞춰야 하는 공통 기준과 제품 범위
-- `backend/`: 서버 API, 데이터 저장, 인증, GPX 응답 구현
-- `mobile/`: 모바일 앱 화면, 지도 인터랙션, API 연동 구현
+- [`backend/`](./backend/README.md): 서버 API, 데이터 저장, 인증, GPX 응답 구현
+- [`mobile/`](./mobile/README.md): 모바일 앱 화면, 지도 인터랙션, API 연동 구현
 
 ## 문서 역할
 
