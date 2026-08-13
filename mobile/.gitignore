@@ -37,6 +37,9 @@ yarn-error.*
 .env
 .env*.local
 
+# local-only secrets (ASC API key, submit env script 등)
+private/
+
 # typescript
 *.tsbuildinfo
 
