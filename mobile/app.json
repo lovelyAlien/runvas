@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.runvas.mobile",
-      "buildNumber": "2",
+      "buildNumber": "4",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "러닝 코스 생성을 위해 현재 위치가 필요합니다.",
         "NSAppTransportSecurity": {

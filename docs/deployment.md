@@ -99,10 +99,10 @@ gh run list --workflow=mobile-eas-build-preview.yml --limit 5
    git push origin mobile-v1.2.0
    ```
 
-3. `mobile-eas-build-production.yml`이 태그 이름에서 버전을, GitHub Actions 실행 번호에서
-   빌드 번호를 뽑아 `mobile/app.json`에 반영한 뒤 `eas build --profile production --platform all`을
-   실행합니다 (여기까지만 자동입니다). `build-production` job이 끝나면 GitHub Actions의
-   Job Summary에서 EAS 빌드 링크를 확인합니다.
+3. `mobile-eas-build-production.yml`이 태그 이름에서 버전을 뽑아 `mobile/app.json`에 반영한 뒤
+   `eas build --profile production --platform all`을 실행합니다 (여기까지만 자동입니다). 빌드
+   번호는 `eas.json`의 `autoIncrement: true` 설정에 따라 EAS가 자체적으로 올립니다.
+   `build-production` job이 끝나면 GitHub Actions의 Job Summary에서 EAS 빌드 링크를 확인합니다.
 4. **스토어 제출은 자동화돼 있지 않습니다.** 빌드가 끝나면 사람이 직접 실행합니다.
 
    ```bash
@@ -120,17 +120,18 @@ gh run list --workflow=mobile-eas-build-preview.yml --limit 5
 **참고:** `mobile/app.json`의 `ios.infoPlist.ITSAppUsesNonExemptEncryption: false`가 이미
 설정돼 있어, Apple의 수출 규정 준수(암호화 사용 여부) 질문에 추가 응답 없이 자동으로 통과됩니다.
 
-**버전(version)과 빌드 번호(buildNumber)는 별개지만, 둘 다 태그/CI 실행에서 자동으로 정해집니다.**
-`cli.appVersionSource: "local"`이라 EAS는 매 빌드마다 `mobile/app.json`의 값을 그대로 읽습니다.
-`mobile-eas-build-production.yml`의 "태그에서 버전/빌드 번호를 app.json에 반영" 스텝이 `eas build`
-직전에 이 파일을 고쳐씁니다 (커밋하지 않고 그 워크플로 실행 안에서만 바뀝니다).
+**버전(version)과 빌드 번호(buildNumber)는 별개 개념입니다.**
+`cli.appVersionSource: "local"`이라 EAS는 매 빌드마다 `mobile/app.json`의 값을 기준으로 삼습니다.
 
 - **버전:** 태그 이름(`mobile-v1.2.0`)에서 `mobile-v` 접두어를 뗀 `1.2.0`이 `app.json`의
-  `"version"`이 됩니다. 태그를 새로 만들 때마다 그 태그가 곧 버전입니다.
-- **빌드 번호:** `${{ github.run_number }}`(이 워크플로가 몇 번째 실행됐는지, 항상 증가하는 값)를
-  iOS `buildNumber`/Android `versionCode`로 씁니다. App Store Connect는 같은 버전 문자열 안에서
-  빌드 번호가 겹치면 업로드를 거부하므로("Build number N for app version X has already been
-  used"), 매 실행마다 값이 겹치지 않게 이 방식을 씁니다.
+  `"version"`이 됩니다. `mobile-eas-build-production.yml`의 "태그에서 버전을 app.json에 반영"
+  스텝이 `eas build` 직전에 이 값만 고쳐씁니다 (커밋하지 않고 그 워크플로 실행 안에서만
+  바뀝니다). 태그를 새로 만들 때마다 그 태그가 곧 버전입니다.
+- **빌드 번호:** `eas.json`의 `build.production.autoIncrement: true`에 따라 EAS가 매 빌드마다
+  iOS `buildNumber`/Android `versionCode`를 이전 값 기준으로 자동으로 올립니다. App Store
+  Connect는 같은 버전 문자열 안에서 빌드 번호가 겹치면 업로드를 거부하므로("Build number N for
+  app version X has already been used"), CI 실행 번호(`GITHUB_RUN_NUMBER`)로 직접 관리하던
+  이전 방식 대신 이 자동 증가 설정으로 정리했습니다.
 
 `development`/`preview` 빌드는 이 CI 스텝을 거치지 않으므로, 저장소에 커밋된 `app.json`의
 `version`/`buildNumber`/`versionCode` 값을 그대로 씁니다 — 내부 테스트용이라 실제 값이 중요하지
