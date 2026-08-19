@@ -131,22 +131,36 @@ gh run list --workflow=mobile-eas-build-preview.yml --limit 5
 **참고:** `mobile/app.json`의 `ios.infoPlist.ITSAppUsesNonExemptEncryption: false`가 이미
 설정돼 있어, Apple의 수출 규정 준수(암호화 사용 여부) 질문에 추가 응답 없이 자동으로 통과됩니다.
 
-**버전(version)과 빌드 번호(buildNumber)는 별개 개념입니다.**
-`cli.appVersionSource: "local"`이라 EAS는 매 빌드마다 `mobile/app.json`의 값을 기준으로 삼습니다.
+**버전(version)과 빌드 번호(buildNumber/versionCode)는 별개 개념이고, 값을 관리하는 위치도 다릅니다.**
 
-- **버전:** 태그 이름(`mobile-v1.2.0`)에서 `mobile-v` 접두어를 뗀 `1.2.0`이 `app.json`의
-  `"version"`이 됩니다. `mobile-eas-build-production.yml`의 "태그에서 버전을 app.json에 반영"
-  스텝이 `eas build` 직전에 이 값만 고쳐씁니다 (커밋하지 않고 그 워크플로 실행 안에서만
-  바뀝니다). 태그를 새로 만들 때마다 그 태그가 곧 버전입니다.
-- **빌드 번호:** `eas.json`의 `build.production.autoIncrement: true`에 따라 EAS가 매 빌드마다
-  iOS `buildNumber`/Android `versionCode`를 이전 값 기준으로 자동으로 올립니다. App Store
-  Connect는 같은 버전 문자열 안에서 빌드 번호가 겹치면 업로드를 거부하므로("Build number N for
-  app version X has already been used"), CI 실행 번호(`GITHUB_RUN_NUMBER`)로 직접 관리하던
-  이전 방식 대신 이 자동 증가 설정으로 정리했습니다.
+- **버전:** 여전히 `mobile/app.json`의 `"version"`(로컬 파일)이 기준입니다. 태그 이름
+  (`mobile-v1.2.0`)에서 `mobile-v` 접두어를 뗀 `1.2.0`이 `app.json`의 `"version"`이 됩니다.
+  `mobile-eas-build-production.yml`의 "태그에서 버전을 app.json에 반영" 스텝이 `eas build`
+  직전에 이 값만 고쳐씁니다 (커밋하지 않고 그 워크플로 실행 안에서만 바뀝니다). 태그를 새로
+  만들 때마다 그 태그가 곧 버전입니다.
+- **빌드 번호(iOS `buildNumber` / Android `versionCode`):** `cli.appVersionSource: "remote"`
+  설정에 따라 **EAS 서버가 프로젝트 단위로 값을 추적**합니다. `mobile/app.json`에는 더 이상
+  이 필드를 두지 않습니다 (remote 모드에서는 로컬 값이 무시되기 때문 — `eas build`가 실행마다
+  "field in app config is ignored" 경고를 띄웁니다). `build.production.autoIncrement: true`에
+  따라 `production` 프로필 빌드마다 EAS가 원격 값을 이전 값 기준으로 자동으로 올립니다.
+  현재 값은 `eas build:version:get -p ios`/`-p android`로 조회할 수 있고, 필요시
+  `eas build:version:set -p <플랫폼>`으로 직접 지정할 수 있습니다 (대화형 프롬프트만
+  지원합니다).
 
-`development`/`preview` 빌드는 이 CI 스텝을 거치지 않으므로, 저장소에 커밋된 `app.json`의
-`version`/`buildNumber`/`versionCode` 값을 그대로 씁니다 — 내부 테스트용이라 실제 값이 중요하지
-않습니다.
+  **왜 `"local"` 대신 `"remote"`를 쓰는가:** 이전에는 `"local"` + `autoIncrement: true`
+  조합이었는데, CI가 `eas build` 직전에 계산한 증가값을 `app.json`에 다시 커밋하지 않아서
+  다음 실행이 매번 "커밋된 옛날 값 + 1"을 반복 계산하는 구조적 결함이 있었습니다. 실제로
+  Android `versionCode`가 `1.0.3`, `1.0.4` 두 릴리스에서 똑같이 `3`으로 나온 사례가 있었고,
+  이 상태로는 `eas submit` 시 Play Console이 업로드를 거부합니다. `"remote"`는 git 커밋 상태와
+  무관하게 EAS 서버가 마지막 값을 직접 기억하므로 이 문제가 구조적으로 발생하지 않습니다.
+  전환 시점에 `eas build:version:set`으로 그때까지 실제로 빌드된 최댓값(iOS build 5,
+  Android versionCode 3) 이상으로 원격 카운터를 초기화해뒀습니다.
+
+`cli.appVersionSource`는 프로필별이 아니라 **프로젝트 전체에 적용되는 설정**이라,
+`development`/`preview` 빌드도 빌드 번호는 같은 원격 값을 그대로 조회해서 씁니다 — 다만 이
+프로필들은 `autoIncrement`가 없어서 값을 올리지는 않고 마지막으로 설정/증가된 값을 그대로
+재사용합니다 (내부 테스트용이라 매번 고유할 필요는 없습니다). 버전(semver)은 이 두 프로필도
+여전히 저장소에 커밋된 `app.json`의 `"version"` 값을 그대로 씁니다.
 
 ### 사전 준비물 (공통)
 
