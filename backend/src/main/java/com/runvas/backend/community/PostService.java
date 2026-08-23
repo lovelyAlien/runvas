@@ -113,6 +113,11 @@ public class PostService {
 		postRepository.delete(post);
 	}
 
+	@Transactional
+	public void deleteAsAdmin(String postId) {
+		postRepository.findById(postId).ifPresent(postRepository::delete);
+	}
+
 	private void validateAttachedCourse(String attachedCourseId) {
 		if (attachedCourseId == null) return;
 		Course course = courseRepository.findById(attachedCourseId)

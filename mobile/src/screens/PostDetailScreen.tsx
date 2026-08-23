@@ -26,6 +26,9 @@ import { Colors } from '../constants/theme';
 import { formatDateYYYYMMDD } from '../utils/format';
 import { Post, Comment } from '../types';
 import { RootStackParamList } from '../navigation/types';
+import { postReport } from '../services/reportApi';
+import ReportReasonModal from '../components/ReportReasonModal';
+import { ReportReason, ReportTargetType } from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PostDetail'>;
 
@@ -41,6 +44,8 @@ export default function PostDetailScreen({ route, navigation }: Props) {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingBody, setEditingBody] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   const loadPost = useCallback(async () => {
     try {
@@ -136,6 +141,20 @@ export default function PostDetailScreen({ route, navigation }: Props) {
     ]);
   };
 
+  const handleConfirmReport = async (reason: ReportReason, reasonDetail: string | null) => {
+    if (!reportTarget || !accessToken) return;
+    setIsSubmittingReport(true);
+    try {
+      await postReport(reportTarget.type, reportTarget.id, reason, reasonDetail, accessToken);
+      setReportTarget(null);
+      Alert.alert('신고 접수', '신고가 접수되었습니다.');
+    } catch (e: unknown) {
+      Alert.alert('신고 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
   if (isLoading || !post) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -190,6 +209,15 @@ export default function PostDetailScreen({ route, navigation }: Props) {
                 />
                 <Text style={styles.likeCount}>{post.likeCount}</Text>
               </TouchableOpacity>
+              {user != null && user.id !== post.author.id && (
+                <TouchableOpacity
+                  style={styles.reportButton}
+                  onPress={() => setReportTarget({ type: 'posts', id: post.id })}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.reportButtonLabel}>신고</Text>
+                </TouchableOpacity>
+              )}
               <Text style={styles.commentsHeading}>댓글 {comments.length}</Text>
             </View>
           }
@@ -241,6 +269,16 @@ export default function PostDetailScreen({ route, navigation }: Props) {
                     </TouchableOpacity>
                   </View>
                 )}
+                {!isMine && user != null && (
+                  <View style={styles.commentActionsRow}>
+                    <TouchableOpacity
+                      onPress={() => setReportTarget({ type: 'comments', id: item.id })}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.commentActionLabel}>신고</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             );
           }}
@@ -270,6 +308,13 @@ export default function PostDetailScreen({ route, navigation }: Props) {
           </TouchableOpacity>
         )}
       </KeyboardAvoidingView>
+      <ReportReasonModal
+        key={reportTarget?.id}
+        visible={reportTarget !== null}
+        onConfirm={handleConfirmReport}
+        onClose={() => setReportTarget(null)}
+        isSubmitting={isSubmittingReport}
+      />
     </SafeAreaView>
   );
 }
@@ -352,6 +397,14 @@ const styles = StyleSheet.create({
   likeCount: {
     fontSize: 13,
     color: Colors.gray500,
+  },
+  reportButton: {
+    marginTop: 8,
+  },
+  reportButtonLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.gray400,
   },
   commentsHeading: {
     fontSize: 14,

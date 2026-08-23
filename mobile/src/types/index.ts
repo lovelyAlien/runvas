@@ -222,3 +222,6 @@ export type WithdrawalReason =
   | 'BUGS_OR_ERRORS'
   | 'PRIVACY_CONCERN'
   | 'OTHER';
+
+export type ReportReason = 'SPAM' | 'ABUSIVE' | 'INAPPROPRIATE' | 'OTHER';
+export type ReportTargetType = 'posts' | 'comments' | 'course-comments';

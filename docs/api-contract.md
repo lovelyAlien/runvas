@@ -1639,3 +1639,53 @@ MVP에서는 refresh token을 응답하지 않습니다.
 - `400 VALIDATION_ERROR`: 지원하지 않는 `targetType`
 - `401 UNAUTHORIZED`: 로그인하지 않음
 - `404 NOT_FOUND`: 대상이 없음
+
+## Report APIs
+
+### POST /reports/{targetType}/{targetId}
+
+게시글, 댓글, 코스 댓글을 신고합니다.
+
+#### Auth
+
+`Required`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `targetType` | string | `posts` \| `comments` \| `course-comments` |
+| `targetId` | string | 신고 대상 ID |
+
+#### Request Body
+
+```json
+{
+  "reason": "ABUSIVE",
+  "reasonDetail": null
+}
+```
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `reason` | string | Y | `SPAM` \| `ABUSIVE` \| `INAPPROPRIATE` \| `OTHER` |
+| `reasonDetail` | string \| null | N | `reason`이 `OTHER`일 때만 필수 (1-200자) |
+
+#### Response: 201 Created (신규) 또는 200 OK (기존 PENDING 신고 재사용)
+
+```json
+{
+  "id": "report_123",
+  "targetType": "posts",
+  "targetId": "post_456",
+  "status": "PENDING",
+  "createdAt": "2026-08-23T10:00:00Z"
+}
+```
+
+#### Errors
+
+- `400 VALIDATION_ERROR`: 지원하지 않는 `targetType`, `reason` 누락/미지원 값, `reason`이
+  `OTHER`인데 `reasonDetail` 누락
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `404 NOT_FOUND`: 대상이 없음(이미 삭제된 콘텐츠 포함)

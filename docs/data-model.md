@@ -197,6 +197,23 @@ MVP에서 사용자는 본인이 생성한 코스의 아래 필드를 수정할 
 | `COURSE` | 공개 코스 |
 | `POST` | 게시글 |
 
+## Report
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `id` | string | Y | 신고 ID |
+| `reporterId` | string | Y | 신고한 사용자 ID. API 응답에는 노출하지 않음 |
+| `targetType` | ReportTargetType | Y | `POST` \| `COMMENT` \| `COURSE_COMMENT` |
+| `targetId` | string | Y | 신고 대상 ID |
+| `reason` | ReportReason | Y | `SPAM` \| `ABUSIVE` \| `INAPPROPRIATE` \| `OTHER` |
+| `reasonDetail` | string \| null | N | `reason`이 `OTHER`일 때만 필수 (1-200자) |
+| `status` | ReportStatus | Y | `PENDING` \| `RESOLVED` \| `DISMISSED` |
+| `createdAt` | string | Y | ISO 8601 신고 시각 |
+| `resolvedAt` | string \| null | N | 관리자가 삭제/기각 처리한 시각 |
+
+같은 사용자가 같은 대상에 이미 `PENDING` 신고를 넣었으면 새로 만들지 않고 기존 것을 재사용한다.
+`RESOLVED`/`DISMISSED`로 끝난 신고 이후 재신고는 새로 생성된다.
+
 ## CourseBookmark
 
 | 필드 | 타입 | 필수 | 설명 |

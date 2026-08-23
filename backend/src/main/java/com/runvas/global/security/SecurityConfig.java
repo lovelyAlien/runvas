@@ -51,6 +51,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/courses/{courseId}/comments").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/api/courses/{courseId}/comments/{commentId}").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/courses/{courseId}/comments/{commentId}").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/reports/{targetType}/{targetId}").authenticated()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider, tokenBlacklistService),

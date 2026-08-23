@@ -20,6 +20,7 @@ import KakaoMapView, { KakaoMapViewRef } from '../components/KakaoMapView';
 import RouteStatsBar from '../components/RouteStatsBar';
 import TagList from '../components/TagList';
 import CourseCommentItem from '../components/CourseCommentItem';
+import ReportReasonModal from '../components/ReportReasonModal';
 import { getCourse } from '../services/courseApi';
 import { putLike, deleteLike } from '../services/likeApi';
 import { postBookmark, deleteBookmark } from '../services/bookmarkApi';
@@ -30,12 +31,13 @@ import {
   updateCourseComment,
   deleteCourseComment,
 } from '../services/courseCommentApi';
+import { postReport } from '../services/reportApi';
 import { exportGpx } from '../utils/exportGpx';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthGate } from '../hooks/useAuthGate';
 import { DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
 import { Colors } from '../constants/theme';
-import { Course, CourseComment } from '../types';
+import { Course, CourseComment, ReportReason } from '../types';
 import { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CourseDetail'>;
@@ -61,6 +63,8 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
   const [repliesByParentId, setRepliesByParentId] = useState<Record<string, CourseComment[]>>({});
   const [expandedReplyIds, setExpandedReplyIds] = useState<Record<string, boolean>>({});
   const [loadingReplyIds, setLoadingReplyIds] = useState<Record<string, boolean>>({});
+  const [reportCommentId, setReportCommentId] = useState<string | null>(null);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   const userPace = user?.runningPaceSecPerKm ?? DEFAULT_PACE_SEC_PER_KM;
 
@@ -354,6 +358,25 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
     ]);
   };
 
+  const handleReportComment = (commentId: string) => {
+    if (!requireAuth()) return;
+    setReportCommentId(commentId);
+  };
+
+  const handleConfirmReport = async (reason: ReportReason, reasonDetail: string | null) => {
+    if (!reportCommentId || !accessToken) return;
+    setIsSubmittingReport(true);
+    try {
+      await postReport('course-comments', reportCommentId, reason, reasonDetail, accessToken);
+      setReportCommentId(null);
+      Alert.alert('신고 접수', '신고가 접수되었습니다.');
+    } catch (e: unknown) {
+      Alert.alert('신고 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
   if (isLoading || !course) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -472,6 +495,7 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
                   comment={comment}
                   currentUserId={user?.id}
                   onDelete={handleDeleteComment}
+                  onReport={handleReportComment}
                   onReply={handleReply}
                   onUpdate={handleUpdateComment}
                   onToggleReplies={handleToggleReplies}
@@ -518,6 +542,14 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
         </View>
       )}
       </KeyboardAvoidingView>
+
+      <ReportReasonModal
+        key={reportCommentId}
+        visible={reportCommentId !== null}
+        onConfirm={handleConfirmReport}
+        onClose={() => setReportCommentId(null)}
+        isSubmitting={isSubmittingReport}
+      />
     </SafeAreaView>
   );
 }
