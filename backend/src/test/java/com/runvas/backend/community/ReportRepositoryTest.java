@@ -5,6 +5,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -13,6 +14,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
@@ -36,12 +38,30 @@ class ReportRepositoryTest {
 
 	@Test
 	void pendingUniqueIndexPreventsDuplicatePendingReportForSameReporterAndTarget() {
+		// Save first PENDING report
 		reportRepository.saveAndFlush(new Report("reporter-1", ReportTargetType.POST, "post-1", ReportReason.SPAM, null));
 
-		Optional<Report> found = reportRepository.findByReporterIdAndTargetTypeAndTargetIdAndStatus(
-				"reporter-1", ReportTargetType.POST, "post-1", ReportStatus.PENDING);
+		// Attempt to save second PENDING report with same reporter, target type, and target id should fail
+		Report duplicate = new Report("reporter-1", ReportTargetType.POST, "post-1", ReportReason.ABUSIVE, null);
+		assertThatThrownBy(() -> reportRepository.saveAndFlush(duplicate))
+				.isInstanceOf(DataIntegrityViolationException.class);
+	}
 
-		assertThat(found).isPresent();
+	@Test
+	void newPendingReportAllowedAfterPreviousReportIsResolved() {
+		// Save first PENDING report
+		Report firstReport = reportRepository.saveAndFlush(
+				new Report("reporter-1", ReportTargetType.POST, "post-1", ReportReason.SPAM, null));
+
+		// Resolve the first report
+		firstReport.resolve();
+		reportRepository.saveAndFlush(firstReport);
+
+		// A new PENDING report for the same reporter, target type, and target id should be allowed
+		Report secondReport = new Report("reporter-1", ReportTargetType.POST, "post-1", ReportReason.ABUSIVE, null);
+		Report savedSecondReport = reportRepository.saveAndFlush(secondReport);
+
+		assertThat(savedSecondReport.getStatus()).isEqualTo(ReportStatus.PENDING);
 	}
 
 	@Test
