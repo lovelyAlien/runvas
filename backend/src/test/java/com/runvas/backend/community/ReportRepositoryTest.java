@@ -39,10 +39,10 @@ class ReportRepositoryTest {
 	@Test
 	void pendingUniqueIndexPreventsDuplicatePendingReportForSameReporterAndTarget() {
 		// Save first PENDING report
-		reportRepository.saveAndFlush(new Report("reporter-1", ReportTargetType.POST, "post-1", ReportReason.SPAM, null));
+		reportRepository.saveAndFlush(new Report("reporter-unique-1", ReportTargetType.POST, "post-unique-1", ReportReason.SPAM, null));
 
 		// Attempt to save second PENDING report with same reporter, target type, and target id should fail
-		Report duplicate = new Report("reporter-1", ReportTargetType.POST, "post-1", ReportReason.ABUSIVE, null);
+		Report duplicate = new Report("reporter-unique-1", ReportTargetType.POST, "post-unique-1", ReportReason.ABUSIVE, null);
 		assertThatThrownBy(() -> reportRepository.saveAndFlush(duplicate))
 				.isInstanceOf(DataIntegrityViolationException.class);
 	}
@@ -51,14 +51,14 @@ class ReportRepositoryTest {
 	void newPendingReportAllowedAfterPreviousReportIsResolved() {
 		// Save first PENDING report
 		Report firstReport = reportRepository.saveAndFlush(
-				new Report("reporter-1", ReportTargetType.POST, "post-1", ReportReason.SPAM, null));
+				new Report("reporter-unique-2", ReportTargetType.POST, "post-unique-2", ReportReason.SPAM, null));
 
 		// Resolve the first report
 		firstReport.resolve();
 		reportRepository.saveAndFlush(firstReport);
 
 		// A new PENDING report for the same reporter, target type, and target id should be allowed
-		Report secondReport = new Report("reporter-1", ReportTargetType.POST, "post-1", ReportReason.ABUSIVE, null);
+		Report secondReport = new Report("reporter-unique-2", ReportTargetType.POST, "post-unique-2", ReportReason.ABUSIVE, null);
 		Report savedSecondReport = reportRepository.saveAndFlush(secondReport);
 
 		assertThat(savedSecondReport.getStatus()).isEqualTo(ReportStatus.PENDING);
@@ -67,14 +67,14 @@ class ReportRepositoryTest {
 	@Test
 	void findAllByTargetTypeAndTargetIdAndStatusReturnsOnlyMatchingPendingReports() {
 		Report pending1 = reportRepository.saveAndFlush(
-				new Report("reporter-1", ReportTargetType.POST, "post-1", ReportReason.SPAM, null));
+				new Report("reporter-unique-3a", ReportTargetType.POST, "post-unique-3", ReportReason.SPAM, null));
 		Report pending2 = reportRepository.saveAndFlush(
-				new Report("reporter-2", ReportTargetType.POST, "post-1", ReportReason.ABUSIVE, null));
+				new Report("reporter-unique-3b", ReportTargetType.POST, "post-unique-3", ReportReason.ABUSIVE, null));
 		reportRepository.saveAndFlush(
-				new Report("reporter-3", ReportTargetType.POST, "post-2", ReportReason.SPAM, null));
+				new Report("reporter-unique-3c", ReportTargetType.POST, "post-unique-3-other", ReportReason.SPAM, null));
 
 		List<Report> results = reportRepository.findAllByTargetTypeAndTargetIdAndStatus(
-				ReportTargetType.POST, "post-1", ReportStatus.PENDING);
+				ReportTargetType.POST, "post-unique-3", ReportStatus.PENDING);
 
 		assertThat(results).extracting(Report::getId).containsExactlyInAnyOrder(pending1.getId(), pending2.getId());
 	}
