@@ -12,6 +12,7 @@ import com.runvas.backend.community.ReportStatus;
 import com.runvas.backend.community.ReportTargetType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -34,7 +35,7 @@ public class AdminReportQueryService {
 	}
 
 	public Page<AdminReportView> search(ReportStatus status, ReportTargetType targetType, int page, int size) {
-		PageRequest pageable = PageRequest.of(Math.max(0, page), size);
+		PageRequest pageable = PageRequest.of(Math.max(0, page), size, Sort.by(Sort.Direction.ASC, "createdAt"));
 		Page<Report> reports = targetType == null
 				? reportRepository.findAllByStatus(status, pageable)
 				: reportRepository.findAllByStatusAndTargetType(status, targetType, pageable);

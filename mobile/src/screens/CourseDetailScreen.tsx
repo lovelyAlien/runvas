@@ -544,6 +544,7 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
       </KeyboardAvoidingView>
 
       <ReportReasonModal
+        key={reportCommentId}
         visible={reportCommentId !== null}
         onConfirm={handleConfirmReport}
         onClose={() => setReportCommentId(null)}

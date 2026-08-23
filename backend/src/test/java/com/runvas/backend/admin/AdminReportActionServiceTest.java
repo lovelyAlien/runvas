@@ -10,6 +10,7 @@ import com.runvas.backend.community.ReportReason;
 import com.runvas.backend.community.ReportRepository;
 import com.runvas.backend.community.ReportStatus;
 import com.runvas.backend.community.ReportTargetType;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -71,5 +72,29 @@ class AdminReportActionServiceTest {
 		verify(postService, never()).deleteAsAdmin(any());
 		verify(commentService, never()).deleteAsAdmin(any());
 		verify(courseCommentService, never()).deleteAsAdmin(any());
+	}
+
+	@Test
+	void resolveOnAlreadyResolvedReportIsNoOp() {
+		Report alreadyResolved = new Report("reporter-1", ReportTargetType.POST, "post-1", ReportReason.SPAM, null);
+		alreadyResolved.resolve();
+		when(reportRepository.findById("report-3")).thenReturn(Optional.of(alreadyResolved));
+
+		adminReportActionService.resolve("report-3");
+
+		verify(postService, never()).deleteAsAdmin(any());
+		verify(reportRepository, never()).findAllByTargetTypeAndTargetIdAndStatus(any(), any(), any());
+	}
+
+	@Test
+	void dismissOnAlreadyDismissedReportIsNoOp() {
+		Report alreadyDismissed = new Report("reporter-1", ReportTargetType.COMMENT, "comment-1", ReportReason.OTHER, "상세");
+		alreadyDismissed.dismiss();
+		when(reportRepository.findById("report-4")).thenReturn(Optional.of(alreadyDismissed));
+		Instant resolvedAtBefore = alreadyDismissed.getResolvedAt();
+
+		adminReportActionService.dismiss("report-4");
+
+		assertThat(alreadyDismissed.getResolvedAt()).isEqualTo(resolvedAtBefore);
 	}
 }

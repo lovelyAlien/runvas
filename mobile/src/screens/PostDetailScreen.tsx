@@ -309,6 +309,7 @@ export default function PostDetailScreen({ route, navigation }: Props) {
         )}
       </KeyboardAvoidingView>
       <ReportReasonModal
+        key={reportTarget?.id}
         visible={reportTarget !== null}
         onConfirm={handleConfirmReport}
         onClose={() => setReportTarget(null)}

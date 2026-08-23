@@ -24,6 +24,9 @@ public class AdminReportActionService {
 	@Transactional
 	public void resolve(String reportId) {
 		Report report = findOrThrow(reportId);
+		if (report.getStatus() != ReportStatus.PENDING) {
+			return;
+		}
 
 		switch (report.getTargetType()) {
 			case POST -> postService.deleteAsAdmin(report.getTargetId());
@@ -38,7 +41,11 @@ public class AdminReportActionService {
 
 	@Transactional
 	public void dismiss(String reportId) {
-		findOrThrow(reportId).dismiss();
+		Report report = findOrThrow(reportId);
+		if (report.getStatus() != ReportStatus.PENDING) {
+			return;
+		}
+		report.dismiss();
 	}
 
 	private Report findOrThrow(String reportId) {
