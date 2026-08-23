@@ -359,6 +359,7 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
   };
 
   const handleReportComment = (commentId: string) => {
+    if (!requireAuth()) return;
     setReportCommentId(commentId);
   };
 
