@@ -116,6 +116,11 @@ public class CourseCommentService {
 		courseCommentRepository.delete(comment);
 	}
 
+	@Transactional
+	public void deleteAsAdmin(String commentId) {
+		courseCommentRepository.findById(commentId).ifPresent(courseCommentRepository::delete);
+	}
+
 	private void validateParentComment(String courseId, String parentCommentId) {
 		CourseComment parent = courseCommentRepository
 				.findById(parentCommentId)

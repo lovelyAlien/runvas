@@ -75,6 +75,14 @@ public class CommentService {
 		postRepository.findById(comment.getPostId()).ifPresent(Post::decrementCommentCount);
 	}
 
+	@Transactional
+	public void deleteAsAdmin(String commentId) {
+		commentRepository.findById(commentId).ifPresent(comment -> {
+			commentRepository.delete(comment);
+			postRepository.findById(comment.getPostId()).ifPresent(Post::decrementCommentCount);
+		});
+	}
+
 	private Post findPostOrThrow(String postId) {
 		return postRepository.findById(postId)
 				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "게시글이 없습니다"));
