@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Runvas 관리자 - 신고</title>
+    <link rel="stylesheet" th:href="@{/admin/assets/admin.css}"/>
+</head>
+<body>
+<div class="admin-shell">
+    <nav th:replace="~{admin/fragments/nav :: nav}"></nav>
+    <h1>신고 목록</h1>
+    <form method="get" th:action="@{/admin/reports}" class="field-row">
+        <select name="status">
+            <option value="PENDING" th:selected="${status.name() == 'PENDING'}">대기중</option>
+            <option value="RESOLVED" th:selected="${status.name() == 'RESOLVED'}">처리됨(삭제)</option>
+            <option value="DISMISSED" th:selected="${status.name() == 'DISMISSED'}">기각됨</option>
+        </select>
+        <select name="targetType">
+            <option value="" th:selected="${targetType == null}">전체</option>
+            <option value="POST" th:selected="${targetType != null and targetType.name() == 'POST'}">게시글</option>
+            <option value="COMMENT" th:selected="${targetType != null and targetType.name() == 'COMMENT'}">게시글 댓글</option>
+            <option value="COURSE_COMMENT" th:selected="${targetType != null and targetType.name() == 'COURSE_COMMENT'}">코스 댓글</option>
+        </select>
+        <button type="submit" class="btn">필터</button>
+    </form>
+    <table>
+        <colgroup>
+            <col style="width:10%"/>
+            <col style="width:12%"/>
+            <col style="width:22%"/>
+            <col style="width:14%"/>
+            <col style="width:12%"/>
+            <col style="width:16%"/>
+            <col style="width:14%"/>
+        </colgroup>
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>대상 유형</th>
+            <th>콘텐츠 미리보기</th>
+            <th>신고자 ID</th>
+            <th>사유</th>
+            <th>신고 시각</th>
+            <th>처리</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="report : ${reports}">
+            <td class="mono" th:text="${report.id()}" th:title="${report.id()}"></td>
+            <td th:text="${report.targetType()}"></td>
+            <td th:text="${report.contentPreview()} ?: '(삭제된 콘텐츠)'"></td>
+            <td class="mono" th:text="${report.reporterId()}" th:title="${report.reporterId()}"></td>
+            <td th:text="${report.reasonDetail()} != null ? (${report.reason()} + ' - ' + ${report.reasonDetail()}) : ${report.reason()}"></td>
+            <td class="mono" th:text="${report.createdAt()}"></td>
+            <td>
+                <form method="post" th:if="${status.name() == 'PENDING'}"
+                      th:action="@{'/admin/reports/' + ${report.id()} + '/resolve'}" style="display:inline">
+                    <button type="submit" class="btn">삭제</button>
+                </form>
+                <form method="post" th:if="${status.name() == 'PENDING'}"
+                      th:action="@{'/admin/reports/' + ${report.id()} + '/dismiss'}" style="display:inline">
+                    <button type="submit" class="btn">기각</button>
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+    <div class="pagination">
+        <span class="mono" th:text="'페이지 ' + (${page} + 1) + ' / ' + ${totalPages}"></span>
+        <a th:if="${page > 0}" th:href="@{/admin/reports(status=${status}, targetType=${targetType}, page=${page - 1})}">이전</a>
+        <a th:if="${page + 1 < totalPages}" th:href="@{/admin/reports(status=${status}, targetType=${targetType}, page=${page + 1})}">다음</a>
+    </div>
+</div>
+</body>
+</html>
