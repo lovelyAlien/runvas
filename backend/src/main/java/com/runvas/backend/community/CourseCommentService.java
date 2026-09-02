@@ -54,8 +54,10 @@ public class CourseCommentService {
 		List<CourseComment> comments = (cursor == null || cursor.isBlank())
 				? courseCommentRepository.findFirstPage(courseId, pageable)
 				: courseCommentRepository.findNextPage(courseId, cursorCreatedAt(cursor), cursor, pageable);
-		// 참고: DB 페이지를 먼저 가져온 뒤 차단 필터링을 하므로, 차단된 작성자가 많으면 실제
-		// effectiveLimit보다 적은 항목이 반환될 수 있다(MVP 범위 밖 최적화 — docs 설계 문서 참고).
+		// 참고: DB 페이지를 먼저 가져온 뒤 차단 필터링을 하므로, hasMore/nextCursor가 필터링 이후
+		// 개수로 계산된다. 가져온 페이지에 차단된 작성자의 댓글이 섞여 있으면 실제로는 더 남은
+		// 댓글이 있어도 hasMore가 false로 계산되어 페이지네이션이 조기 종료되고 남은 댓글을
+		// 건너뛸 수 있다(단순히 페이지가 덜 채워지는 것 이상의 문제). MVP 범위 밖 최적화로 남겨둔다.
 		comments = comments.stream().filter(c -> !blockedAuthorIds.contains(c.getAuthorId())).toList();
 
 		boolean hasMore = comments.size() > effectiveLimit;

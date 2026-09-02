@@ -1798,3 +1798,8 @@ MVP에서는 refresh token을 응답하지 않습니다.
 | `GET /courses/{courseId}/comments/{commentId}/replies` | 위와 동일 |
 
 `GET /courses`, `GET /courses/{courseId}` 등 코스 관련 조회는 이번 범위에서 변경하지 않습니다.
+
+`GET /courses/{courseId}/comments`의 커서 페이지네이션은 DB에서 가져온 페이지를 차단 필터링한
+뒤 `hasMore`/`nextCursor`를 계산합니다. 가져온 페이지에 차단된 작성자의 댓글이 섞여 있으면
+실제로는 남은 댓글이 있어도 `nextCursor`가 `null`로 계산되어 이후 댓글을 건너뛸 수 있습니다
+(MVP 범위 밖 최적화로 남겨둔 알려진 제약).
