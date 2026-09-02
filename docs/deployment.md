@@ -99,7 +99,8 @@ gh run list --workflow=mobile-eas-build-preview.yml --limit 5
    git push origin mobile-v1.2.0
    ```
 
-3. `mobile-eas-build-production.yml`이 태그 이름에서 버전을 뽑아 `mobile/app.json`에 반영한 뒤
+3. `mobile-eas-build-production.yml`이 태그 이름에서 버전을 뽑아 `mobile/.release-version`
+   파일에 적어둔 뒤(`mobile/app.config.js`가 이 파일을 읽어 `version`을 결정합니다)
    `eas build --profile production --platform all`을 실행합니다 (여기까지만 자동입니다). 빌드
    번호는 `eas.json`의 `autoIncrement: true` 설정에 따라 EAS가 자체적으로 올립니다.
    `build-production` job이 끝나면 GitHub Actions의 Job Summary에서 EAS 빌드 링크를 확인합니다.
@@ -128,19 +129,26 @@ gh run list --workflow=mobile-eas-build-preview.yml --limit 5
    이 마지막 클릭은 의도적으로 자동화하지 않았습니다 — 리젝 이력이 있는 계정이라 빌드를
    실기기에서 한 번 확인한 뒤 사람이 직접 제출하는 것을 원칙으로 합니다.
 
-**참고:** `mobile/app.json`의 `ios.infoPlist.ITSAppUsesNonExemptEncryption: false`가 이미
+**참고:** `mobile/app.config.js`의 `ios.infoPlist.ITSAppUsesNonExemptEncryption: false`가 이미
 설정돼 있어, Apple의 수출 규정 준수(암호화 사용 여부) 질문에 추가 응답 없이 자동으로 통과됩니다.
 
 **버전(version)과 빌드 번호(buildNumber/versionCode)는 별개 개념이고, 값을 관리하는 위치도 다릅니다.**
 
-- **버전:** 여전히 `mobile/app.json`의 `"version"`(로컬 파일)이 기준입니다. 태그 이름
-  (`mobile-v1.2.0`)에서 `mobile-v` 접두어를 뗀 `1.2.0`이 `app.json`의 `"version"`이 됩니다.
-  `mobile-eas-build-production.yml`의 "태그에서 버전을 app.json에 반영" 스텝이 `eas build`
-  직전에 이 값만 고쳐씁니다 (커밋하지 않고 그 워크플로 실행 안에서만 바뀝니다). 태그를 새로
-  만들 때마다 그 태그가 곧 버전입니다.
+- **버전:** `mobile/app.config.js`가 `mobile/.release-version` 파일(커밋되지 않음, `.gitignore`
+  대상 아님 — 아래 참고)을 읽어서 결정합니다. 파일이 없으면 기본값 `1.0.0`을 씁니다. 태그 이름
+  (`mobile-v1.2.0`)에서 `mobile-v` 접두어를 뗀 `1.2.0`이 이 파일의 내용이 됩니다.
+  `mobile-eas-build-production.yml`의 "태그에서 버전을 .release-version에 반영" 스텝이 `eas
+  build` 직전에 이 파일을 새로 만듭니다 — 커밋하지 않고 그 워크플로 실행(매번 새로 clone된
+  워크트리) 안에서만 존재했다 사라집니다. 태그를 새로 만들 때마다 그 태그가 곧 버전입니다.
+  환경변수가 아니라 파일인 이유: 이 프로젝트는 managed workflow라 네이티브 프로젝트가 저장소에
+  없고, EAS 원격 빌드 워커가 `expo prebuild` 단계에서 `app.config.js`를 다시 평가합니다(아래
+  참고) — CI 러너에만 설정한 환경변수는 그 원격 평가에 전달된다는 보장이 없지만, 프로젝트 트리에
+  포함된 파일은 업로드에 그대로 딸려갑니다. 이 파일을 `.gitignore`에 넣지 않는 이유도 같습니다 —
+  EAS Build는 업로드할 파일을 고를 때 기본적으로 `.gitignore`를 그대로 따르므로(`.easignore`가
+  없는 한), gitignore된 파일은 원격 빌드 워커에 아예 전달되지 않습니다.
 - **빌드 번호(iOS `buildNumber` / Android `versionCode`):** `cli.appVersionSource: "remote"`
-  설정에 따라 **EAS 서버가 프로젝트 단위로 값을 추적**합니다. `mobile/app.json`에는 더 이상
-  이 필드를 두지 않습니다 (remote 모드에서는 로컬 값이 무시되기 때문 — `eas build`가 실행마다
+  설정에 따라 **EAS 서버가 프로젝트 단위로 값을 추적**합니다. `mobile/app.config.js`에는 이
+  필드를 두지 않습니다 (remote 모드에서는 로컬 값이 무시되기 때문 — `eas build`가 실행마다
   "field in app config is ignored" 경고를 띄웁니다). `build.production.autoIncrement: true`에
   따라 `production` 프로필 빌드마다 EAS가 원격 값을 이전 값 기준으로 자동으로 올립니다.
   현재 값은 `eas build:version:get -p ios`/`-p android`로 조회할 수 있고, 필요시
@@ -159,8 +167,9 @@ gh run list --workflow=mobile-eas-build-preview.yml --limit 5
 `cli.appVersionSource`는 프로필별이 아니라 **프로젝트 전체에 적용되는 설정**이라,
 `development`/`preview` 빌드도 빌드 번호는 같은 원격 값을 그대로 조회해서 씁니다 — 다만 이
 프로필들은 `autoIncrement`가 없어서 값을 올리지는 않고 마지막으로 설정/증가된 값을 그대로
-재사용합니다 (내부 테스트용이라 매번 고유할 필요는 없습니다). 버전(semver)은 이 두 프로필도
-여전히 저장소에 커밋된 `app.json`의 `"version"` 값을 그대로 씁니다.
+재사용합니다 (내부 테스트용이라 매번 고유할 필요는 없습니다). 버전(semver)은 이 두 프로필의
+워크플로가 `.release-version` 파일을 만들지 않으므로, `app.config.js`의 기본값(`1.0.0`)을
+그대로 씁니다.
 
 ### 사전 준비물 (공통)
 

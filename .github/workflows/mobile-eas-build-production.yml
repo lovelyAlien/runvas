@@ -19,15 +19,8 @@ jobs:
           cache-dependency-path: mobile/package-lock.json
       - run: npm ci
       - run: npx tsc --noEmit
-      - name: 태그에서 버전을 app.json에 반영
-        run: |
-          VERSION=${GITHUB_REF_NAME#mobile-v}
-          APP_VERSION="$VERSION" node -e "
-            const fs = require('fs');
-            const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
-            app.expo.version = process.env.APP_VERSION;
-            fs.writeFileSync('app.json', JSON.stringify(app, null, 2) + '\n');
-          "
+      - name: 태그에서 버전을 .release-version에 반영 (app.config.js가 읽음)
+        run: echo -n "${GITHUB_REF_NAME#mobile-v}" > .release-version
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest

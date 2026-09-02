@@ -24,7 +24,7 @@ Expo SDK 버전 고정과 과거에 겪은 breaking change는 `AGENTS.md`를 보
 - `expo-file-system`은 새 `File`/`Paths`/`Directory` 클래스 API만 쓴다. `expo-file-system/legacy`,
   `writeAsStringAsync`, `cacheDirectory` 사용 금지 (`AGENTS.md` "이미 겪은 SDK 버전 변경" 참고 —
   SDK 54에서 런타임 에러).
-- `app.json`의 `plugins` 배열에는 실제 config plugin이 있는 패키지만 넣는다(예: `expo-location`).
+- `app.config.js`의 `plugins` 배열에는 실제 config plugin이 있는 패키지만 넣는다(예: `expo-location`).
   config plugin이 없는 패키지(`expo-sharing` 등)를 넣으면 Expo CLI가 죽는다 — 패키지 추가 전에
   공식 문서에서 config plugin 여부를 확인한다.
 
@@ -53,7 +53,7 @@ Expo SDK 버전 고정과 과거에 겪은 breaking change는 `AGENTS.md`를 보
 
 ## 권한이 필요한 네이티브 기능 추가 시
 
-1. `app.json`의 `ios.infoPlist`(설명 문구) / `android.permissions`(권한 코드)를 같이 추가한다.
+1. `app.config.js`의 `ios.infoPlist`(설명 문구) / `android.permissions`(권한 코드)를 같이 추가한다.
 2. 해당 패키지의 config plugin이 있으면 `plugins`에 등록한다.
 3. 실기기/시뮬레이터에서 권한 다이얼로그가 실제로 뜨는지 직접 확인한다 — 코드만 보고 통과시키지 않는다.
 
