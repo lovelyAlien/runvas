@@ -339,4 +339,28 @@ class PostControllerTest {
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + otherToken))
 				.andExpect(status().isOk());
 	}
+
+	@Test
+	void blockedUserCanStillSeeBlockersOwnContent() throws Exception {
+		String blockedUserToken = createUserAndToken("blocked-user4");
+		String blockerToken = createUserAndToken("blocker4");
+		String blockedUserPostId = createPost(blockedUserToken, "차단당한 사용자의 글", "본문");
+		String blockerPostId = createPost(blockerToken, "차단한 사용자의 글", "본문");
+
+		MvcResult postResult = mockMvc.perform(get("/api/posts/" + blockedUserPostId)).andReturn();
+		String blockedUserId = JsonPath.read(postResult.getResponse().getContentAsString(), "$.post.author.id");
+
+		mockMvc.perform(post("/api/blocks/" + blockedUserId)
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + blockerToken))
+				.andExpect(status().isCreated());
+
+		mockMvc.perform(get("/api/posts")
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + blockedUserToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.posts[?(@.title == '차단한 사용자의 글')]").exists());
+
+		mockMvc.perform(get("/api/posts/" + blockerPostId)
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + blockedUserToken))
+				.andExpect(status().isOk());
+	}
 }
