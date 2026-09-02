@@ -32,6 +32,7 @@ public class PostService {
 	private final UserRepository userRepository;
 	private final CourseRepository courseRepository;
 	private final LikeRepository likeRepository;
+	private final BlockRepository blockRepository;
 	private final CurrentUserProvider currentUserProvider;
 
 	@Transactional
@@ -54,6 +55,10 @@ public class PostService {
 	public PostResponse getById(String postId) {
 		Post post = findPostOrThrow(postId);
 		String currentUserId = currentUserProvider.currentUserIdOrNull();
+		if (currentUserId != null
+				&& blockRepository.findById(new Block.BlockId(currentUserId, post.getAuthorId())).isPresent()) {
+			throw new ApiException(ErrorCode.NOT_FOUND, "게시글이 없습니다");
+		}
 		return toResponse(post, isLikedByCurrentUser(post.getId(), currentUserId));
 	}
 
@@ -68,8 +73,11 @@ public class PostService {
 		}
 
 		String currentUserId = currentUserProvider.currentUserIdOrNull();
+		Set<String> blockedAuthorIds =
+				currentUserId == null ? Set.of() : blockRepository.findBlockedIdsByBlockerId(currentUserId);
 
 		List<Post> posts = postRepository.findAllByOrderByCreatedAtDesc().stream()
+				.filter(post -> !blockedAuthorIds.contains(post.getAuthorId()))
 				.filter(post -> attachedCourseId == null || attachedCourseId.equals(post.getAttachedCourseId()))
 				.filter(post -> q == null || post.getTitle().contains(q) || post.getBody().contains(q))
 				.filter(post -> tag == null || post.getTags().contains(tag))

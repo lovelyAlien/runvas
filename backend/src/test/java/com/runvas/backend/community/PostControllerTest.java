@@ -283,4 +283,60 @@ class PostControllerTest {
 				.andExpect(jsonPath("$.post.author.profileImageUrl").doesNotExist())
 				.andExpect(jsonPath("$.post.author.bio").doesNotExist());
 	}
+
+	@Test
+	void listExcludesPostsByBlockedAuthor() throws Exception {
+		String authorToken = createUserAndToken("blocked-author1");
+		String blockerToken = createUserAndToken("blocker1");
+		String postId = createPost(authorToken, "차단 테스트 글", "본문");
+
+		MvcResult postResult = mockMvc.perform(get("/api/posts/" + postId)).andReturn();
+		String authorUserId = JsonPath.read(postResult.getResponse().getContentAsString(), "$.post.author.id");
+
+		mockMvc.perform(post("/api/blocks/" + authorUserId)
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + blockerToken))
+				.andExpect(status().isCreated());
+
+		mockMvc.perform(get("/api/posts")
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + blockerToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.posts[?(@.title == '차단 테스트 글')]").isEmpty());
+	}
+
+	@Test
+	void getByIdReturnsNotFoundForBlockedAuthorPost() throws Exception {
+		String authorToken = createUserAndToken("blocked-author2");
+		String blockerToken = createUserAndToken("blocker2");
+		String postId = createPost(authorToken, "차단된 작성자 글", "본문");
+
+		MvcResult postResult = mockMvc.perform(get("/api/posts/" + postId)).andReturn();
+		String authorUserId = JsonPath.read(postResult.getResponse().getContentAsString(), "$.post.author.id");
+
+		mockMvc.perform(post("/api/blocks/" + authorUserId)
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + blockerToken))
+				.andExpect(status().isCreated());
+
+		mockMvc.perform(get("/api/posts/" + postId)
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + blockerToken))
+				.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void blockedAuthorPostStillVisibleToOtherUsers() throws Exception {
+		String authorToken = createUserAndToken("blocked-author3");
+		String blockerToken = createUserAndToken("blocker3");
+		String otherToken = createUserAndToken("bystander3");
+		String postId = createPost(authorToken, "다른 사람에게는 보이는 글", "본문");
+
+		MvcResult postResult = mockMvc.perform(get("/api/posts/" + postId)).andReturn();
+		String authorUserId = JsonPath.read(postResult.getResponse().getContentAsString(), "$.post.author.id");
+
+		mockMvc.perform(post("/api/blocks/" + authorUserId)
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + blockerToken))
+				.andExpect(status().isCreated());
+
+		mockMvc.perform(get("/api/posts/" + postId)
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + otherToken))
+				.andExpect(status().isOk());
+	}
 }
