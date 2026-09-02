@@ -29,6 +29,7 @@ import { RootStackParamList } from '../navigation/types';
 import { postReport } from '../services/reportApi';
 import ReportReasonModal from '../components/ReportReasonModal';
 import { ReportReason, ReportTargetType } from '../types';
+import { blockUser } from '../services/blockApi';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PostDetail'>;
 
@@ -155,6 +156,30 @@ export default function PostDetailScreen({ route, navigation }: Props) {
     }
   };
 
+  const handleBlockUser = (userId: string, nickname: string) => {
+    if (!requireAuth() || !accessToken) return;
+    Alert.alert(
+      '사용자 차단',
+      `${nickname}님을 차단하시겠어요? 차단하면 이 사용자의 게시글과 댓글이 더 이상 보이지 않습니다.`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '차단',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await blockUser(userId, accessToken);
+              Alert.alert('차단 완료', `${nickname}님을 차단했습니다.`);
+              loadPost();
+            } catch (e: unknown) {
+              Alert.alert('차단 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (isLoading || !post) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -218,6 +243,15 @@ export default function PostDetailScreen({ route, navigation }: Props) {
                   <Text style={styles.reportButtonLabel}>신고</Text>
                 </TouchableOpacity>
               )}
+              {user != null && user.id !== post.author.id && (
+                <TouchableOpacity
+                  style={styles.reportButton}
+                  onPress={() => handleBlockUser(post.author.id, post.author.nickname)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.reportButtonLabel}>차단</Text>
+                </TouchableOpacity>
+              )}
               <Text style={styles.commentsHeading}>댓글 {comments.length}</Text>
             </View>
           }
@@ -276,6 +310,12 @@ export default function PostDetailScreen({ route, navigation }: Props) {
                       activeOpacity={0.7}
                     >
                       <Text style={styles.commentActionLabel}>신고</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleBlockUser(item.author.id, item.author.nickname)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.commentActionLabel}>차단</Text>
                     </TouchableOpacity>
                   </View>
                 )}
