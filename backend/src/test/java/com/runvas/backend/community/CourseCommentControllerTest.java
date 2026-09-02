@@ -3,9 +3,11 @@ package com.runvas.backend.community;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.jayway.jsonpath.JsonPath;
 import com.runvas.auth.service.JwtProvider;
 import com.runvas.backend.common.GeoBounds;
 import com.runvas.backend.common.GeoPoint;
@@ -26,6 +28,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -272,5 +275,53 @@ class CourseCommentControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.comments[0].author.nickname").value("탈퇴한 사용자"))
 				.andExpect(jsonPath("$.comments[0].author.profileImageUrl").doesNotExist());
+	}
+
+	@Test
+	void listExcludesCourseCommentsByBlockedAuthor() throws Exception {
+		String courseOwnerToken = createUserToken("course-comment-owner1");
+		String courseId = createCourse(authorIdFromToken(courseOwnerToken), CourseVisibility.PUBLIC);
+		String commenterToken = createUserToken("blocked-course-commenter1");
+		String blockerToken = createUserToken("course-comment-blocker1");
+		String commentId = createComment(courseId, commenterToken, "차단될 코스 댓글");
+
+		MvcResult commentsResult = mockMvc.perform(get("/api/courses/" + courseId + "/comments")).andReturn();
+		java.util.List<String> commenterUserIds = JsonPath.read(
+				commentsResult.getResponse().getContentAsString(),
+				"$.comments[?(@.id == '" + commentId + "')].author.id");
+		String commenterUserId = commenterUserIds.get(0);
+
+		mockMvc.perform(post("/api/blocks/" + commenterUserId)
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + blockerToken))
+				.andExpect(status().isCreated());
+
+		mockMvc.perform(get("/api/courses/" + courseId + "/comments")
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + blockerToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.comments[?(@.body == '차단될 코스 댓글')]").isEmpty());
+	}
+
+	@Test
+	void listRepliesExcludesRepliesByBlockedAuthor() throws Exception {
+		String courseOwnerToken = createUserToken("course-comment-owner2");
+		String courseId = createCourse(authorIdFromToken(courseOwnerToken), CourseVisibility.PUBLIC);
+		String parentId = createComment(courseId, courseOwnerToken, "원본 댓글");
+		String replierToken = createUserToken("blocked-replier1");
+		String blockerToken = createUserToken("course-comment-blocker2");
+		createReply(courseId, replierToken, parentId, "차단될 대댓글");
+
+		MvcResult repliesResult =
+				mockMvc.perform(get("/api/courses/" + courseId + "/comments/" + parentId + "/replies")).andReturn();
+		String replierUserId =
+				JsonPath.read(repliesResult.getResponse().getContentAsString(), "$.replies[0].author.id");
+
+		mockMvc.perform(post("/api/blocks/" + replierUserId)
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + blockerToken))
+				.andExpect(status().isCreated());
+
+		mockMvc.perform(get("/api/courses/" + courseId + "/comments/" + parentId + "/replies")
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + blockerToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.replies[?(@.body == '차단될 대댓글')]").isEmpty());
 	}
 }
