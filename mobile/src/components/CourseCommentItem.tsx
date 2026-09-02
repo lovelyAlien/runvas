@@ -23,6 +23,7 @@ interface Props {
   onSubmitReply: (parentCommentId: string) => void;
   onCancelReply: () => void;
   onReport: (commentId: string) => void;
+  onBlock: (userId: string, nickname: string) => void;
 }
 
 export default function CourseCommentItem({
@@ -42,6 +43,7 @@ export default function CourseCommentItem({
   onSubmitReply,
   onCancelReply,
   onReport,
+  onBlock,
 }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [editBody, setEditBody] = useState(comment.body);
@@ -142,6 +144,14 @@ export default function CourseCommentItem({
             <Text style={styles.actionText}>신고</Text>
           </TouchableOpacity>
         )}
+        {!isMine && (
+          <TouchableOpacity
+            onPress={() => onBlock(comment.author.id, comment.author.nickname)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.actionText}>차단</Text>
+          </TouchableOpacity>
+        )}
         {comment.replyCount > 0 && (
           <TouchableOpacity onPress={() => onToggleReplies(comment.id)} activeOpacity={0.7}>
             <Text style={styles.actionText}>
@@ -205,6 +215,7 @@ export default function CourseCommentItem({
                 onSubmitReply={onSubmitReply}
                 onCancelReply={onCancelReply}
                 onReport={onReport}
+                onBlock={onBlock}
               />
             ))
           )}
