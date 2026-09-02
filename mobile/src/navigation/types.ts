@@ -14,4 +14,5 @@ export type RootStackParamList = {
   PostDetail: { postId: string };
   CourseBoard: { courseId: string; courseTitle: string };
   CourseEdit: { courseId: string };
+  BlockedUsers: undefined;
 };

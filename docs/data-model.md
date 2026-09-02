@@ -214,6 +214,18 @@ MVP에서 사용자는 본인이 생성한 코스의 아래 필드를 수정할 
 같은 사용자가 같은 대상에 이미 `PENDING` 신고를 넣었으면 새로 만들지 않고 기존 것을 재사용한다.
 `RESOLVED`/`DISMISSED`로 끝난 신고 이후 재신고는 새로 생성된다.
 
+## Block
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `blockerId` | string | Y | 차단한 사용자 ID. API 응답에는 노출하지 않음 |
+| `blockedId` | string | Y | 차단당한 사용자 ID |
+| `createdAt` | string | Y | ISO 8601 차단 시각 |
+
+`Report`처럼 상태가 바뀌는 엔티티가 아니라 `CourseBookmark`/`LikeTargetType`처럼 "존재 = 활성
+상태, 삭제 = 해제"인 순수 관계다. 차단은 단방향이며 `Post`/`Comment`/`CourseComment` 조회에만
+적용된다(`Course` 자체는 제외).
+
 ## CourseBookmark
 
 | 필드 | 타입 | 필수 | 설명 |

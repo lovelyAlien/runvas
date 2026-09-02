@@ -11,6 +11,7 @@ import com.runvas.user.dto.PublicProfileResponse;
 import com.runvas.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ public class CommentService {
 	private final CommentRepository commentRepository;
 	private final PostRepository postRepository;
 	private final UserRepository userRepository;
+	private final BlockRepository blockRepository;
 	private final CurrentUserProvider currentUserProvider;
 
 	@Transactional
@@ -48,7 +50,12 @@ public class CommentService {
 			throw new ApiException(ErrorCode.VALIDATION_ERROR, "limit must be between 1 and " + MAX_LIMIT);
 		}
 
+		String currentUserId = currentUserProvider.currentUserIdOrNull();
+		Set<String> blockedAuthorIds =
+				currentUserId == null ? Set.of() : blockRepository.findBlockedIdsByBlockerId(currentUserId);
+
 		List<CommentResponse> comments = commentRepository.findByPostIdOrderByCreatedAtAsc(postId).stream()
+				.filter(comment -> !blockedAuthorIds.contains(comment.getAuthorId()))
 				.limit(effectiveLimit)
 				.map(this::toResponse)
 				.toList();

@@ -206,4 +206,39 @@ class CommentControllerTest {
 				.andExpect(jsonPath("$.comments[0].author.nickname").value("탈퇴한 사용자"))
 				.andExpect(jsonPath("$.comments[0].author.profileImageUrl").doesNotExist());
 	}
+
+	@Test
+	void listExcludesCommentsByBlockedAuthor() throws Exception {
+		String postOwnerToken = createUserAndToken("comment-post-owner1");
+		String postId = createPost(postOwnerToken);
+		String commenterToken = createUserAndToken("blocked-commenter1");
+		String blockerToken = createUserAndToken("comment-blocker1");
+		String commentId = createComment(commenterToken, postId, "차단될 댓글");
+
+		MvcResult commentsResult = mockMvc.perform(get("/api/posts/" + postId + "/comments")).andReturn();
+		java.util.List<String> commenterUserIds = JsonPath.read(
+				commentsResult.getResponse().getContentAsString(),
+				"$.comments[?(@.id == '" + commentId + "')].author.id");
+		String commenterUserId = commenterUserIds.get(0);
+
+		mockMvc.perform(post("/api/blocks/" + commenterUserId)
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + blockerToken))
+				.andExpect(status().isCreated());
+
+		mockMvc.perform(get("/api/posts/" + postId + "/comments")
+						.header(HttpHeaders.AUTHORIZATION, "Bearer " + blockerToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.comments[?(@.body == '차단될 댓글')]").isEmpty());
+	}
+
+	@Test
+	void listIncludesCommentsForAnonymousRequest() throws Exception {
+		String postOwnerToken = createUserAndToken("comment-post-owner2");
+		String postId = createPost(postOwnerToken);
+		createComment(postOwnerToken, postId, "익명도 보이는 댓글");
+
+		mockMvc.perform(get("/api/posts/" + postId + "/comments"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.comments[?(@.body == '익명도 보이는 댓글')]").exists());
+	}
 }

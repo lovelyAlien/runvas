@@ -13,6 +13,7 @@ import com.runvas.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class CourseCommentService {
 	private final CourseCommentRepository courseCommentRepository;
 	private final CourseRepository courseRepository;
 	private final UserRepository userRepository;
+	private final BlockRepository blockRepository;
 	private final CurrentUserProvider currentUserProvider;
 
 	@Transactional(readOnly = true)
@@ -41,6 +43,7 @@ public class CourseCommentService {
 		Course course = findCourseOrThrow(courseId);
 		String currentUserId = currentUserProvider.currentUserIdOrNull();
 		requireReadableCourse(course, currentUserId);
+		Set<String> blockedAuthorIds = blockedAuthorIdsFor(currentUserId);
 
 		int effectiveLimit = limit == null ? DEFAULT_LIMIT : limit;
 		if (effectiveLimit < 1 || effectiveLimit > MAX_LIMIT) {
@@ -51,6 +54,11 @@ public class CourseCommentService {
 		List<CourseComment> comments = (cursor == null || cursor.isBlank())
 				? courseCommentRepository.findFirstPage(courseId, pageable)
 				: courseCommentRepository.findNextPage(courseId, cursorCreatedAt(cursor), cursor, pageable);
+		// 참고: DB 페이지를 먼저 가져온 뒤 차단 필터링을 하므로, hasMore/nextCursor가 필터링 이후
+		// 개수로 계산된다. 가져온 페이지에 차단된 작성자의 댓글이 섞여 있으면 실제로는 더 남은
+		// 댓글이 있어도 hasMore가 false로 계산되어 페이지네이션이 조기 종료되고 남은 댓글을
+		// 건너뛸 수 있다(단순히 페이지가 덜 채워지는 것 이상의 문제). MVP 범위 밖 최적화로 남겨둔다.
+		comments = comments.stream().filter(c -> !blockedAuthorIds.contains(c.getAuthorId())).toList();
 
 		boolean hasMore = comments.size() > effectiveLimit;
 		List<CourseComment> page = hasMore ? comments.subList(0, effectiveLimit) : comments;
@@ -68,9 +76,12 @@ public class CourseCommentService {
 		String currentUserId = currentUserProvider.currentUserIdOrNull();
 		requireReadableCourse(course, currentUserId);
 		findCommentOrThrow(courseId, parentCommentId);
+		Set<String> blockedAuthorIds = blockedAuthorIdsFor(currentUserId);
 
-		List<CourseComment> replies = courseCommentRepository.findByParentCommentIdOrderByCreatedAtAsc(
-				parentCommentId, PageRequest.of(0, MAX_REPLIES));
+		List<CourseComment> replies = courseCommentRepository
+				.findByParentCommentIdOrderByCreatedAtAsc(parentCommentId, PageRequest.of(0, MAX_REPLIES)).stream()
+				.filter(reply -> !blockedAuthorIds.contains(reply.getAuthorId()))
+				.toList();
 		Map<String, Long> replyCounts = replyCountsFor(replies);
 		return replies.stream()
 				.map(reply -> toResponse(reply, replyCounts.getOrDefault(reply.getId(), 0L)))
@@ -135,6 +146,10 @@ public class CourseCommentService {
 				.findFirst()
 				.map(CourseCommentRepository.ReplyCountRow::getReplyCount)
 				.orElse(0L);
+	}
+
+	private Set<String> blockedAuthorIdsFor(String currentUserId) {
+		return currentUserId == null ? Set.of() : blockRepository.findBlockedIdsByBlockerId(currentUserId);
 	}
 
 	private Map<String, Long> replyCountsFor(List<CourseComment> comments) {

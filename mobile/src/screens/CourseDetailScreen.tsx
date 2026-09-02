@@ -32,6 +32,7 @@ import {
   deleteCourseComment,
 } from '../services/courseCommentApi';
 import { postReport } from '../services/reportApi';
+import { blockUser } from '../services/blockApi';
 import { exportGpx } from '../utils/exportGpx';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthGate } from '../hooks/useAuthGate';
@@ -363,6 +364,30 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
     setReportCommentId(commentId);
   };
 
+  const handleBlockCommentAuthor = (userId: string, nickname: string) => {
+    if (!requireAuth() || !accessToken) return;
+    Alert.alert(
+      '사용자 차단',
+      `${nickname}님을 차단하시겠어요? 차단하면 이 사용자의 게시글과 댓글이 더 이상 보이지 않습니다.`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '차단',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await blockUser(userId, accessToken);
+              Alert.alert('차단 완료', `${nickname}님을 차단했습니다.`);
+              loadComments();
+            } catch (e: unknown) {
+              Alert.alert('차단 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleConfirmReport = async (reason: ReportReason, reasonDetail: string | null) => {
     if (!reportCommentId || !accessToken) return;
     setIsSubmittingReport(true);
@@ -496,6 +521,7 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
                   currentUserId={user?.id}
                   onDelete={handleDeleteComment}
                   onReport={handleReportComment}
+                  onBlock={handleBlockCommentAuthor}
                   onReply={handleReply}
                   onUpdate={handleUpdateComment}
                   onToggleReplies={handleToggleReplies}
