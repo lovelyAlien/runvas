@@ -225,3 +225,9 @@ export type WithdrawalReason =
 
 export type ReportReason = 'SPAM' | 'ABUSIVE' | 'INAPPROPRIATE' | 'OTHER';
 export type ReportTargetType = 'posts' | 'comments' | 'course-comments';
+
+// docs/api-contract.md POST/GET /blocks 응답의 단일 항목과 1:1 대응.
+export interface BlockedUser {
+  blockedUser: PublicProfile;
+  createdAt: string;
+}
