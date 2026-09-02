@@ -1689,3 +1689,112 @@ MVP에서는 refresh token을 응답하지 않습니다.
   `OTHER`인데 `reasonDetail` 누락
 - `401 UNAUTHORIZED`: 로그인하지 않음
 - `404 NOT_FOUND`: 대상이 없음(이미 삭제된 콘텐츠 포함)
+
+## Block APIs
+
+### POST /blocks/{userId}
+
+사용자를 차단합니다.
+
+#### Auth
+
+`Required`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `userId` | string | 차단할 사용자 ID (`PublicProfile.id`와 같은 `user_` 접두 포맷) |
+
+#### Response: 201 Created (신규) 또는 200 OK (이미 차단 중)
+
+```json
+{
+  "blockedUser": {
+    "id": "user_456",
+    "nickname": "River Runner",
+    "profileImageUrl": null,
+    "bio": null
+  },
+  "createdAt": "2026-09-01T10:00:00Z"
+}
+```
+
+#### Errors
+
+- `400 VALIDATION_ERROR`: 본인을 차단하려는 요청
+- `401 UNAUTHORIZED`: 로그인하지 않음
+- `404 NOT_FOUND`: 대상 사용자가 없음(탈퇴 포함)
+
+### DELETE /blocks/{userId}
+
+차단을 해제합니다.
+
+#### Auth
+
+`Required`
+
+#### Path Params
+
+| 이름 | 타입 | 설명 |
+| --- | --- | --- |
+| `userId` | string | 차단 해제할 사용자 ID |
+
+#### Response: 204 No Content
+
+차단 중이 아니었어도 동일하게 204를 반환합니다(멱등).
+
+#### Errors
+
+- `401 UNAUTHORIZED`: 로그인하지 않음
+
+### GET /blocks
+
+내가 차단한 사용자 목록을 조회합니다.
+
+#### Auth
+
+`Required`
+
+#### Response: 200 OK
+
+```json
+{
+  "blocks": [
+    {
+      "blockedUser": {
+        "id": "user_456",
+        "nickname": "River Runner",
+        "profileImageUrl": null,
+        "bio": null
+      },
+      "createdAt": "2026-09-01T10:00:00Z"
+    }
+  ],
+  "pageInfo": {
+    "nextCursor": null
+  }
+}
+```
+
+`GET /me/bookmarked-courses`와 동일하게 실제 커서 페이지네이션은 구현하지 않고 차단 목록 전체를
+한 번에 반환합니다 (`pageInfo.nextCursor`는 항상 `null`).
+
+#### Errors
+
+- `401 UNAUTHORIZED`: 로그인하지 않음
+
+### 기존 조회 API에 적용되는 차단 필터링
+
+아래 API들은 `Optional` 인증이며, **로그인한 요청에 한해** 호출자가 차단한 사용자의 콘텐츠를
+결과에서 제외합니다. 비로그인 요청은 기존과 동일하게 동작합니다.
+
+| API | 필터링 규칙 |
+| --- | --- |
+| `GET /posts` | `post.author`가 차단 대상이면 목록에서 제외 |
+| `GET /posts/{postId}` | 작성자가 차단 대상이면 `404 NOT_FOUND` |
+| `GET /posts/{postId}/comments` | 작성자가 차단 대상인 댓글을 목록에서 제외 |
+| `GET /courses/{courseId}/comments` | 작성자가 차단 대상인 코스 댓글을 목록에서 제외 |
+| `GET /courses/{courseId}/comments/{commentId}/replies` | 위와 동일 |
+
+`GET /courses`, `GET /courses/{courseId}` 등 코스 관련 조회는 이번 범위에서 변경하지 않습니다.
