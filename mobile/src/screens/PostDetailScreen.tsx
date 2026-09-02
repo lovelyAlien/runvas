@@ -52,7 +52,7 @@ export default function PostDetailScreen({ route, navigation }: Props) {
     try {
       const [postResult, commentsResult] = await Promise.all([
         getPost(postId, accessToken ?? undefined),
-        getComments(postId),
+        getComments(postId, accessToken ?? undefined),
       ]);
       setPost(postResult);
       setComments(commentsResult);
@@ -157,7 +157,8 @@ export default function PostDetailScreen({ route, navigation }: Props) {
   };
 
   const handleBlockUser = (userId: string, nickname: string) => {
-    if (!requireAuth() || !accessToken) return;
+    if (!requireAuth() || !accessToken || !post) return;
+    const isPostAuthor = userId === post.author.id;
     Alert.alert(
       '사용자 차단',
       `${nickname}님을 차단하시겠어요? 차단하면 이 사용자의 게시글과 댓글이 더 이상 보이지 않습니다.`,
@@ -169,6 +170,12 @@ export default function PostDetailScreen({ route, navigation }: Props) {
           onPress: async () => {
             try {
               await blockUser(userId, accessToken);
+              if (isPostAuthor) {
+                // 게시글 작성자를 차단하면 이 글은 더 이상 조회할 수 없다(백엔드가 404 반환).
+                // loadPost()로 다시 불러오면 '불러오기 실패' 오류가 뜨므로 재조회 없이 바로 나간다.
+                navigation.goBack();
+                return;
+              }
               Alert.alert('차단 완료', `${nickname}님을 차단했습니다.`);
               loadPost();
             } catch (e: unknown) {

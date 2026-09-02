@@ -4,12 +4,14 @@ import { parseApiErrorMessage } from '../utils/apiError';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 
-export async function getComments(postId: string): Promise<Comment[]> {
+export async function getComments(postId: string, accessToken?: string): Promise<Comment[]> {
   if (!API_BASE_URL) {
     throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/posts/${postId}/comments`);
+  const response = await fetch(`${API_BASE_URL}/api/posts/${postId}/comments`, {
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
 
   if (!response.ok) {
     throw new Error(await parseApiErrorMessage(response));
