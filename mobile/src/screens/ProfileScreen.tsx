@@ -10,6 +10,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { CompositeScreenProps } from '@react-navigation/native';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthGate } from '../hooks/useAuthGate';
 import { patchMe } from '../services/authApi';
@@ -19,8 +22,14 @@ import { WithdrawalReason } from '../types';
 import { DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
 import { formatPace } from '../utils/format';
 import { Colors } from '../constants/theme';
+import { RootTabParamList, RootStackParamList } from '../navigation/types';
 
-export default function ProfileScreen() {
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<RootTabParamList, 'Profile'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
+
+export default function ProfileScreen({ navigation }: Props) {
   const { user, logout, withdraw, updateUser, accessToken } = useAuth();
   const { requireAuth } = useAuthGate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -132,6 +141,13 @@ export default function ProfileScreen() {
             >
               <Text style={styles.withdrawButtonText}>회원 탈퇴</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.blockedUsersButton}
+              activeOpacity={0.6}
+              onPress={() => navigation.navigate('BlockedUsers')}
+            >
+              <Text style={styles.blockedUsersButtonText}>차단한 사용자</Text>
+            </TouchableOpacity>
           </>
         ) : (
           <Text style={styles.emptyText}>로그인이 필요합니다.</Text>
@@ -238,5 +254,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textDecorationLine: 'underline',
+  },
+  blockedUsersButton: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  blockedUsersButtonText: {
+    color: Colors.gray500,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

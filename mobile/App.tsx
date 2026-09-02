@@ -16,6 +16,7 @@ import PostCreateScreen from './src/screens/PostCreateScreen';
 import PostDetailScreen from './src/screens/PostDetailScreen';
 import CourseBoardScreen from './src/screens/CourseBoardScreen';
 import CourseEditScreen from './src/screens/CourseEditScreen';
+import BlockedUsersScreen from './src/screens/BlockedUsersScreen';
 import LoginPromptModal from './src/components/LoginPromptModal';
 import KakaoLoginWebView from './src/components/KakaoLoginWebView';
 import Toast from 'react-native-toast-message';
@@ -124,6 +125,7 @@ function AppContent() {
           <Stack.Screen name="PostDetail" component={PostDetailScreen} />
           <Stack.Screen name="CourseBoard" component={CourseBoardScreen} />
           <Stack.Screen name="CourseEdit" component={CourseEditScreen} />
+          <Stack.Screen name="BlockedUsers" component={BlockedUsersScreen} />
         </Stack.Navigator>
         <NewUserRedirectWatcher />
       </NavigationContainer>
