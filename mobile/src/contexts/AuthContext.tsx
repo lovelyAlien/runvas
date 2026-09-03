@@ -7,6 +7,7 @@ import React, {
   useState,
 } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { User, WithdrawalReason } from '../types';
 import { deleteMe, postAuthApple, postAuthKakao, postAuthLogout } from '../services/authApi';
 import { KAKAO_REDIRECT_URI, KAKAO_REST_API_KEY } from '../config/auth';
@@ -106,7 +107,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoginError(null);
     setIsLoggingIn(true);
     try {
-      const AppleAuthentication = await import('expo-apple-authentication');
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
