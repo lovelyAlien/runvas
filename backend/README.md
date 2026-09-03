@@ -33,6 +33,8 @@ Runvas 서버 API 구현을 관리하는 디렉토리입니다.
 ## Optional Environment
 
 - `KAKAO_CLIENT_SECRET`
+- `APPLE_BUNDLE_ID` (defaults to `com.runvas.mobile`)
+- `APPLE_JWKS_URI` (defaults to `https://appleid.apple.com/auth/keys`)
 
 ## 빌드 & 배포
 
@@ -47,7 +49,12 @@ Runvas 서버 API 구현을 관리하는 디렉토리입니다.
 ## Implemented MVP APIs
 
 - `POST /api/auth/kakao`
+- `POST /api/auth/apple`
 - `GET /api/me`
 
 `POST /api/auth/kakao` exchanges a Kakao authorization code on the backend and returns a Runvas JWT.
 The Kakao access token and provider user ID are never returned in API responses.
+
+`POST /api/auth/apple` verifies an Apple `identityToken` against Apple's JWKS and returns a Runvas
+JWT. Using Sign in with Apple in production requires the "Sign in with Apple" capability to be
+enabled for the app's bundle ID in the Apple Developer portal.
