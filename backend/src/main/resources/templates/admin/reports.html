@@ -58,6 +58,11 @@
                     <button type="submit" class="btn">삭제</button>
                 </form>
                 <form method="post" th:if="${status.name() == 'PENDING'}"
+                      th:action="@{'/admin/reports/' + ${report.id()} + '/resolve-and-ban'}" style="display:inline"
+                      onsubmit="return confirm('콘텐츠를 삭제하고 작성자 계정을 정지합니다. 계속할까요?');">
+                    <button type="submit" class="btn">삭제+정지</button>
+                </form>
+                <form method="post" th:if="${status.name() == 'PENDING'}"
                       th:action="@{'/admin/reports/' + ${report.id()} + '/dismiss'}" style="display:inline">
                     <button type="submit" class="btn">기각</button>
                 </form>

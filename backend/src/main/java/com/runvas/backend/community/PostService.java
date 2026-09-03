@@ -33,12 +33,14 @@ public class PostService {
 	private final CourseRepository courseRepository;
 	private final LikeRepository likeRepository;
 	private final BlockRepository blockRepository;
+	private final ObjectionableContentFilter objectionableContentFilter;
 	private final CurrentUserProvider currentUserProvider;
 
 	@Transactional
 	public PostResponse create(CreatePostRequest request) {
 		String authorId = currentUserProvider.requireUserId();
 		validateAttachedCourse(request.attachedCourseId());
+		objectionableContentFilter.validate(request.title(), request.body());
 
 		Post post = new Post(
 				authorId,
@@ -101,6 +103,7 @@ public class PostService {
 	public PostResponse update(String postId, UpdatePostRequest request) {
 		Post post = findPostOrThrow(postId);
 		requireAuthor(post);
+		objectionableContentFilter.validate(request.title(), request.body());
 
 		if (request.title() != null) post.setTitle(request.title());
 		if (request.body() != null) post.setBody(request.body());
@@ -124,6 +127,11 @@ public class PostService {
 	@Transactional
 	public void deleteAsAdmin(String postId) {
 		postRepository.findById(postId).ifPresent(postRepository::delete);
+	}
+
+	@Transactional(readOnly = true)
+	public String getAuthorId(String postId) {
+		return findPostOrThrow(postId).getAuthorId();
 	}
 
 	private void validateAttachedCourse(String attachedCourseId) {

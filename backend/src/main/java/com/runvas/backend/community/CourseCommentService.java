@@ -36,6 +36,7 @@ public class CourseCommentService {
 	private final CourseRepository courseRepository;
 	private final UserRepository userRepository;
 	private final BlockRepository blockRepository;
+	private final ObjectionableContentFilter objectionableContentFilter;
 	private final CurrentUserProvider currentUserProvider;
 
 	@Transactional(readOnly = true)
@@ -90,6 +91,7 @@ public class CourseCommentService {
 
 	@Transactional
 	public CourseCommentResponse create(String courseId, String body, String parentCommentId) {
+		objectionableContentFilter.validate(body);
 		String authorId = currentUserProvider.requireUserId();
 		Course course = findCourseOrThrow(courseId);
 		requirePublicCourse(course);
@@ -109,6 +111,7 @@ public class CourseCommentService {
 		requireAuthor(comment);
 
 		if (body != null) {
+			objectionableContentFilter.validate(body);
 			validateBody(body);
 			comment.setBody(body);
 		}
@@ -130,6 +133,13 @@ public class CourseCommentService {
 	@Transactional
 	public void deleteAsAdmin(String commentId) {
 		courseCommentRepository.findById(commentId).ifPresent(courseCommentRepository::delete);
+	}
+
+	@Transactional(readOnly = true)
+	public String getAuthorId(String courseCommentId) {
+		return courseCommentRepository.findById(courseCommentId)
+				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "댓글이 없습니다"))
+				.getAuthorId();
 	}
 
 	private void validateParentComment(String courseId, String parentCommentId) {

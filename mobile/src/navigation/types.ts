@@ -15,4 +15,5 @@ export type RootStackParamList = {
   CourseBoard: { courseId: string; courseTitle: string };
   CourseEdit: { courseId: string };
   BlockedUsers: undefined;
+  Support: undefined;
 };

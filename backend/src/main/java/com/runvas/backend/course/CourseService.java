@@ -10,6 +10,7 @@ import com.runvas.backend.community.BookmarkRepository;
 import com.runvas.backend.community.Like;
 import com.runvas.backend.community.LikeRepository;
 import com.runvas.backend.community.LikeTargetType;
+import com.runvas.backend.community.ObjectionableContentFilter;
 import com.runvas.backend.course.dto.CourseResponse;
 import com.runvas.backend.course.dto.CourseSummaryResponse;
 import com.runvas.backend.course.dto.CreateCourseRequest;
@@ -36,11 +37,13 @@ public class CourseService {
 	private final CourseValidator courseValidator;
 	private final CurrentUserProvider currentUserProvider;
 	private final TmapReverseGeocodingClient reverseGeocodingClient;
+	private final ObjectionableContentFilter objectionableContentFilter;
 
 	@Transactional
 	public CourseResponse create(CreateCourseRequest request) {
 		String authorId = currentUserProvider.requireUserId();
 		courseValidator.validate(request.path(), request.waypoints(), request.distanceMeters(), request.bounds());
+		objectionableContentFilter.validate(request.title(), request.description());
 
 		Course course = new Course(
 				authorId,
@@ -134,6 +137,7 @@ public class CourseService {
 	public CourseResponse update(String courseId, UpdateCourseRequest request) {
 		Course course = findCourseOrThrow(courseId);
 		requireAuthor(course);
+		objectionableContentFilter.validate(request.title(), request.description());
 
 		if (request.title() != null) course.setTitle(request.title());
 		if (request.description() != null) course.setDescription(request.description());

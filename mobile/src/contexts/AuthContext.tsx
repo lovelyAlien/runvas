@@ -15,6 +15,7 @@ import { shouldRestoreStoredSession } from '../utils/authSession';
 
 const TOKEN_KEY = 'runvas_access_token';
 const USER_KEY = 'runvas_user';
+const TERMS_AGREED_AT_KEY = 'runvas_terms_agreed_at';
 
 interface AuthContextValue {
   user: User | null;
@@ -24,6 +25,8 @@ interface AuthContextValue {
   isLoggingIn: boolean;
   loginError: string | null;
   isKakaoWebViewVisible: boolean;
+  hasAgreedToTerms: boolean;
+  isTermsModalVisible: boolean;
   kakaoLogin: () => void;
   appleLogin: () => Promise<void>;
   logout: () => Promise<void>;
@@ -34,6 +37,9 @@ interface AuthContextValue {
   submitKakaoCode: (code: string) => Promise<void>;
   cancelKakaoLogin: (errorMsg?: string) => void;
   updateUser: (updatedUser: User) => Promise<void>;
+  requestTermsAgreement: () => void;
+  agreeToTerms: () => Promise<void>;
+  cancelTermsAgreement: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -47,13 +53,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isKakaoWebViewVisible, setIsKakaoWebViewVisible] = useState(false);
   const [pendingNewUserRedirect, setPendingNewUserRedirect] = useState(false);
+  const [termsAgreedAt, setTermsAgreedAt] = useState<string | null>(null);
+  const [isTermsModalVisible, setIsTermsModalVisible] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const [storedToken, storedUser] = await Promise.all([
+        const [storedToken, storedUser, storedTermsAgreedAt] = await Promise.all([
           SecureStore.getItemAsync(TOKEN_KEY),
           SecureStore.getItemAsync(USER_KEY),
+          SecureStore.getItemAsync(TERMS_AGREED_AT_KEY),
         ]);
 
         if (storedToken && storedUser && shouldRestoreStoredSession(storedToken, storedUser)) {
@@ -65,6 +74,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             SecureStore.deleteItemAsync(USER_KEY).catch(() => {}),
           ]);
         }
+
+        if (storedTermsAgreedAt) {
+          setTermsAgreedAt(storedTermsAgreedAt);
+        }
       } catch {
         // 복원 실패 시 비로그인 상태 유지
       } finally {
@@ -74,6 +87,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const kakaoLogin = useCallback(() => {
+    if (!termsAgreedAt) {
+      setIsTermsModalVisible(true);
+      return;
+    }
     if (!KAKAO_REST_API_KEY) {
       setLoginError('EXPO_PUBLIC_KAKAO_APP_KEY가 설정되지 않았습니다.');
       return;
@@ -82,12 +99,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoggingIn(true);
     setIsLoginModalVisible(false);
     setIsKakaoWebViewVisible(true);
-  }, []);
+  }, [termsAgreedAt]);
 
   const submitKakaoCode = useCallback(async (code: string) => {
     setIsKakaoWebViewVisible(false);
     try {
-      const result = await postAuthKakao(code, KAKAO_REDIRECT_URI);
+      const result = await postAuthKakao(code, KAKAO_REDIRECT_URI, termsAgreedAt!);
       await Promise.all([
         SecureStore.setItemAsync(TOKEN_KEY, result.accessToken),
         SecureStore.setItemAsync(USER_KEY, JSON.stringify(result.user)),
@@ -101,9 +118,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoggingIn(false);
     }
-  }, []);
+  }, [termsAgreedAt]);
 
   const appleLogin = useCallback(async () => {
+    if (!termsAgreedAt) {
+      setIsTermsModalVisible(true);
+      return;
+    }
     setLoginError(null);
     setIsLoggingIn(true);
     try {
@@ -117,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Apple 로그인에 실패했습니다.');
       }
       const nickname = credential.fullName?.givenName ?? null;
-      const result = await postAuthApple(credential.identityToken, nickname);
+      const result = await postAuthApple(credential.identityToken, nickname, termsAgreedAt!);
       await Promise.all([
         SecureStore.setItemAsync(TOKEN_KEY, result.accessToken),
         SecureStore.setItemAsync(USER_KEY, JSON.stringify(result.user)),
@@ -134,7 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoggingIn(false);
     }
-  }, []);
+  }, [termsAgreedAt]);
 
   const cancelKakaoLogin = useCallback((errorMsg?: string) => {
     setIsKakaoWebViewVisible(false);
@@ -181,6 +202,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoginModalVisible(false);
   }, []);
 
+  const requestTermsAgreement = useCallback(() => {
+    setIsTermsModalVisible(true);
+  }, []);
+
+  const agreeToTerms = useCallback(async () => {
+    const now = new Date().toISOString();
+    await SecureStore.setItemAsync(TERMS_AGREED_AT_KEY, now);
+    setTermsAgreedAt(now);
+    setIsTermsModalVisible(false);
+    setIsLoginModalVisible(true);
+  }, []);
+
+  const cancelTermsAgreement = useCallback(() => {
+    setIsTermsModalVisible(false);
+  }, []);
+
   const consumeNewUserRedirect = useCallback((): boolean => {
     if (!pendingNewUserRedirect) return false;
     setPendingNewUserRedirect(false);
@@ -201,6 +238,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoggingIn,
       loginError,
       isKakaoWebViewVisible,
+      hasAgreedToTerms: !!termsAgreedAt,
+      isTermsModalVisible,
       kakaoLogin,
       appleLogin,
       logout,
@@ -211,6 +250,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       submitKakaoCode,
       cancelKakaoLogin,
       updateUser,
+      requestTermsAgreement,
+      agreeToTerms,
+      cancelTermsAgreement,
     }),
     [
       user,
@@ -220,6 +262,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoggingIn,
       loginError,
       isKakaoWebViewVisible,
+      termsAgreedAt,
+      isTermsModalVisible,
       kakaoLogin,
       appleLogin,
       logout,
@@ -230,6 +274,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       submitKakaoCode,
       cancelKakaoLogin,
       updateUser,
+      requestTermsAgreement,
+      agreeToTerms,
+      cancelTermsAgreement,
     ],
   );
 

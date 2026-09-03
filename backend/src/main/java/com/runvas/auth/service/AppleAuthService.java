@@ -36,13 +36,22 @@ public class AppleAuthService {
                 AuthProvider.APPLE,
                 appleUserInfo.providerUserId()
         );
+        existingUser.ifPresent(this::requireNotBanned);
         existingUser.ifPresent(this::restoreIfWithdrawn);
         LoginResult loginResult = existingUser
                 .map(user -> new LoginResult(user, false))
                 .orElseGet(() -> createOrFindRacedUser(appleUserInfo, request.nickname()));
+        loginResult.user().agreeToTerms(request.termsAgreedAt());
+        userRepository.save(loginResult.user());
 
         String accessToken = jwtProvider.createAccessToken(loginResult.user().getId());
         return new AuthResponse(accessToken, UserResponse.from(loginResult.user()), loginResult.isNewUser());
+    }
+
+    private void requireNotBanned(User user) {
+        if (user.isBanned()) {
+            throw new RunvasException(ErrorCode.FORBIDDEN, "이용이 제한된 계정입니다");
+        }
     }
 
     private void restoreIfWithdrawn(User user) {

@@ -33,6 +33,20 @@ spring:
       port: ${REDIS_PORT:6379}
   cache:
     type: redis
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 runvas:
   jwt:
@@ -56,3 +70,4 @@ runvas:
   admin:
     seed-username: ${ADMIN_SEED_USERNAME:}
     seed-password: ${ADMIN_SEED_PASSWORD:}
+    notification-email: ${ADMIN_NOTIFICATION_EMAIL:jaeseung425@gmail.com}
