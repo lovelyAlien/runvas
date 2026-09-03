@@ -1072,6 +1072,70 @@ MVP에서는 refresh token을 응답하지 않습니다.
 - `400 VALIDATION_ERROR`: 필수 필드 누락, `provider`가 `KAKAO`가 아님
 - `401 UNAUTHORIZED`: 카카오 인증 실패
 
+### POST /auth/apple
+
+Apple ID로 로그인하거나 신규 회원가입을 처리합니다.
+
+#### Flow
+
+1. 모바일 앱이 `expo-apple-authentication`으로 Apple 로그인 시트를 띄웁니다.
+2. Apple이 모바일 앱에 `identityToken`(JWT)과, 최초 인증 시에만 `fullName`을 반환합니다.
+3. 모바일 앱이 `POST /api/auth/apple`로 `identityToken`과(최초 인증이면) `nickname`을 전달합니다.
+4. 백엔드는 Apple의 공개키(JWKS, `https://appleid.apple.com/auth/keys`)로 `identityToken` 서명을 검증하고 `iss`(`https://appleid.apple.com`), `aud`(앱 번들 ID)를 검증합니다.
+5. 백엔드는 `identityToken`의 `sub`를 `providerUserId`로, `email` 클레임을 이메일로 사용해 `provider = APPLE` 기준으로 Runvas 사용자를 조회하거나 생성합니다.
+6. 백엔드는 Runvas 자체 `accessToken`, `user`, `isNewUser`를 모바일 앱에 반환합니다.
+
+Apple `identityToken`, `sub`는 API 응답에 포함하지 않습니다.
+Apple 사용자 ID는 `providerUserId`로 내부 저장하되 API 응답에 포함하지 않습니다.
+
+#### Auth
+
+`None`
+
+#### Request Body
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `provider` | string | Y | `APPLE` |
+| `identityToken` | string | Y | Apple이 발급한 identity token(JWT) |
+| `nickname` | string | N | Apple이 최초 인증 시에만 제공하는 이름. 없으면 서버가 기본 닉네임을 생성 |
+
+```json
+{
+  "provider": "APPLE",
+  "identityToken": "apple_identity_token_jwt",
+  "nickname": "Seoul Runner"
+}
+```
+
+#### Response: 200 OK
+
+```json
+{
+  "accessToken": "jwt_access_token",
+  "user": {
+    "id": "user_123",
+    "email": "runner@example.com",
+    "provider": "APPLE",
+    "nickname": "Seoul Runner",
+    "profileImageUrl": null,
+    "bio": null,
+    "createdAt": "2026-09-03T08:00:00Z",
+    "updatedAt": "2026-09-03T08:00:00Z"
+  },
+  "isNewUser": true
+}
+```
+
+`accessToken`은 Runvas API용 JWT입니다. MVP에서는 refresh token을 응답하지 않습니다.
+`email`은 Apple이 비공개 릴레이 이메일(`@privaterelay.appleid.com`)을 제공할 수도 있고, 재로그인 시 클레임 자체가 없을 수도 있습니다 — 그 경우 최초 가입 시 저장된 이메일을 유지합니다.
+`nickname`은 최초 인증 시 Apple이 제공한 이름을 사용하되, 없으면 서버가 기본 닉네임을 생성합니다.
+
+#### Errors
+
+- `400 VALIDATION_ERROR`: 필수 필드 누락, `provider`가 `APPLE`이 아님
+- `401 UNAUTHORIZED`: `identityToken` 서명 검증 실패, `iss`/`aud` 불일치, 만료된 토큰
+
 ### POST /auth/logout
 
 로그아웃하고, 요청에 사용된 `accessToken`을 서버에서 무효화합니다.
