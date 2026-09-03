@@ -51,6 +51,7 @@ module.exports = {
     ios: {
       supportsTablet: false,
       bundleIdentifier: 'com.runvas.mobile',
+      usesAppleSignIn: true,
       infoPlist: {
         NSLocationWhenInUseUsageDescription: '러닝 코스 생성을 위해 현재 위치가 필요합니다.',
         NSAppTransportSecurity: appTransportSecurity,
