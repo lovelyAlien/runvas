@@ -143,6 +143,23 @@ class AdminReportActionServiceTest {
 	}
 
 	@Test
+	void resolveAndBanOnAlreadyDeletedContentResolvesReportWithoutBanning() {
+		Report report = new Report("reporter-1", ReportTargetType.POST, "post-1", ReportReason.SPAM, null);
+		when(reportRepository.findById("report-8")).thenReturn(Optional.of(report));
+		when(reportRepository.findAllByTargetTypeAndTargetIdAndStatus(
+						ReportTargetType.POST, "post-1", ReportStatus.PENDING))
+				.thenReturn(List.of(report));
+		when(postService.getAuthorId("post-1")).thenThrow(new ApiException(ErrorCode.NOT_FOUND, "게시글이 없습니다"));
+
+		adminReportActionService.resolveAndBan("report-8");
+
+		assertThat(report.getStatus()).isEqualTo(ReportStatus.RESOLVED);
+		verify(postService).deleteAsAdmin("post-1");
+		verify(userRepository, never()).findById(any());
+		verify(userRepository, never()).save(any());
+	}
+
+	@Test
 	void resolveAndBanOnAlreadyResolvedReportIsNoOp() {
 		Report alreadyResolved = new Report("reporter-1", ReportTargetType.POST, "post-1", ReportReason.SPAM, null);
 		alreadyResolved.resolve();
