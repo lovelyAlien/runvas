@@ -92,6 +92,11 @@ public class CommentService {
 		});
 	}
 
+	@Transactional(readOnly = true)
+	public String getAuthorId(String commentId) {
+		return findCommentOrThrow(commentId).getAuthorId();
+	}
+
 	private Post findPostOrThrow(String postId) {
 		return postRepository.findById(postId)
 				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "게시글이 없습니다"));

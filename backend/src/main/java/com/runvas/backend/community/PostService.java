@@ -128,6 +128,11 @@ public class PostService {
 		postRepository.findById(postId).ifPresent(postRepository::delete);
 	}
 
+	@Transactional(readOnly = true)
+	public String getAuthorId(String postId) {
+		return findPostOrThrow(postId).getAuthorId();
+	}
+
 	private void validateAttachedCourse(String attachedCourseId) {
 		if (attachedCourseId == null) return;
 		Course course = courseRepository.findById(attachedCourseId)

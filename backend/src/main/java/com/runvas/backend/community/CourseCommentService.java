@@ -134,6 +134,13 @@ public class CourseCommentService {
 		courseCommentRepository.findById(commentId).ifPresent(courseCommentRepository::delete);
 	}
 
+	@Transactional(readOnly = true)
+	public String getAuthorId(String courseCommentId) {
+		return courseCommentRepository.findById(courseCommentId)
+				.orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "댓글이 없습니다"))
+				.getAuthorId();
+	}
+
 	private void validateParentComment(String courseId, String parentCommentId) {
 		CourseComment parent = courseCommentRepository
 				.findById(parentCommentId)
