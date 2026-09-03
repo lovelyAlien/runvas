@@ -1,11 +1,12 @@
 import React from 'react';
-import { Modal, View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useAuth } from '../contexts/AuthContext';
 import { Colors } from '../constants/theme';
 
 // App.tsx 루트에서 단 한 번만 렌더링한다 — 화면마다 각자 모달을 띄우지 않는다.
 export default function LoginPromptModal() {
-  const { isLoginModalVisible, closeLoginModal, kakaoLogin, isLoggingIn, loginError } = useAuth();
+  const { isLoginModalVisible, closeLoginModal, kakaoLogin, appleLogin, isLoggingIn, loginError } = useAuth();
 
   return (
     <Modal visible={isLoginModalVisible} transparent animationType="fade">
@@ -30,6 +31,16 @@ export default function LoginPromptModal() {
               <Text style={styles.kakaoButtonLabel}>카카오 로그인</Text>
             )}
           </TouchableOpacity>
+
+          {Platform.OS === 'ios' && (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={8}
+              style={styles.appleButton}
+              onPress={appleLogin}
+            />
+          )}
 
           <TouchableOpacity onPress={closeLoginModal} activeOpacity={0.7} disabled={isLoggingIn}>
             <Text style={styles.cancelLabel}>닫기</Text>
@@ -81,6 +92,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: Colors.gray900,
+  },
+  appleButton: {
+    width: '100%',
+    height: 44,
+    marginBottom: 8,
   },
   cancelLabel: {
     textAlign: 'center',

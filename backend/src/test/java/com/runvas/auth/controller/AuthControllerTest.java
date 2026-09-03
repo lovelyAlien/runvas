@@ -1,6 +1,8 @@
 package com.runvas.auth.controller;
 
 import com.jayway.jsonpath.JsonPath;
+import com.runvas.auth.service.AppleAuthClient;
+import com.runvas.auth.service.AppleUserInfo;
 import com.runvas.auth.service.KakaoAuthClient;
 import com.runvas.auth.service.KakaoUserInfo;
 import com.runvas.auth.service.TokenBlacklistService;
@@ -50,6 +52,9 @@ class AuthControllerTest {
 
     @MockBean
     KakaoAuthClient kakaoAuthClient;
+
+    @MockBean
+    AppleAuthClient appleAuthClient;
 
     @MockBean
     TokenBlacklistService tokenBlacklistService;
@@ -111,6 +116,46 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.user.email").value(nullValue()))
                 .andExpect(jsonPath("$.user.nickname").value("Runvas Runner"));
+    }
+
+    @Test
+    void appleLoginCreatesUserAndReturnsDocumentedResponse() throws Exception {
+        when(appleAuthClient.verifyIdentityToken("apple-identity-token"))
+                .thenReturn(new AppleUserInfo("apple-sub-123", "runner@example.com"));
+
+        mockMvc.perform(post("/api/auth/apple")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "provider": "APPLE",
+                                  "identityToken": "apple-identity-token",
+                                  "nickname": "Seoul Runner"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isString())
+                .andExpect(jsonPath("$.user.id").isString())
+                .andExpect(jsonPath("$.user.email").value("runner@example.com"))
+                .andExpect(jsonPath("$.user.provider").value("APPLE"))
+                .andExpect(jsonPath("$.user.nickname").value("Seoul Runner"))
+                .andExpect(jsonPath("$.user.providerUserId").doesNotExist())
+                .andExpect(jsonPath("$.isNewUser").value(true));
+    }
+
+    @Test
+    void appleLoginRejectsUnsupportedProvider() throws Exception {
+        mockMvc.perform(post("/api/auth/apple")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "provider": "KAKAO",
+                                  "identityToken": "apple-identity-token",
+                                  "nickname": "Seoul Runner"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.details").isEmpty());
     }
 
     @Test

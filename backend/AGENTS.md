@@ -26,6 +26,10 @@
 - 카카오 사용자 ID는 내부적으로 `providerUserId`로 저장하고, API 응답에는 절대 포함하지 않습니다.
 - Runvas JWT를 `accessToken`으로 반환합니다.
 - 카카오 액세스 토큰은 백엔드 내부 검증용으로만 사용하며, Runvas API 인증 토큰으로 취급하지 않습니다.
+- Apple 로그인은 `POST /api/auth/apple`에서 모바일 앱이 보낸 `identityToken`(과 선택적 `nickname`)을
+  받습니다.
+- `identityToken`의 서명을 Apple JWKS로 검증하고, `sub`/`email`을 추출해 카카오 로그인과 동일한
+  방식으로 Runvas JWT를 발급합니다.
 
 ## 변경 후 검증 (매번)
 

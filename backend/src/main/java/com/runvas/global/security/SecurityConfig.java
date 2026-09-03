@@ -32,7 +32,7 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/kakao", "/api/auth/dev-login").permitAll()
+                        .requestMatchers("/api/auth/kakao", "/api/auth/apple", "/api/auth/dev-login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/courses", "/api/courses/{courseId}").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts", "/api/posts/{postId}").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/{postId}/comments").permitAll()

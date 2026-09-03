@@ -62,7 +62,7 @@ export interface CreateCourseRequestBody {
 export interface User {
   id: string;
   email: string | null;
-  provider: 'KAKAO';
+  provider: 'KAKAO' | 'APPLE';
   nickname: string;
   profileImageUrl: string | null;
   bio: string | null;

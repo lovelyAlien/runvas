@@ -45,6 +45,9 @@ runvas:
     rest-api-key: ${KAKAO_REST_API_KEY:}
     client-secret: ${KAKAO_CLIENT_SECRET:}
     admin-key: ${KAKAO_ADMIN_KEY:}
+  apple:
+    jwks-uri: ${APPLE_JWKS_URI:https://appleid.apple.com/auth/keys}
+    bundle-id: ${APPLE_BUNDLE_ID:com.runvas.mobile}
   tmap:
     app-key: ${TMAP_APP_KEY:}
   upload:

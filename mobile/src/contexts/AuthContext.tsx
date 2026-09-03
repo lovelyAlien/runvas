@@ -7,8 +7,9 @@ import React, {
   useState,
 } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { User, WithdrawalReason } from '../types';
-import { deleteMe, postAuthKakao, postAuthLogout } from '../services/authApi';
+import { deleteMe, postAuthApple, postAuthKakao, postAuthLogout } from '../services/authApi';
 import { KAKAO_REDIRECT_URI, KAKAO_REST_API_KEY } from '../config/auth';
 import { shouldRestoreStoredSession } from '../utils/authSession';
 
@@ -24,6 +25,7 @@ interface AuthContextValue {
   loginError: string | null;
   isKakaoWebViewVisible: boolean;
   kakaoLogin: () => void;
+  appleLogin: () => Promise<void>;
   logout: () => Promise<void>;
   withdraw: (reason: WithdrawalReason, reasonDetail: string | null) => Promise<void>;
   requireAuth: () => boolean;
@@ -101,6 +103,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const appleLogin = useCallback(async () => {
+    setLoginError(null);
+    setIsLoggingIn(true);
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!credential.identityToken) {
+        throw new Error('Apple 로그인에 실패했습니다.');
+      }
+      const nickname = credential.fullName?.givenName ?? null;
+      const result = await postAuthApple(credential.identityToken, nickname);
+      await Promise.all([
+        SecureStore.setItemAsync(TOKEN_KEY, result.accessToken),
+        SecureStore.setItemAsync(USER_KEY, JSON.stringify(result.user)),
+      ]);
+      setUser(result.user);
+      setAccessToken(result.accessToken);
+      setPendingNewUserRedirect(result.isNewUser);
+      setIsLoginModalVisible(false);
+    } catch (e: unknown) {
+      const code = (e as { code?: string })?.code;
+      if (code !== 'ERR_REQUEST_CANCELED') {
+        setLoginError(e instanceof Error ? e.message : 'Apple 로그인에 실패했습니다.');
+      }
+    } finally {
+      setIsLoggingIn(false);
+    }
+  }, []);
+
   const cancelKakaoLogin = useCallback((errorMsg?: string) => {
     setIsKakaoWebViewVisible(false);
     setIsLoggingIn(false);
@@ -167,6 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loginError,
       isKakaoWebViewVisible,
       kakaoLogin,
+      appleLogin,
       logout,
       withdraw,
       requireAuth,
@@ -185,6 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loginError,
       isKakaoWebViewVisible,
       kakaoLogin,
+      appleLogin,
       logout,
       withdraw,
       requireAuth,

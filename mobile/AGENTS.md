@@ -72,6 +72,9 @@ SDK 메이저 버전이 올라가면 네이티브 모듈 API가 자주 바뀝니
 - `authorizationCode`와 `redirectUri`를 `POST /api/auth/kakao`로 백엔드에 보냅니다.
 - 백엔드가 반환한 Runvas `accessToken`을 저장하고 Runvas API 호출에 사용합니다.
 - 카카오 액세스 토큰은 Runvas API 인증 토큰으로 사용하지 않습니다.
+- Apple 로그인은 `expo-apple-authentication`의 `signInAsync`로 `identityToken`(최초 인증 시에만
+  `fullName`도 함께)을 받습니다.
+- `identityToken`과 선택적 `nickname`을 `POST /api/auth/apple`로 백엔드에 보냅니다.
 
 ## 경계 규칙
 
