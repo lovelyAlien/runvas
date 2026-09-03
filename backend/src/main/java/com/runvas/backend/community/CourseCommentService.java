@@ -111,6 +111,7 @@ public class CourseCommentService {
 		requireAuthor(comment);
 
 		if (body != null) {
+			objectionableContentFilter.validate(body);
 			validateBody(body);
 			comment.setBody(body);
 		}

@@ -1,6 +1,7 @@
 package com.runvas.user.controller;
 
 import com.runvas.backend.community.BookmarkService;
+import com.runvas.backend.community.ObjectionableContentFilter;
 import com.runvas.global.error.ErrorCode;
 import com.runvas.global.error.RunvasException;
 import com.runvas.global.security.RunvasPrincipal;
@@ -30,15 +31,18 @@ public class MeController {
     private final UserRepository userRepository;
     private final BookmarkService bookmarkService;
     private final AccountWithdrawalService accountWithdrawalService;
+    private final ObjectionableContentFilter objectionableContentFilter;
 
     public MeController(
             UserRepository userRepository,
             BookmarkService bookmarkService,
-            AccountWithdrawalService accountWithdrawalService
+            AccountWithdrawalService accountWithdrawalService,
+            ObjectionableContentFilter objectionableContentFilter
     ) {
         this.userRepository = userRepository;
         this.bookmarkService = bookmarkService;
         this.accountWithdrawalService = accountWithdrawalService;
+        this.objectionableContentFilter = objectionableContentFilter;
     }
 
     @GetMapping("/me")
@@ -70,6 +74,7 @@ public class MeController {
         }
         User user = userRepository.findById(principal.userId())
                 .orElseThrow(() -> new RunvasException(ErrorCode.UNAUTHORIZED));
+        objectionableContentFilter.validate(request.nickname(), request.bio());
         user.updateProfile(request.nickname(), request.profileImageUrl(), request.bio(), request.runningPaceSecPerKm());
         userRepository.save(user);
         return new MeResponse(UserResponse.from(user));

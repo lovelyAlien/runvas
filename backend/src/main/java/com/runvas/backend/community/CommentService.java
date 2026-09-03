@@ -69,6 +69,7 @@ public class CommentService {
 	public CommentResponse update(String commentId, UpdateCommentRequest request) {
 		Comment comment = findCommentOrThrow(commentId);
 		requireAuthor(comment);
+		objectionableContentFilter.validate(request.body());
 
 		comment.setBody(request.body());
 		comment.setUpdatedAt(Instant.now());

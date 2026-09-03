@@ -103,6 +103,7 @@ public class PostService {
 	public PostResponse update(String postId, UpdatePostRequest request) {
 		Post post = findPostOrThrow(postId);
 		requireAuthor(post);
+		objectionableContentFilter.validate(request.title(), request.body());
 
 		if (request.title() != null) post.setTitle(request.title());
 		if (request.body() != null) post.setBody(request.body());

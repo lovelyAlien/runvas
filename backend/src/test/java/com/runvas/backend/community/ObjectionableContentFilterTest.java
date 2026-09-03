@@ -33,4 +33,22 @@ class ObjectionableContentFilterTest {
         assertThatCode(() -> filter.validate("정상 텍스트", null))
                 .doesNotThrowAnyException();
     }
+
+    @Test
+    void validate_다시_발을_디뎠다는_오탐하지_않는다() {
+        assertThatCode(() -> filter.validate("다시 발을 디뎠다"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void validate_무시_발언은_오탐하지_않는다() {
+        assertThatCode(() -> filter.validate("무시 발언은 삼가주세요"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void validate_관악시_발산은_오탐하지_않는다() {
+        assertThatCode(() -> filter.validate("관악시 발산 인근 러닝 코스"))
+                .doesNotThrowAnyException();
+    }
 }
