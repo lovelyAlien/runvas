@@ -29,6 +29,31 @@ export async function postAuthKakao(
   return (await response.json()) as AuthResponse;
 }
 
+export async function postAuthApple(
+  identityToken: string,
+  nickname: string | null,
+): Promise<AuthResponse> {
+  if (!API_BASE_URL) {
+    throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/auth/apple`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider: 'APPLE',
+      identityToken,
+      nickname,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiErrorMessage(response));
+  }
+
+  return (await response.json()) as AuthResponse;
+}
+
 export async function patchMe(body: UpdateMeRequest, accessToken: string): Promise<MeResponse> {
   if (!API_BASE_URL) {
     throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
