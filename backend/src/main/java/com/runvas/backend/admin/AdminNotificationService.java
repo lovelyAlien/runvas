@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -23,6 +24,7 @@ public class AdminNotificationService {
         this.adminEmail = adminEmail;
     }
 
+    @Async
     public void notifyNewReport(String targetType, String targetId, String reporterId) {
         send(
                 "[Runvas] 새 신고 접수",
@@ -31,6 +33,7 @@ public class AdminNotificationService {
         );
     }
 
+    @Async
     public void notifyBlock(String blockerId, String blockedId) {
         send(
                 "[Runvas] 사용자 차단 발생",
