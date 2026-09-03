@@ -65,6 +65,17 @@ public class User {
         return user;
     }
 
+    public static User createAppleUser(String providerUserId, String email, String nickname) {
+        User user = new User();
+        user.provider = AuthProvider.APPLE;
+        user.providerUserId = providerUserId;
+        user.email = email;
+        user.nickname = nickname == null || nickname.isBlank() ? "Runvas Runner" : nickname;
+        user.profileImageUrl = null;
+        user.bio = null;
+        return user;
+    }
+
     public static User createDevUser(String nickname) {
         User user = new User();
         user.provider = AuthProvider.DEV;
