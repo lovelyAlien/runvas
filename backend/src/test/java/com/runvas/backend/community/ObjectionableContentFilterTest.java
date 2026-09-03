@@ -51,4 +51,16 @@ class ObjectionableContentFilterTest {
         assertThatCode(() -> filter.validate("관악시 발산 인근 러닝 코스"))
                 .doesNotThrowAnyException();
     }
+
+    @Test
+    void validate_금칙어_뒤에_조사가_공백없이_붙어도_감지한다() {
+        assertThatThrownBy(() -> filter.validate("개 새끼야"))
+                .isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void validate_금칙어_뒤에_문장부호가_공백없이_붙어도_감지한다() {
+        assertThatThrownBy(() -> filter.validate("시 발!"))
+                .isInstanceOf(ApiException.class);
+    }
 }
