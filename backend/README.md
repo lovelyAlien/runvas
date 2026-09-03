@@ -35,6 +35,8 @@ Runvas 서버 API 구현을 관리하는 디렉토리입니다.
 - `KAKAO_CLIENT_SECRET`
 - `APPLE_BUNDLE_ID` (defaults to `com.runvas.mobile`)
 - `APPLE_JWKS_URI` (defaults to `https://appleid.apple.com/auth/keys`)
+- `MAIL_HOST`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `ADMIN_NOTIFICATION_EMAIL` — admin email
+  notifications for new reports/blocks are silently disabled if these are left unset.
 
 ## 빌드 & 배포
 
