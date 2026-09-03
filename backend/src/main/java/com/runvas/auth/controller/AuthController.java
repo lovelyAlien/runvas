@@ -1,7 +1,9 @@
 package com.runvas.auth.controller;
 
+import com.runvas.auth.dto.AppleLoginRequest;
 import com.runvas.auth.dto.AuthResponse;
 import com.runvas.auth.dto.KakaoLoginRequest;
+import com.runvas.auth.service.AppleAuthService;
 import com.runvas.auth.service.AuthLogoutService;
 import com.runvas.auth.service.KakaoAuthService;
 import jakarta.validation.Valid;
@@ -17,16 +19,27 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final KakaoAuthService kakaoAuthService;
+    private final AppleAuthService appleAuthService;
     private final AuthLogoutService authLogoutService;
 
-    public AuthController(KakaoAuthService kakaoAuthService, AuthLogoutService authLogoutService) {
+    public AuthController(
+            KakaoAuthService kakaoAuthService,
+            AppleAuthService appleAuthService,
+            AuthLogoutService authLogoutService
+    ) {
         this.kakaoAuthService = kakaoAuthService;
+        this.appleAuthService = appleAuthService;
         this.authLogoutService = authLogoutService;
     }
 
     @PostMapping("/kakao")
     AuthResponse kakaoLogin(@Valid @RequestBody KakaoLoginRequest request) {
         return kakaoAuthService.login(request);
+    }
+
+    @PostMapping("/apple")
+    AuthResponse appleLogin(@Valid @RequestBody AppleLoginRequest request) {
+        return appleAuthService.login(request);
     }
 
     @PostMapping("/logout")
