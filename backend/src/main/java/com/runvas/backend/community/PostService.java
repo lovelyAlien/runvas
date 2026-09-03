@@ -33,12 +33,14 @@ public class PostService {
 	private final CourseRepository courseRepository;
 	private final LikeRepository likeRepository;
 	private final BlockRepository blockRepository;
+	private final ObjectionableContentFilter objectionableContentFilter;
 	private final CurrentUserProvider currentUserProvider;
 
 	@Transactional
 	public PostResponse create(CreatePostRequest request) {
 		String authorId = currentUserProvider.requireUserId();
 		validateAttachedCourse(request.attachedCourseId());
+		objectionableContentFilter.validate(request.title(), request.body());
 
 		Post post = new Post(
 				authorId,

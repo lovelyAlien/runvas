@@ -28,12 +28,14 @@ public class CommentService {
 	private final PostRepository postRepository;
 	private final UserRepository userRepository;
 	private final BlockRepository blockRepository;
+	private final ObjectionableContentFilter objectionableContentFilter;
 	private final CurrentUserProvider currentUserProvider;
 
 	@Transactional
 	public CommentResponse create(String postId, CreateCommentRequest request) {
 		String authorId = currentUserProvider.requireUserId();
 		Post post = findPostOrThrow(postId);
+		objectionableContentFilter.validate(request.body());
 
 		Comment comment = new Comment(postId, authorId, request.body());
 		commentRepository.save(comment);
