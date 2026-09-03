@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,7 +31,7 @@ class KakaoAuthServiceTest {
 
     @Test
     void createsNewKakaoUserAndReturnsRunvasAccessToken() {
-        KakaoLoginRequest request = new KakaoLoginRequest("KAKAO", "authorization-code", "runvas://auth/kakao");
+        KakaoLoginRequest request = new KakaoLoginRequest("KAKAO", "authorization-code", "runvas://auth/kakao", Instant.now());
         when(kakaoAuthClient.fetchUserInfo("authorization-code", "runvas://auth/kakao"))
                 .thenReturn(new KakaoUserInfo("kakao-123", "runner@example.com", "Seoul Runner", null));
         when(userRepository.findByProviderAndProviderUserId(AuthProvider.KAKAO, "kakao-123"))
@@ -50,7 +51,7 @@ class KakaoAuthServiceTest {
 
     @Test
     void logsInExistingKakaoUserWithoutCreatingAnotherUser() {
-        KakaoLoginRequest request = new KakaoLoginRequest("KAKAO", "authorization-code", "runvas://auth/kakao");
+        KakaoLoginRequest request = new KakaoLoginRequest("KAKAO", "authorization-code", "runvas://auth/kakao", Instant.now());
         User existingUser = persisted(User.createKakaoUser("kakao-123", "runner@example.com", "Seoul Runner", null));
         when(kakaoAuthClient.fetchUserInfo("authorization-code", "runvas://auth/kakao"))
                 .thenReturn(new KakaoUserInfo("kakao-123", "changed@example.com", "Changed", "https://example.com/p.png"));
@@ -66,7 +67,7 @@ class KakaoAuthServiceTest {
 
     @Test
     void loginRestoresSoftDeletedUserAndClearsDeletedAt() {
-        KakaoLoginRequest request = new KakaoLoginRequest("KAKAO", "authorization-code", "runvas://auth/kakao");
+        KakaoLoginRequest request = new KakaoLoginRequest("KAKAO", "authorization-code", "runvas://auth/kakao", Instant.now());
         User withdrawnUser = persisted(User.createKakaoUser("kakao-123", "runner@example.com", "Seoul Runner", null));
         withdrawnUser.markWithdrawn();
         when(kakaoAuthClient.fetchUserInfo("authorization-code", "runvas://auth/kakao"))
@@ -78,12 +79,28 @@ class KakaoAuthServiceTest {
 
         assertThat(response.isNewUser()).isFalse();
         assertThat(withdrawnUser.isDeleted()).isFalse();
-        verify(userRepository).save(withdrawnUser);
+        verify(userRepository, times(2)).save(withdrawnUser);
+    }
+
+    @Test
+    void login_정지된_계정이면_FORBIDDEN을_던지고_복구되지_않는다() {
+        KakaoLoginRequest request = new KakaoLoginRequest("KAKAO", "authorization-code", "runvas://auth/kakao", Instant.now());
+        User bannedUser = persisted(User.createKakaoUser("kakao-123", "runner@example.com", "Seoul Runner", null));
+        bannedUser.ban();
+        when(kakaoAuthClient.fetchUserInfo("authorization-code", "runvas://auth/kakao"))
+                .thenReturn(new KakaoUserInfo("kakao-123", "runner@example.com", "Seoul Runner", null));
+        when(userRepository.findByProviderAndProviderUserId(AuthProvider.KAKAO, "kakao-123"))
+                .thenReturn(Optional.of(bannedUser));
+
+        assertThatThrownBy(() -> kakaoAuthService.login(request))
+                .isInstanceOfSatisfying(RunvasException.class, exception ->
+                        assertThat(exception.errorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+        verify(userRepository, org.mockito.Mockito.never()).save(any());
     }
 
     @Test
     void treatsDuplicateCreateRaceAsExistingUserLogin() {
-        KakaoLoginRequest request = new KakaoLoginRequest("KAKAO", "authorization-code", "runvas://auth/kakao");
+        KakaoLoginRequest request = new KakaoLoginRequest("KAKAO", "authorization-code", "runvas://auth/kakao", Instant.now());
         User existingUser = persisted(User.createKakaoUser("kakao-123", "runner@example.com", "Seoul Runner", null));
         when(kakaoAuthClient.fetchUserInfo("authorization-code", "runvas://auth/kakao"))
                 .thenReturn(new KakaoUserInfo("kakao-123", "runner@example.com", "Seoul Runner", null));
@@ -104,7 +121,7 @@ class KakaoAuthServiceTest {
 
     @Test
     void rejectsUnsupportedProvider() {
-        KakaoLoginRequest request = new KakaoLoginRequest("APPLE", "authorization-code", "runvas://auth/kakao");
+        KakaoLoginRequest request = new KakaoLoginRequest("APPLE", "authorization-code", "runvas://auth/kakao", Instant.now());
 
         assertThatThrownBy(() -> kakaoAuthService.login(request))
                 .isInstanceOfSatisfying(RunvasException.class, exception -> {
@@ -115,7 +132,7 @@ class KakaoAuthServiceTest {
 
     @Test
     void userResponseDoesNotExposeProviderUserId() {
-        KakaoLoginRequest request = new KakaoLoginRequest("KAKAO", "authorization-code", "runvas://auth/kakao");
+        KakaoLoginRequest request = new KakaoLoginRequest("KAKAO", "authorization-code", "runvas://auth/kakao", Instant.now());
         when(kakaoAuthClient.fetchUserInfo("authorization-code", "runvas://auth/kakao"))
                 .thenReturn(new KakaoUserInfo("secret-provider-id", "runner@example.com", "Seoul Runner", null));
         when(userRepository.findByProviderAndProviderUserId(AuthProvider.KAKAO, "secret-provider-id"))
