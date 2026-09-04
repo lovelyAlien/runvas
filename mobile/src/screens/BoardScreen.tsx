@@ -24,22 +24,37 @@ export default function BoardScreen({ navigation }: Props) {
   const { requireAuth } = useAuthGate();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
       setIsLoading(true);
-      getPosts({}, accessToken ?? undefined).then((result) => {
-        if (isActive) {
-          setPosts(result);
-          setIsLoading(false);
-        }
-      });
+      setLoadError(null);
+      getPosts({}, accessToken ?? undefined)
+        .then((result) => {
+          if (isActive) {
+            setPosts(result);
+          }
+        })
+        .catch((e: unknown) => {
+          if (isActive) {
+            setLoadError(e instanceof Error ? e.message : '게시글을 불러오지 못했습니다.');
+          }
+        })
+        .finally(() => {
+          if (isActive) {
+            setIsLoading(false);
+          }
+        });
       return () => {
         isActive = false;
       };
-    }, [accessToken])
+    }, [accessToken, reloadKey])
   );
+
+  const handleRetry = () => setReloadKey((key) => key + 1);
 
   const handlePressWrite = () => {
     if (!requireAuth()) return;
@@ -55,6 +70,13 @@ export default function BoardScreen({ navigation }: Props) {
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : loadError ? (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.emptyText}>{loadError}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRetry} activeOpacity={0.8}>
+            <Text style={styles.retryButtonLabel}>다시 시도</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -107,6 +129,20 @@ const styles = StyleSheet.create({
   emptyText: {
     color: Colors.gray400,
     fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: Colors.gray100,
+  },
+  retryButtonLabel: {
+    color: Colors.gray900,
+    fontSize: 13,
+    fontWeight: '600',
   },
   writeFab: {
     position: 'absolute',
