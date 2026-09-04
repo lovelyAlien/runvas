@@ -2,6 +2,7 @@ package com.runvas.auth.service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.UUID;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 public class TokenBlacklistService {
 
     private static final String KEY_PREFIX = "auth:blacklist:";
+    private static final String USER_BAN_KEY_PREFIX = "auth:banned-user:";
 
     private final StringRedisTemplate redisTemplate;
     private final JwtProvider jwtProvider;
@@ -29,5 +31,14 @@ public class TokenBlacklistService {
 
     public boolean isBlacklisted(String token) {
         return Boolean.TRUE.equals(redisTemplate.hasKey(KEY_PREFIX + token));
+    }
+
+    public void banUser(UUID userId) {
+        redisTemplate.opsForValue().set(
+                USER_BAN_KEY_PREFIX + userId, "1", Duration.ofSeconds(jwtProvider.getExpirationSeconds()));
+    }
+
+    public boolean isUserBanned(UUID userId) {
+        return Boolean.TRUE.equals(redisTemplate.hasKey(USER_BAN_KEY_PREFIX + userId));
     }
 }

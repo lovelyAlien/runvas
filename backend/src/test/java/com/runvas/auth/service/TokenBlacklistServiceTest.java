@@ -2,6 +2,7 @@ package com.runvas.auth.service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
@@ -54,5 +55,33 @@ class TokenBlacklistServiceTest {
         when(redisTemplate.hasKey("auth:blacklist:token-3")).thenReturn(false);
 
         assertThat(tokenBlacklistService.isBlacklisted("token-3")).isFalse();
+    }
+
+    @Test
+    void banUserSetsMarkerWithConfiguredExpirationTtl() {
+        UUID userId = UUID.randomUUID();
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(jwtProvider.getExpirationSeconds()).thenReturn(3600L);
+
+        tokenBlacklistService.banUser(userId);
+
+        verify(valueOperations).set(
+                eq("auth:banned-user:" + userId), eq("1"), eq(Duration.ofSeconds(3600)));
+    }
+
+    @Test
+    void isUserBannedReturnsTrueWhenKeyExists() {
+        UUID userId = UUID.randomUUID();
+        when(redisTemplate.hasKey("auth:banned-user:" + userId)).thenReturn(true);
+
+        assertThat(tokenBlacklistService.isUserBanned(userId)).isTrue();
+    }
+
+    @Test
+    void isUserBannedReturnsFalseWhenKeyMissing() {
+        UUID userId = UUID.randomUUID();
+        when(redisTemplate.hasKey("auth:banned-user:" + userId)).thenReturn(false);
+
+        assertThat(tokenBlacklistService.isUserBanned(userId)).isFalse();
     }
 }
