@@ -2,6 +2,7 @@ package com.runvas.auth.controller;
 
 import com.jayway.jsonpath.JsonPath;
 import com.runvas.auth.service.AppleAuthClient;
+import com.runvas.auth.service.AppleTokenExchangeClient;
 import com.runvas.auth.service.AppleUserInfo;
 import com.runvas.auth.service.KakaoAuthClient;
 import com.runvas.auth.service.KakaoUserInfo;
@@ -55,6 +56,9 @@ class AuthControllerTest {
 
     @MockBean
     AppleAuthClient appleAuthClient;
+
+    @MockBean
+    AppleTokenExchangeClient appleTokenExchangeClient;
 
     @MockBean
     TokenBlacklistService tokenBlacklistService;
@@ -129,6 +133,7 @@ class AuthControllerTest {
                                 {
                                   "provider": "APPLE",
                                   "identityToken": "apple-identity-token",
+                                  "authorizationCode": "apple-authorization-code",
                                   "nickname": "Seoul Runner"
                                 }
                                 """))
@@ -150,6 +155,7 @@ class AuthControllerTest {
                                 {
                                   "provider": "KAKAO",
                                   "identityToken": "apple-identity-token",
+                                  "authorizationCode": "apple-authorization-code",
                                   "nickname": "Seoul Runner"
                                 }
                                 """))
