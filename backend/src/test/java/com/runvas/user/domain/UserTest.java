@@ -53,4 +53,15 @@ class UserTest {
         assertThat(user.getNickname()).isEqualTo("Jeju Runner");
         assertThat(user.getEmail()).isNull();
     }
+
+    @Test
+    void applyAppleRefreshToken_저장하면_조회된다() {
+        User user = User.createAppleUser("apple-sub-789", "runner@example.com", "Seoul Runner");
+
+        assertThat(user.getAppleRefreshToken()).isNull();
+
+        user.applyAppleRefreshToken("apple-refresh-token-value");
+
+        assertThat(user.getAppleRefreshToken()).isEqualTo("apple-refresh-token-value");
+    }
 }
