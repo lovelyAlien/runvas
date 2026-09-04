@@ -55,6 +55,17 @@ class UserTest {
     }
 
     @Test
+    void applyAppleRefreshToken_저장하면_조회된다() {
+        User user = User.createAppleUser("apple-sub-789", "runner@example.com", "Seoul Runner");
+
+        assertThat(user.getAppleRefreshToken()).isNull();
+
+        user.applyAppleRefreshToken("apple-refresh-token-value");
+
+        assertThat(user.getAppleRefreshToken()).isEqualTo("apple-refresh-token-value");
+    }
+
+    @Test
     void ban_호출하면_isBanned가_true가_된다() {
         User user = User.createKakaoUser("kakao-1", "runner@example.com", "Runner", null);
 

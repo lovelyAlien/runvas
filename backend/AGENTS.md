@@ -30,6 +30,10 @@
   받습니다.
 - `identityToken`의 서명을 Apple JWKS로 검증하고, `sub`/`email`을 추출해 카카오 로그인과 동일한
   방식으로 Runvas JWT를 발급합니다.
+- Apple 로그인 요청에는 `authorizationCode`도 함께 받습니다. 백엔드는 이 값을 Apple 토큰
+  엔드포인트와 교환해 얻은 refresh token을 저장해두고, 탈퇴 유예기간이 끝나 계정을 하드 삭제할
+  때 Apple에 토큰 해지(revoke)를 요청합니다(`AccountPurgeService`, 카카오 unlink와 동일한
+  best-effort 방식).
 
 ## 변경 후 검증 (매번)
 

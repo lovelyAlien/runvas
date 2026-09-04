@@ -33,6 +33,7 @@ export async function postAuthKakao(
 
 export async function postAuthApple(
   identityToken: string,
+  authorizationCode: string,
   nickname: string | null,
   termsAgreedAt: string,
 ): Promise<AuthResponse> {
@@ -46,6 +47,7 @@ export async function postAuthApple(
     body: JSON.stringify({
       provider: 'APPLE',
       identityToken,
+      authorizationCode,
       nickname,
       termsAgreedAt,
     }),

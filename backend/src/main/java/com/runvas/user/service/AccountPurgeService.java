@@ -1,5 +1,6 @@
 package com.runvas.user.service;
 
+import com.runvas.auth.service.AppleRevokeClient;
 import com.runvas.auth.service.KakaoUnlinkClient;
 import com.runvas.backend.community.BookmarkRepository;
 import com.runvas.backend.community.LikeService;
@@ -24,17 +25,20 @@ public class AccountPurgeService {
     private final LikeService likeService;
     private final BookmarkRepository bookmarkRepository;
     private final KakaoUnlinkClient kakaoUnlinkClient;
+    private final AppleRevokeClient appleRevokeClient;
 
     public AccountPurgeService(
             UserRepository userRepository,
             LikeService likeService,
             BookmarkRepository bookmarkRepository,
-            KakaoUnlinkClient kakaoUnlinkClient
+            KakaoUnlinkClient kakaoUnlinkClient,
+            AppleRevokeClient appleRevokeClient
     ) {
         this.userRepository = userRepository;
         this.likeService = likeService;
         this.bookmarkRepository = bookmarkRepository;
         this.kakaoUnlinkClient = kakaoUnlinkClient;
+        this.appleRevokeClient = appleRevokeClient;
     }
 
     @Transactional
@@ -52,6 +56,12 @@ public class AccountPurgeService {
                 kakaoUnlinkClient.unlink(user.getProviderUserId());
             } catch (Exception exception) {
                 log.warn("Kakao unlink failed for user {}, proceeding with deletion", user.getId(), exception);
+            }
+        } else if (user.getProvider() == AuthProvider.APPLE && user.getAppleRefreshToken() != null) {
+            try {
+                appleRevokeClient.revoke(user.getAppleRefreshToken());
+            } catch (Exception exception) {
+                log.warn("Apple revoke failed for user {}, proceeding with deletion", user.getId(), exception);
             }
         }
         likeService.unlikeAllByUser(user.getId().toString());

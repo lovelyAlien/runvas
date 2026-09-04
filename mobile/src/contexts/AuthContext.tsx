@@ -136,11 +136,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
       });
-      if (!credential.identityToken) {
+      if (!credential.identityToken || !credential.authorizationCode) {
         throw new Error('Apple 로그인에 실패했습니다.');
       }
       const nickname = credential.fullName?.givenName ?? null;
-      const result = await postAuthApple(credential.identityToken, nickname, termsAgreedAt!);
+      const result = await postAuthApple(
+        credential.identityToken,
+        credential.authorizationCode,
+        nickname,
+        termsAgreedAt!,
+      );
       await Promise.all([
         SecureStore.setItemAsync(TOKEN_KEY, result.accessToken),
         SecureStore.setItemAsync(USER_KEY, JSON.stringify(result.user)),

@@ -101,6 +101,7 @@ MVP에서 사용자는 본인이 생성한 코스의 아래 필드를 수정할 
 | `email` | string | N | 카카오 계정 이메일. 본인에게만 노출 |
 | `provider` | string | Y | 소셜 로그인 제공자. `KAKAO` \| `APPLE` |
 | `providerUserId` | string | Y | 소셜 로그인 제공자의 사용자 ID. API 응답에는 노출하지 않는 내부 저장값 |
+| `appleRefreshToken` | string | N | Apple 계정 전용. 탈퇴 시 Apple 토큰 해지(revoke) 요청에 쓰는 내부 저장값. API 응답에는 노출하지 않음 |
 | `nickname` | string | Y | 공개 닉네임 |
 | `profileImageUrl` | string | N | 공개 프로필 이미지 URL |
 | `bio` | string | N | 공개 소개 |

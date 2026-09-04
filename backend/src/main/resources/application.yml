@@ -62,6 +62,11 @@ runvas:
   apple:
     jwks-uri: ${APPLE_JWKS_URI:https://appleid.apple.com/auth/keys}
     bundle-id: ${APPLE_BUNDLE_ID:com.runvas.mobile}
+    token-uri: ${APPLE_TOKEN_URI:https://appleid.apple.com/auth/token}
+    revoke-uri: ${APPLE_REVOKE_URI:https://appleid.apple.com/auth/revoke}
+    team-id: ${APPLE_TEAM_ID:}
+    key-id: ${APPLE_KEY_ID:}
+    private-key: ${APPLE_PRIVATE_KEY:}
   tmap:
     app-key: ${TMAP_APP_KEY:}
   upload:

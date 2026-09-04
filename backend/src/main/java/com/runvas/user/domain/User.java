@@ -51,6 +51,9 @@ public class User {
     @Column
     private Instant deletedAt;
 
+    @Column(length = 2000)
+    private String appleRefreshToken;
+
     @Column
     private Instant termsAgreedAt;
 
@@ -116,6 +119,7 @@ public class User {
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public Instant getDeletedAt() { return deletedAt; }
+    public String getAppleRefreshToken() { return appleRefreshToken; }
     public Instant getTermsAgreedAt() { return termsAgreedAt; }
     public Instant getBannedAt() { return bannedAt; }
 
@@ -150,5 +154,9 @@ public class User {
         if (profileImageUrl != null) this.profileImageUrl = profileImageUrl;
         if (bio != null) this.bio = bio;
         if (runningPaceSecPerKm != null) this.runningPaceSecPerKm = runningPaceSecPerKm;
+    }
+
+    public void applyAppleRefreshToken(String appleRefreshToken) {
+        this.appleRefreshToken = appleRefreshToken;
     }
 }
