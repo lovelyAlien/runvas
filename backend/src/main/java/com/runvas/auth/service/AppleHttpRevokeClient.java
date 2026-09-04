@@ -41,7 +41,9 @@ public class AppleHttpRevokeClient implements AppleRevokeClient {
                 .body(form)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (req, res) -> {
-                    throw new IllegalStateException("Apple revoke failed with status " + res.getStatusCode());
+                    String body = new String(res.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                    throw new IllegalStateException(
+                            "Apple revoke failed with status " + res.getStatusCode() + ": " + body);
                 })
                 .toBodilessEntity();
     }

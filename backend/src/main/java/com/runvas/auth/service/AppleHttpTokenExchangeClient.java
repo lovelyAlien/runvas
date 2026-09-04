@@ -44,7 +44,9 @@ public class AppleHttpTokenExchangeClient implements AppleTokenExchangeClient {
                 .body(form)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (req, res) -> {
-                    throw new IllegalStateException("Apple token exchange failed with status " + res.getStatusCode());
+                    String body = new String(res.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                    throw new IllegalStateException(
+                            "Apple token exchange failed with status " + res.getStatusCode() + ": " + body);
                 })
                 .body(String.class);
 

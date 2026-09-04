@@ -7,6 +7,9 @@ import com.runvas.auth.service.AppleUserInfo;
 import com.runvas.auth.service.KakaoAuthClient;
 import com.runvas.auth.service.KakaoUserInfo;
 import com.runvas.auth.service.TokenBlacklistService;
+import com.runvas.user.domain.User;
+import com.runvas.user.repository.UserRepository;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -23,6 +26,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
@@ -50,6 +54,9 @@ class AuthControllerTest {
 
     @Autowired
     MockMvc mockMvc;
+
+    @Autowired
+    UserRepository userRepository;
 
     @MockBean
     KakaoAuthClient kakaoAuthClient;
@@ -162,6 +169,33 @@ class AuthControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.error.details").isEmpty());
+    }
+
+    @Test
+    void appleLoginStoresExchangedRefreshTokenForLaterRevocation() throws Exception {
+        when(appleAuthClient.verifyIdentityToken("apple-identity-token-revoke"))
+                .thenReturn(new AppleUserInfo("apple-sub-revoke", "runner@example.com"));
+        when(appleTokenExchangeClient.exchangeForRefreshToken("apple-authorization-code-revoke"))
+                .thenReturn("apple-refresh-token-from-exchange");
+
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/apple")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "provider": "APPLE",
+                                  "identityToken": "apple-identity-token-revoke",
+                                  "authorizationCode": "apple-authorization-code-revoke",
+                                  "nickname": "Seoul Runner"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String userId = JsonPath.read(loginResult.getResponse().getContentAsString(), "$.user.id");
+        UUID id = UUID.fromString(((String) userId).replace("user_", ""));
+        User savedUser = userRepository.findById(id).orElseThrow();
+
+        assertThat(savedUser.getAppleRefreshToken()).isEqualTo("apple-refresh-token-from-exchange");
     }
 
     @Test

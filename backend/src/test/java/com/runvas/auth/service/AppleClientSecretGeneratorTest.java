@@ -54,6 +54,43 @@ class AppleClientSecretGeneratorTest {
         assertThatThrownBy(generator::generate).isInstanceOf(IllegalStateException.class);
     }
 
+    @Test
+    void 프라이빗_키가_잘못된_형식이어도_생성자는_예외를_던지지_않는다() {
+        AppleClientSecretGenerator generator = new AppleClientSecretGenerator(
+                "TEAM123456", "KEY7890AB", "com.runvas.mobile", "not-a-valid-pem-key");
+
+        assertThatThrownBy(generator::generate).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void 프라이빗_키가_리터럴_개행문자로_저장되어도_정상적으로_파싱된다()
+            throws NoSuchAlgorithmException, InvalidAlgorithmParameterException {
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
+        keyPairGenerator.initialize(new ECGenParameterSpec("secp256r1"));
+        KeyPair keyPair = keyPairGenerator.generateKeyPair();
+        String privateKeyPem = toPem(keyPair.getPrivate()).replace("\n", "\\n");
+
+        AppleClientSecretGenerator generator = new AppleClientSecretGenerator(
+                "TEAM123456",
+                "KEY7890AB",
+                "com.runvas.mobile",
+                privateKeyPem
+        );
+
+        String clientSecret = generator.generate();
+
+        Claims claims = Jwts.parser()
+                .verifyWith((PublicKey) keyPair.getPublic())
+                .build()
+                .parseSignedClaims(clientSecret)
+                .getPayload();
+
+        assertThat(claims.getIssuer()).isEqualTo("TEAM123456");
+        assertThat(claims.getSubject()).isEqualTo("com.runvas.mobile");
+        assertThat(claims.getAudience()).containsExactly("https://appleid.apple.com");
+        assertThat(claims.getExpiration()).isAfter(claims.getIssuedAt());
+    }
+
     private static String toPem(PrivateKey privateKey) {
         String base64 = Base64.getEncoder().encodeToString(privateKey.getEncoded());
         return "-----BEGIN PRIVATE KEY-----\n" + base64 + "\n-----END PRIVATE KEY-----";
