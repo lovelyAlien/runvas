@@ -54,6 +54,12 @@ public class User {
     @Column(length = 2000)
     private String appleRefreshToken;
 
+    @Column
+    private Instant termsAgreedAt;
+
+    @Column
+    private Instant bannedAt;
+
     protected User() {
     }
 
@@ -114,6 +120,8 @@ public class User {
     public Instant getUpdatedAt() { return updatedAt; }
     public Instant getDeletedAt() { return deletedAt; }
     public String getAppleRefreshToken() { return appleRefreshToken; }
+    public Instant getTermsAgreedAt() { return termsAgreedAt; }
+    public Instant getBannedAt() { return bannedAt; }
 
     public boolean isDeleted() {
         return deletedAt != null;
@@ -125,6 +133,20 @@ public class User {
 
     public void restore() {
         this.deletedAt = null;
+    }
+
+    public boolean isBanned() {
+        return bannedAt != null;
+    }
+
+    public void ban() {
+        this.bannedAt = Instant.now();
+    }
+
+    public void agreeToTerms(Instant at) {
+        if (this.termsAgreedAt == null) {
+            this.termsAgreedAt = at;
+        }
     }
 
     public void updateProfile(String nickname, String profileImageUrl, String bio, Integer runningPaceSecPerKm) {

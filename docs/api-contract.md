@@ -1034,12 +1034,14 @@ Runvas API 인증에는 이 API가 발급한 자체 `accessToken`을 사용합�
 | `provider` | string | Y | `KAKAO` |
 | `authorizationCode` | string | Y | 카카오 인가 코드 |
 | `redirectUri` | string | Y | 카카오 인가 코드 요청에 사용한 모바일 앱 redirect URI |
+| `termsAgreedAt` | string | Y | 이용자가 [이용약관](./terms-of-service.md) 동의 화면에서 동의를 누른 시각(ISO 8601) |
 
 ```json
 {
   "provider": "KAKAO",
   "authorizationCode": "kakao_authorization_code",
-  "redirectUri": "runvas://auth/kakao"
+  "redirectUri": "runvas://auth/kakao",
+  "termsAgreedAt": "2026-09-03T08:00:00Z"
 }
 ```
 
@@ -1071,6 +1073,7 @@ MVP에서는 refresh token을 응답하지 않습니다.
 
 - `400 VALIDATION_ERROR`: 필수 필드 누락, `provider`가 `KAKAO`가 아님
 - `401 UNAUTHORIZED`: 카카오 인증 실패
+- `403 FORBIDDEN`: 운영자에 의해 이용이 제한(정지)된 계정
 
 ### POST /auth/apple
 
@@ -1101,13 +1104,15 @@ Apple 사용자 ID는 `providerUserId`로 내부 저장하되 API 응답에 포�
 | `identityToken` | string | Y | Apple이 발급한 identity token(JWT) |
 | `authorizationCode` | string | Y | Apple이 로그인 시마다 발급하는 일회용 인가 코드. 탈퇴 시 Apple 토큰 해지에 쓰기 위해 백엔드가 저장한다 |
 | `nickname` | string | N | Apple이 최초 인증 시에만 제공하는 이름. 없으면 서버가 기본 닉네임을 생성 |
+| `termsAgreedAt` | string | Y | 이용자가 [이용약관](./terms-of-service.md) 동의 화면에서 동의를 누른 시각(ISO 8601) |
 
 ```json
 {
   "provider": "APPLE",
   "identityToken": "apple_identity_token_jwt",
   "authorizationCode": "apple_authorization_code",
-  "nickname": "Seoul Runner"
+  "nickname": "Seoul Runner",
+  "termsAgreedAt": "2026-09-03T08:00:00Z"
 }
 ```
 
@@ -1138,6 +1143,7 @@ Apple 사용자 ID는 `providerUserId`로 내부 저장하되 API 응답에 포�
 
 - `400 VALIDATION_ERROR`: 필수 필드 누락, `provider`가 `APPLE`이 아님
 - `401 UNAUTHORIZED`: `identityToken` 서명 검증 실패, `iss`/`aud` 불일치, 만료된 토큰
+- `403 FORBIDDEN`: 운영자에 의해 이용이 제한(정지)된 계정
 
 ### POST /auth/logout
 

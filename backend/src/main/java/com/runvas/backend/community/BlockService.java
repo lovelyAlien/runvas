@@ -1,5 +1,6 @@
 package com.runvas.backend.community;
 
+import com.runvas.backend.admin.AdminNotificationService;
 import com.runvas.backend.auth.CurrentUserProvider;
 import com.runvas.backend.common.ApiException;
 import com.runvas.backend.common.ErrorCode;
@@ -22,6 +23,7 @@ public class BlockService {
 	private final BlockRepository blockRepository;
 	private final UserRepository userRepository;
 	private final CurrentUserProvider currentUserProvider;
+	private final AdminNotificationService adminNotificationService;
 
 	@Transactional
 	public Result block(String targetUserIdPathValue) {
@@ -40,6 +42,9 @@ public class BlockService {
 		Block block = existing.orElseGet(() -> blockRepository.save(new Block(blockerId, blockedId)));
 
 		BlockResponse response = new BlockResponse(PublicProfile.from(blockedUser), block.getCreatedAt());
+		if (existing.isEmpty()) {
+			adminNotificationService.notifyBlock(blockerId, blockedId);
+		}
 		return new Result(response, existing.isEmpty());
 	}
 

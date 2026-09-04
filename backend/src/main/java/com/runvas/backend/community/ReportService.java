@@ -1,5 +1,6 @@
 package com.runvas.backend.community;
 
+import com.runvas.backend.admin.AdminNotificationService;
 import com.runvas.backend.auth.CurrentUserProvider;
 import com.runvas.backend.common.ApiException;
 import com.runvas.backend.common.ErrorCode;
@@ -19,6 +20,7 @@ public class ReportService {
 	private final CommentRepository commentRepository;
 	private final CourseCommentRepository courseCommentRepository;
 	private final CurrentUserProvider currentUserProvider;
+	private final AdminNotificationService adminNotificationService;
 
 	@Transactional
 	public Result report(String targetTypePathValue, String targetId, ReportRequest request) {
@@ -35,6 +37,7 @@ public class ReportService {
 
 		Report saved = reportRepository.save(
 				new Report(reporterId, targetType, targetId, request.reason(), request.reasonDetail()));
+		adminNotificationService.notifyNewReport(targetTypePathValue, targetId, reporterId);
 		return new Result(ReportResponse.from(targetTypePathValue, saved), true);
 	}
 

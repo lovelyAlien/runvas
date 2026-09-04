@@ -64,4 +64,26 @@ class UserTest {
 
         assertThat(user.getAppleRefreshToken()).isEqualTo("apple-refresh-token-value");
     }
+
+    @Test
+    void ban_호출하면_isBanned가_true가_된다() {
+        User user = User.createKakaoUser("kakao-1", "runner@example.com", "Runner", null);
+
+        assertThat(user.isBanned()).isFalse();
+        user.ban();
+        assertThat(user.isBanned()).isTrue();
+        assertThat(user.getBannedAt()).isNotNull();
+    }
+
+    @Test
+    void agreeToTerms_최초_한_번만_저장되고_이후_호출은_무시한다() {
+        User user = User.createKakaoUser("kakao-2", "runner@example.com", "Runner", null);
+        java.time.Instant first = java.time.Instant.parse("2026-09-01T00:00:00Z");
+        java.time.Instant second = java.time.Instant.parse("2026-09-02T00:00:00Z");
+
+        user.agreeToTerms(first);
+        user.agreeToTerms(second);
+
+        assertThat(user.getTermsAgreedAt()).isEqualTo(first);
+    }
 }

@@ -109,6 +109,8 @@ MVP에서 사용자는 본인이 생성한 코스의 아래 필드를 수정할 
 | `createdAt` | string | Y | ISO 8601 생성 시각 |
 | `updatedAt` | string | Y | ISO 8601 수정 시각 |
 | `deletedAt` | string \| null | N | 탈퇴 신청 시각(ISO 8601). 채워져 있으면 30일 유예기간 중이라는 뜻. API 응답에는 노출하지 않는 내부 저장값 |
+| `termsAgreedAt` | string | Y | 이용약관 최초 동의 시각(ISO 8601). API 응답에는 노출하지 않는 내부 저장값 |
+| `bannedAt` | string \| null | N | 운영자가 신고 처리로 계정을 정지시킨 시각(ISO 8601). 채워져 있으면 로그인이 차단된다는 뜻. API 응답에는 노출하지 않는 내부 저장값 |
 
 ## WithdrawalReason
 

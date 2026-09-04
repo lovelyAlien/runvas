@@ -3,51 +3,70 @@ import { Modal, View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Pla
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useAuth } from '../contexts/AuthContext';
 import { Colors } from '../constants/theme';
+import TermsAgreementModal from './TermsAgreementModal';
 
 // App.tsx 루트에서 단 한 번만 렌더링한다 — 화면마다 각자 모달을 띄우지 않는다.
 export default function LoginPromptModal() {
-  const { isLoginModalVisible, closeLoginModal, kakaoLogin, appleLogin, isLoggingIn, loginError } = useAuth();
+  const {
+    isLoginModalVisible,
+    closeLoginModal,
+    kakaoLogin,
+    appleLogin,
+    isLoggingIn,
+    loginError,
+    isTermsModalVisible,
+    agreeToTerms,
+    cancelTermsAgreement,
+  } = useAuth();
 
   return (
-    <Modal visible={isLoginModalVisible} transparent animationType="fade">
-      <View style={styles.overlay}>
-        <View style={styles.card}>
-          <Text style={styles.title}>로그인이 필요해요</Text>
-          <Text style={styles.subtitle}>
-            저장, 내보내기, 게시판 글쓰기 등은 로그인 후 사용할 수 있습니다.
-          </Text>
+    <>
+      <Modal visible={isLoginModalVisible} transparent animationType="fade">
+        <View style={styles.overlay}>
+          <View style={styles.card}>
+            <Text style={styles.title}>로그인이 필요해요</Text>
+            <Text style={styles.subtitle}>
+              저장, 내보내기, 게시판 글쓰기 등은 로그인 후 사용할 수 있습니다.
+            </Text>
 
-          {loginError && <Text style={styles.errorText}>{loginError}</Text>}
+            {loginError && <Text style={styles.errorText}>{loginError}</Text>}
 
-          <TouchableOpacity
-            style={styles.kakaoButton}
-            onPress={kakaoLogin}
-            activeOpacity={0.8}
-            disabled={isLoggingIn}
-          >
-            {isLoggingIn ? (
-              <ActivityIndicator size="small" color={Colors.gray900} />
-            ) : (
-              <Text style={styles.kakaoButtonLabel}>카카오 로그인</Text>
+            <TouchableOpacity
+              style={styles.kakaoButton}
+              onPress={kakaoLogin}
+              activeOpacity={0.8}
+              disabled={isLoggingIn}
+            >
+              {isLoggingIn ? (
+                <ActivityIndicator size="small" color={Colors.gray900} />
+              ) : (
+                <Text style={styles.kakaoButtonLabel}>카카오 로그인</Text>
+              )}
+            </TouchableOpacity>
+
+            {Platform.OS === 'ios' && (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                cornerRadius={8}
+                style={styles.appleButton}
+                onPress={appleLogin}
+              />
             )}
-          </TouchableOpacity>
 
-          {Platform.OS === 'ios' && (
-            <AppleAuthentication.AppleAuthenticationButton
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-              cornerRadius={8}
-              style={styles.appleButton}
-              onPress={appleLogin}
-            />
-          )}
-
-          <TouchableOpacity onPress={closeLoginModal} activeOpacity={0.7} disabled={isLoggingIn}>
-            <Text style={styles.cancelLabel}>닫기</Text>
-          </TouchableOpacity>
+            <TouchableOpacity onPress={closeLoginModal} activeOpacity={0.7} disabled={isLoggingIn}>
+              <Text style={styles.cancelLabel}>닫기</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      <TermsAgreementModal
+        visible={isTermsModalVisible}
+        onAgree={agreeToTerms}
+        onCancel={cancelTermsAgreement}
+      />
+    </>
   );
 }
 

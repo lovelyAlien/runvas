@@ -28,12 +28,14 @@ public class CommentService {
 	private final PostRepository postRepository;
 	private final UserRepository userRepository;
 	private final BlockRepository blockRepository;
+	private final ObjectionableContentFilter objectionableContentFilter;
 	private final CurrentUserProvider currentUserProvider;
 
 	@Transactional
 	public CommentResponse create(String postId, CreateCommentRequest request) {
 		String authorId = currentUserProvider.requireUserId();
 		Post post = findPostOrThrow(postId);
+		objectionableContentFilter.validate(request.body());
 
 		Comment comment = new Comment(postId, authorId, request.body());
 		commentRepository.save(comment);
@@ -67,6 +69,7 @@ public class CommentService {
 	public CommentResponse update(String commentId, UpdateCommentRequest request) {
 		Comment comment = findCommentOrThrow(commentId);
 		requireAuthor(comment);
+		objectionableContentFilter.validate(request.body());
 
 		comment.setBody(request.body());
 		comment.setUpdatedAt(Instant.now());
@@ -88,6 +91,11 @@ public class CommentService {
 			commentRepository.delete(comment);
 			postRepository.findById(comment.getPostId()).ifPresent(Post::decrementCommentCount);
 		});
+	}
+
+	@Transactional(readOnly = true)
+	public String getAuthorId(String commentId) {
+		return findCommentOrThrow(commentId).getAuthorId();
 	}
 
 	private Post findPostOrThrow(String postId) {

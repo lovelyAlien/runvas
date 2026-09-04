@@ -81,7 +81,8 @@ class AuthControllerTest {
                                 {
                                   "provider": "KAKAO",
                                   "authorizationCode": "authorization-code",
-                                  "redirectUri": "runvas://auth/kakao"
+                                  "redirectUri": "runvas://auth/kakao",
+                                  "termsAgreedAt": "2026-06-22T08:00:00Z"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -102,7 +103,8 @@ class AuthControllerTest {
                                 {
                                   "provider": "APPLE",
                                   "authorizationCode": "authorization-code",
-                                  "redirectUri": "runvas://auth/kakao"
+                                  "redirectUri": "runvas://auth/kakao",
+                                  "termsAgreedAt": "2026-06-22T08:00:00Z"
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -121,7 +123,8 @@ class AuthControllerTest {
                                 {
                                   "provider": "KAKAO",
                                   "authorizationCode": "authorization-code-no-header",
-                                  "redirectUri": "runvas://auth/kakao"
+                                  "redirectUri": "runvas://auth/kakao",
+                                  "termsAgreedAt": "2026-06-22T08:00:00Z"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -141,7 +144,8 @@ class AuthControllerTest {
                                   "provider": "APPLE",
                                   "identityToken": "apple-identity-token",
                                   "authorizationCode": "apple-authorization-code",
-                                  "nickname": "Seoul Runner"
+                                  "nickname": "Seoul Runner",
+                                  "termsAgreedAt": "2026-06-22T08:00:00Z"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -163,7 +167,8 @@ class AuthControllerTest {
                                   "provider": "KAKAO",
                                   "identityToken": "apple-identity-token",
                                   "authorizationCode": "apple-authorization-code",
-                                  "nickname": "Seoul Runner"
+                                  "nickname": "Seoul Runner",
+                                  "termsAgreedAt": "2026-06-22T08:00:00Z"
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
@@ -185,7 +190,8 @@ class AuthControllerTest {
                                   "provider": "APPLE",
                                   "identityToken": "apple-identity-token-revoke",
                                   "authorizationCode": "apple-authorization-code-revoke",
-                                  "nickname": "Seoul Runner"
+                                  "nickname": "Seoul Runner",
+                                  "termsAgreedAt": "2026-06-22T08:00:00Z"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -209,7 +215,8 @@ class AuthControllerTest {
                                 {
                                   "provider": "KAKAO",
                                   "authorizationCode": "authorization-code-logout",
-                                  "redirectUri": "runvas://auth/kakao"
+                                  "redirectUri": "runvas://auth/kakao",
+                                  "termsAgreedAt": "2026-06-22T08:00:00Z"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -235,7 +242,8 @@ class AuthControllerTest {
                                 {
                                   "provider": "KAKAO",
                                   "authorizationCode": "authorization-code-blacklisted",
-                                  "redirectUri": "runvas://auth/kakao"
+                                  "redirectUri": "runvas://auth/kakao",
+                                  "termsAgreedAt": "2026-06-22T08:00:00Z"
                                 }
                                 """))
                 .andExpect(status().isOk())

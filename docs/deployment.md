@@ -122,8 +122,10 @@ gh run list --workflow=mobile-eas-build-preview.yml --limit 5
    업로드된 빌드가 처리 완료(이메일 통지)된 뒤:
    1. App Store Connect → 앱 → **App Store** 탭 → 해당 버전 선택
    2. **빌드** 항목에서 방금 업로드된 빌드 번호를 선택
-   3. **App Review Information**에 로그인 데모 계정(카카오 테스트 계정 아이디/비밀번호)을 입력합니다
-      — 이게 없으면 Guideline 2.1.0(데모 계정 누락)으로 자동 리젝됩니다
+   3. **App Review Information**의 Notes에 "Sign in with Apple로 로그인해달라"고 안내합니다
+      (심사자 본인의 Apple 계정으로 별도 데모 계정 없이 로그인 가능). 카카오 테스트 계정
+      아이디/비밀번호도 함께 남겨 대체 경로로 제공합니다 — 이게 둘 다 없으면 Guideline
+      2.1.0(데모 계정 누락/로그인 불가)으로 자동 리젝됩니다
    4. **"심사에 제출"(Submit for Review)** 버튼을 눌러야 실제로 심사 큐에 들어갑니다
 
    이 마지막 클릭은 의도적으로 자동화하지 않았습니다 — 리젝 이력이 있는 계정이라 빌드를

@@ -7,6 +7,7 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 export async function postAuthKakao(
   authorizationCode: string,
   redirectUri: string,
+  termsAgreedAt: string,
 ): Promise<AuthResponse> {
   if (!API_BASE_URL) {
     throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
@@ -19,6 +20,7 @@ export async function postAuthKakao(
       provider: 'KAKAO',
       authorizationCode,
       redirectUri,
+      termsAgreedAt,
     }),
   });
 
@@ -33,6 +35,7 @@ export async function postAuthApple(
   identityToken: string,
   authorizationCode: string,
   nickname: string | null,
+  termsAgreedAt: string,
 ): Promise<AuthResponse> {
   if (!API_BASE_URL) {
     throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
@@ -46,6 +49,7 @@ export async function postAuthApple(
       identityToken,
       authorizationCode,
       nickname,
+      termsAgreedAt,
     }),
   });
 

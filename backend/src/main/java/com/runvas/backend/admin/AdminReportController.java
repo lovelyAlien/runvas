@@ -45,6 +45,12 @@ public class AdminReportController {
 		return "redirect:/admin/reports";
 	}
 
+	@PostMapping("/admin/reports/{reportId}/resolve-and-ban")
+	String resolveAndBan(@PathVariable String reportId) {
+		adminReportActionService.resolveAndBan(reportId);
+		return "redirect:/admin/reports";
+	}
+
 	@PostMapping("/admin/reports/{reportId}/dismiss")
 	String dismiss(@PathVariable String reportId) {
 		adminReportActionService.dismiss(reportId);

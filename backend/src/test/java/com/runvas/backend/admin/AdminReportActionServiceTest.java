@@ -10,9 +10,12 @@ import com.runvas.backend.community.ReportReason;
 import com.runvas.backend.community.ReportRepository;
 import com.runvas.backend.community.ReportStatus;
 import com.runvas.backend.community.ReportTargetType;
+import com.runvas.user.domain.User;
+import com.runvas.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,8 +32,9 @@ class AdminReportActionServiceTest {
 	private final PostService postService = mock(PostService.class);
 	private final CommentService commentService = mock(CommentService.class);
 	private final CourseCommentService courseCommentService = mock(CourseCommentService.class);
-	private final AdminReportActionService adminReportActionService =
-			new AdminReportActionService(reportRepository, postService, commentService, courseCommentService);
+	private final UserRepository userRepository = mock(UserRepository.class);
+	private final AdminReportActionService adminReportActionService = new AdminReportActionService(
+			reportRepository, postService, commentService, courseCommentService, userRepository);
 
 	@Test
 	void resolveDeletesPostAndResolvesAllPendingReportsForSameTarget() {
@@ -96,5 +100,75 @@ class AdminReportActionServiceTest {
 		adminReportActionService.dismiss("report-4");
 
 		assertThat(alreadyDismissed.getResolvedAt()).isEqualTo(resolvedAtBefore);
+	}
+
+	@Test
+	void resolveAndBanDeletesContentAndBansAuthor() {
+		UUID authorUuid = UUID.randomUUID();
+		Report report = new Report("reporter-1", ReportTargetType.POST, "post-1", ReportReason.SPAM, null);
+		when(reportRepository.findById("report-5")).thenReturn(Optional.of(report));
+		when(reportRepository.findAllByTargetTypeAndTargetIdAndStatus(
+						ReportTargetType.POST, "post-1", ReportStatus.PENDING))
+				.thenReturn(List.of(report));
+		when(postService.getAuthorId("post-1")).thenReturn(authorUuid.toString());
+		User author = User.createKakaoUser(authorUuid.toString(), null, "Author", null);
+		when(userRepository.findById(authorUuid)).thenReturn(Optional.of(author));
+
+		adminReportActionService.resolveAndBan("report-5");
+
+		verify(postService).getAuthorId("post-1");
+		verify(postService).deleteAsAdmin("post-1");
+		verify(userRepository).save(author);
+		assertThat(author.isBanned()).isTrue();
+		assertThat(report.getStatus()).isEqualTo(ReportStatus.RESOLVED);
+	}
+
+	@Test
+	void resolveAndBanFetchesAuthorBeforeDeletingContent() {
+		UUID authorUuid = UUID.randomUUID();
+		Report report = new Report("reporter-1", ReportTargetType.COMMENT, "comment-1", ReportReason.SPAM, null);
+		when(reportRepository.findById("report-6")).thenReturn(Optional.of(report));
+		when(reportRepository.findAllByTargetTypeAndTargetIdAndStatus(
+						ReportTargetType.COMMENT, "comment-1", ReportStatus.PENDING))
+				.thenReturn(List.of(report));
+		when(commentService.getAuthorId("comment-1")).thenReturn(authorUuid.toString());
+		when(userRepository.findById(authorUuid)).thenReturn(Optional.empty());
+
+		adminReportActionService.resolveAndBan("report-6");
+
+		var inOrder = org.mockito.Mockito.inOrder(commentService);
+		inOrder.verify(commentService).getAuthorId("comment-1");
+		inOrder.verify(commentService).deleteAsAdmin("comment-1");
+		verify(userRepository, never()).save(any());
+	}
+
+	@Test
+	void resolveAndBanOnAlreadyDeletedContentResolvesReportWithoutBanning() {
+		Report report = new Report("reporter-1", ReportTargetType.POST, "post-1", ReportReason.SPAM, null);
+		when(reportRepository.findById("report-8")).thenReturn(Optional.of(report));
+		when(reportRepository.findAllByTargetTypeAndTargetIdAndStatus(
+						ReportTargetType.POST, "post-1", ReportStatus.PENDING))
+				.thenReturn(List.of(report));
+		when(postService.getAuthorId("post-1")).thenThrow(new ApiException(ErrorCode.NOT_FOUND, "게시글이 없습니다"));
+
+		adminReportActionService.resolveAndBan("report-8");
+
+		assertThat(report.getStatus()).isEqualTo(ReportStatus.RESOLVED);
+		verify(postService).deleteAsAdmin("post-1");
+		verify(userRepository, never()).findById(any());
+		verify(userRepository, never()).save(any());
+	}
+
+	@Test
+	void resolveAndBanOnAlreadyResolvedReportIsNoOp() {
+		Report alreadyResolved = new Report("reporter-1", ReportTargetType.POST, "post-1", ReportReason.SPAM, null);
+		alreadyResolved.resolve();
+		when(reportRepository.findById("report-7")).thenReturn(Optional.of(alreadyResolved));
+
+		adminReportActionService.resolveAndBan("report-7");
+
+		verify(postService, never()).getAuthorId(any());
+		verify(postService, never()).deleteAsAdmin(any());
+		verify(userRepository, never()).save(any());
 	}
 }

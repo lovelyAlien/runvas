@@ -148,6 +148,13 @@ export default function ProfileScreen({ navigation }: Props) {
             >
               <Text style={styles.blockedUsersButtonText}>차단한 사용자</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.supportButton}
+              activeOpacity={0.6}
+              onPress={() => navigation.navigate('Support')}
+            >
+              <Text style={styles.supportButtonText}>고객 지원</Text>
+            </TouchableOpacity>
           </>
         ) : (
           <Text style={styles.emptyText}>로그인이 필요합니다.</Text>
@@ -261,6 +268,16 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   blockedUsersButtonText: {
+    color: Colors.gray500,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  supportButton: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  supportButtonText: {
     color: Colors.gray500,
     fontSize: 14,
     fontWeight: '600',
