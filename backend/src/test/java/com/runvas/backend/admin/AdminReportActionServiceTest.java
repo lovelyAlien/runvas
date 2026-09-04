@@ -10,6 +10,7 @@ import com.runvas.backend.community.ReportReason;
 import com.runvas.backend.community.ReportRepository;
 import com.runvas.backend.community.ReportStatus;
 import com.runvas.backend.community.ReportTargetType;
+import com.runvas.auth.service.TokenBlacklistService;
 import com.runvas.user.domain.User;
 import com.runvas.user.repository.UserRepository;
 import java.time.Instant;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -33,8 +35,10 @@ class AdminReportActionServiceTest {
 	private final CommentService commentService = mock(CommentService.class);
 	private final CourseCommentService courseCommentService = mock(CourseCommentService.class);
 	private final UserRepository userRepository = mock(UserRepository.class);
+	private final TokenBlacklistService tokenBlacklistService = mock(TokenBlacklistService.class);
 	private final AdminReportActionService adminReportActionService = new AdminReportActionService(
-			reportRepository, postService, commentService, courseCommentService, userRepository);
+			reportRepository, postService, commentService, courseCommentService, userRepository,
+			tokenBlacklistService);
 
 	@Test
 	void resolveDeletesPostAndResolvesAllPendingReportsForSameTarget() {
@@ -112,6 +116,7 @@ class AdminReportActionServiceTest {
 				.thenReturn(List.of(report));
 		when(postService.getAuthorId("post-1")).thenReturn(authorUuid.toString());
 		User author = User.createKakaoUser(authorUuid.toString(), null, "Author", null);
+		ReflectionTestUtils.setField(author, "id", authorUuid);
 		when(userRepository.findById(authorUuid)).thenReturn(Optional.of(author));
 
 		adminReportActionService.resolveAndBan("report-5");
@@ -119,6 +124,7 @@ class AdminReportActionServiceTest {
 		verify(postService).getAuthorId("post-1");
 		verify(postService).deleteAsAdmin("post-1");
 		verify(userRepository).save(author);
+		verify(tokenBlacklistService).banUser(authorUuid);
 		assertThat(author.isBanned()).isTrue();
 		assertThat(report.getStatus()).isEqualTo(ReportStatus.RESOLVED);
 	}
@@ -140,6 +146,7 @@ class AdminReportActionServiceTest {
 		inOrder.verify(commentService).getAuthorId("comment-1");
 		inOrder.verify(commentService).deleteAsAdmin("comment-1");
 		verify(userRepository, never()).save(any());
+		verify(tokenBlacklistService, never()).banUser(any());
 	}
 
 	@Test
@@ -157,6 +164,7 @@ class AdminReportActionServiceTest {
 		verify(postService).deleteAsAdmin("post-1");
 		verify(userRepository, never()).findById(any());
 		verify(userRepository, never()).save(any());
+		verify(tokenBlacklistService, never()).banUser(any());
 	}
 
 	@Test
@@ -170,5 +178,6 @@ class AdminReportActionServiceTest {
 		verify(postService, never()).getAuthorId(any());
 		verify(postService, never()).deleteAsAdmin(any());
 		verify(userRepository, never()).save(any());
+		verify(tokenBlacklistService, never()).banUser(any());
 	}
 }

@@ -1,5 +1,6 @@
 package com.runvas.backend.admin;
 
+import com.runvas.auth.service.TokenBlacklistService;
 import com.runvas.backend.common.ApiException;
 import com.runvas.backend.common.ErrorCode;
 import com.runvas.backend.community.CommentService;
@@ -23,6 +24,7 @@ public class AdminReportActionService {
 	private final CommentService commentService;
 	private final CourseCommentService courseCommentService;
 	private final UserRepository userRepository;
+	private final TokenBlacklistService tokenBlacklistService;
 
 	@Transactional
 	public void resolve(String reportId) {
@@ -72,6 +74,7 @@ public class AdminReportActionService {
 			userRepository.findById(UUID.fromString(authorId)).ifPresent(user -> {
 				user.ban();
 				userRepository.save(user);
+				tokenBlacklistService.banUser(user.getId());
 			});
 		}
 	}
