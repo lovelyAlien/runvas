@@ -58,7 +58,7 @@ class TokenBlacklistServiceTest {
     }
 
     @Test
-    void banUserSetsMarkerWithConfiguredExpirationTtl() {
+    void banUserSetsMarkerWithConfiguredExpirationPlusOneHourMargin() {
         UUID userId = UUID.randomUUID();
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(jwtProvider.getExpirationSeconds()).thenReturn(3600L);
@@ -66,7 +66,7 @@ class TokenBlacklistServiceTest {
         tokenBlacklistService.banUser(userId);
 
         verify(valueOperations).set(
-                eq("auth:banned-user:" + userId), eq("1"), eq(Duration.ofSeconds(3600)));
+                eq("auth:banned-user:" + userId), eq("1"), eq(Duration.ofSeconds(3600).plusHours(1)));
     }
 
     @Test

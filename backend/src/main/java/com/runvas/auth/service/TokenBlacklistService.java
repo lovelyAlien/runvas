@@ -34,8 +34,8 @@ public class TokenBlacklistService {
     }
 
     public void banUser(UUID userId) {
-        redisTemplate.opsForValue().set(
-                USER_BAN_KEY_PREFIX + userId, "1", Duration.ofSeconds(jwtProvider.getExpirationSeconds()));
+        Duration ttl = Duration.ofSeconds(jwtProvider.getExpirationSeconds()).plusHours(1);
+        redisTemplate.opsForValue().set(USER_BAN_KEY_PREFIX + userId, "1", ttl);
     }
 
     public boolean isUserBanned(UUID userId) {

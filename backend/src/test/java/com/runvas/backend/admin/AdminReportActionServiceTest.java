@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -116,7 +115,6 @@ class AdminReportActionServiceTest {
 				.thenReturn(List.of(report));
 		when(postService.getAuthorId("post-1")).thenReturn(authorUuid.toString());
 		User author = User.createKakaoUser(authorUuid.toString(), null, "Author", null);
-		ReflectionTestUtils.setField(author, "id", authorUuid);
 		when(userRepository.findById(authorUuid)).thenReturn(Optional.of(author));
 
 		adminReportActionService.resolveAndBan("report-5");

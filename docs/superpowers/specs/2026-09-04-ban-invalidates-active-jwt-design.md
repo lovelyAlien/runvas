@@ -25,8 +25,11 @@ Apple App Review Guideline 1.2는 신고 접수 24시간 내 "콘텐츠 삭제 +
 
 - `TokenBlacklistService`에 `banUser(UUID userId)` / `isUserBanned(UUID userId)` 추가.
   `auth:banned-user:<userId>` 키를 Redis에 쓰고, TTL은 `JwtProvider`의 `expirationSeconds`(신규 getter
-  `getExpirationSeconds()` 추가)로 설정한다. 정지 시점 이후 그 TTL이 지나면 정지 이전에 발급된 토큰은
-  어차피 전부 자연 만료되므로 키도 함께 자연 소멸시킨다(로그아웃 블랙리스트 키와 동일한 패턴).
+  `getExpirationSeconds()` 추가)에 1시간의 안전 마진을 더한 값으로 설정한다. 정지 시점 이후 그 시간이
+  지나면 정지 이전에 발급된 토큰은 어차피 전부 자연 만료되므로 키도 함께 자연 소멸시킨다(로그아웃
+  블랙리스트 키와 동일한 패턴). 안전 마진을 두는 이유: TTL을 정지 시점의 설정값 그대로 쓰면, 운영자가
+  이후 `JWT_EXPIRATION_SECONDS`를 더 짧게 변경했을 때 그 변경 이전에 발급된(더 긴 수명의) 토큰이 마커보다
+  먼저 만료되지 않을 수 있어 이 변경이 막으려는 문제가 그대로 재현된다.
 - `AdminReportActionService.resolveAndBan()`에서 `user.ban(); userRepository.save(user);` 직후
   `tokenBlacklistService.banUser(user.getId())`를 호출한다(같은 `@Transactional` 메서드 안에서 처리하되,
   Redis 쓰기는 트랜잭션 롤백과 무관하게 즉시 반영됨을 인지하고 진행 — DB 트랜잭션이 롤백되는 경우는
@@ -54,6 +57,11 @@ Apple App Review Guideline 1.2는 신고 접수 24시간 내 "콘텐츠 삭제 +
   `TokenBlacklistService` 호출 추가(생성자 주입 필드 추가).
 - `docs/admin-dashboard.md`: "정지된 계정은 이후 로그인 시 403" 문구에 "이미 발급된 토큰도 다음 요청부터
   즉시 무효화된다"를 추가.
+
+Redis 장애 시 인증 경로 자체가 실패하므로(기존 `isBlacklisted` 확인도 동일하게 Redis에 의존한다) 이
+변경이 가용성을 새로 낮추지는 않는다. 다만 `resolveAndBan()` 안에서 `tokenBlacklistService.banUser(...)`
+호출이 Redis 예외로 실패하면 `@Transactional` 롤백으로 콘텐츠 삭제와 계정 정지도 함께 롤백된다 — 정지가
+반쯤만 적용되어 토큰이 계속 유효한 상태로 남는 것보다 안전한 선택이므로 의도된 동작이다.
 
 API 계약(`docs/api-contract.md`)이나 응답 필드는 변하지 않는다 — 정지된 사용자의 기존 요청이 401로
 거부되는 동작(이미 문서화된 "유효하지 않은 토큰" 401 케이스)의 트리거 조건이 하나 늘어나는 것뿐이다.

@@ -71,10 +71,11 @@ public class AdminReportActionService {
 		resolve(reportId);
 
 		if (authorId != null) {
-			userRepository.findById(UUID.fromString(authorId)).ifPresent(user -> {
+			UUID authorUuid = UUID.fromString(authorId);
+			userRepository.findById(authorUuid).ifPresent(user -> {
 				user.ban();
 				userRepository.save(user);
-				tokenBlacklistService.banUser(user.getId());
+				tokenBlacklistService.banUser(authorUuid);
 			});
 		}
 	}
