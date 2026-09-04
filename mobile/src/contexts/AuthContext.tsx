@@ -88,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const kakaoLogin = useCallback(() => {
     if (!termsAgreedAt) {
+      setIsLoginModalVisible(false);
       setIsTermsModalVisible(true);
       return;
     }
@@ -122,6 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const appleLogin = useCallback(async () => {
     if (!termsAgreedAt) {
+      setIsLoginModalVisible(false);
       setIsTermsModalVisible(true);
       return;
     }
@@ -216,6 +218,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const cancelTermsAgreement = useCallback(() => {
     setIsTermsModalVisible(false);
+    setIsLoginModalVisible(true);
   }, []);
 
   const consumeNewUserRedirect = useCallback((): boolean => {
