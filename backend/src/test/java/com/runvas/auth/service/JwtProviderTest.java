@@ -54,4 +54,11 @@ class JwtProviderTest {
         assertThat(expiration).isAfter(beforeCreate.plusSeconds(3599));
         assertThat(expiration).isBefore(beforeCreate.plusSeconds(3601));
     }
+
+    @Test
+    void returnsConfiguredExpirationSeconds() {
+        JwtProvider jwtProvider = new JwtProvider("dev-secret-dev-secret-dev-secret-dev-secret", 3600);
+
+        assertThat(jwtProvider.getExpirationSeconds()).isEqualTo(3600L);
+    }
 }

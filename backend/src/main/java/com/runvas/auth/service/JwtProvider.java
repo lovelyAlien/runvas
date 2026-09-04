@@ -62,4 +62,8 @@ public class JwtProvider {
                 .getExpiration();
         return expiration.toInstant();
     }
+
+    public long getExpirationSeconds() {
+        return expirationSeconds;
+    }
 }
