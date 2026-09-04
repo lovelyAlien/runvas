@@ -1079,11 +1079,12 @@ Apple ID로 로그인하거나 신규 회원가입을 처리합니다.
 #### Flow
 
 1. 모바일 앱이 `expo-apple-authentication`으로 Apple 로그인 시트를 띄웁니다.
-2. Apple이 모바일 앱에 `identityToken`(JWT)과, 최초 인증 시에만 `fullName`을 반환합니다.
-3. 모바일 앱이 `POST /api/auth/apple`로 `identityToken`과(최초 인증이면) `nickname`을 전달합니다.
+2. Apple이 모바일 앱에 `identityToken`(JWT), `authorizationCode`와, 최초 인증 시에만 `fullName`을 반환합니다.
+3. 모바일 앱이 `POST /api/auth/apple`로 `identityToken`, `authorizationCode`와(최초 인증이면) `nickname`을 전달합니다.
 4. 백엔드는 Apple의 공개키(JWKS, `https://appleid.apple.com/auth/keys`)로 `identityToken` 서명을 검증하고 `iss`(`https://appleid.apple.com`), `aud`(앱 번들 ID)를 검증합니다.
 5. 백엔드는 `identityToken`의 `sub`를 `providerUserId`로, `email` 클레임을 이메일로 사용해 `provider = APPLE` 기준으로 Runvas 사용자를 조회하거나 생성합니다.
-6. 백엔드는 Runvas 자체 `accessToken`, `user`, `isNewUser`를 모바일 앱에 반환합니다.
+6. 백엔드는 `authorizationCode`를 Apple의 토큰 엔드포인트(`https://appleid.apple.com/auth/token`)와 교환해 Apple refresh token을 받아 저장합니다. 이 교환이 실패해도 로그인 자체는 계속 진행됩니다.
+7. 백엔드는 Runvas 자체 `accessToken`, `user`, `isNewUser`를 모바일 앱에 반환합니다.
 
 Apple `identityToken`, `sub`는 API 응답에 포함하지 않습니다.
 Apple 사용자 ID는 `providerUserId`로 내부 저장하되 API 응답에 포함하지 않습니다.
@@ -1098,12 +1099,14 @@ Apple 사용자 ID는 `providerUserId`로 내부 저장하되 API 응답에 포�
 | --- | --- | --- | --- |
 | `provider` | string | Y | `APPLE` |
 | `identityToken` | string | Y | Apple이 발급한 identity token(JWT) |
+| `authorizationCode` | string | Y | Apple이 로그인 시마다 발급하는 일회용 인가 코드. 탈퇴 시 Apple 토큰 해지에 쓰기 위해 백엔드가 저장한다 |
 | `nickname` | string | N | Apple이 최초 인증 시에만 제공하는 이름. 없으면 서버가 기본 닉네임을 생성 |
 
 ```json
 {
   "provider": "APPLE",
   "identityToken": "apple_identity_token_jwt",
+  "authorizationCode": "apple_authorization_code",
   "nickname": "Seoul Runner"
 }
 ```
@@ -1229,6 +1232,10 @@ Apple 사용자 ID는 `providerUserId`로 내부 저장하되 API 응답에 포�
 또는 Apple 계정으로 다시 로그인하면 자동으로 복구됩니다. 유예기간이 지나면 계정은 하드 삭제되고, 이 사용자가
 작성한 코스·게시글·댓글은 삭제되지 않고 작성자 표시만 `"탈퇴한 사용자"`로 바뀝니다
 (`profileImageUrl`/`bio`는 `null`).
+
+하드 삭제 시점에 카카오 계정은 카카오 서버에 연동 해제(unlink)를, Apple 계정은 Apple 서버에
+토큰 해지(revoke) 요청을 보냅니다. 두 요청 모두 best-effort로 처리되어, 실패해도 계정 삭제
+자체는 진행됩니다.
 
 #### Auth
 
