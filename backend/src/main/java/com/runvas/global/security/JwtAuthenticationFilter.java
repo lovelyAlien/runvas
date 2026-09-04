@@ -32,7 +32,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = authorization.substring("Bearer ".length());
             try {
                 UUID userId = jwtProvider.parseUserId(token);
-                if (tokenBlacklistService.isBlacklisted(token)) {
+                if (tokenBlacklistService.isBlacklisted(token) || tokenBlacklistService.isUserBanned(userId)) {
                     SecurityContextHolder.clearContext();
                 } else {
                     RunvasPrincipal principal = new RunvasPrincipal(userId);
