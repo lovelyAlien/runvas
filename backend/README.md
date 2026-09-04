@@ -35,6 +35,9 @@ Runvas 서버 API 구현을 관리하는 디렉토리입니다.
 - `KAKAO_CLIENT_SECRET`
 - `APPLE_BUNDLE_ID` (defaults to `com.runvas.mobile`)
 - `APPLE_JWKS_URI` (defaults to `https://appleid.apple.com/auth/keys`)
+- `APPLE_TEAM_ID` (Apple Developer Team ID; required for Apple token exchange/revoke to work — without it, Apple login still works but refresh tokens are never stored and account deletion never revokes Apple access)
+- `APPLE_KEY_ID` (Key ID of the `.p8` Sign in with Apple private key)
+- `APPLE_PRIVATE_KEY` (contents of the `.p8` private key; PEM format, literal `\n` for line breaks is accepted)
 
 ## 빌드 & 배포
 
