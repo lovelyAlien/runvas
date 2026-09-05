@@ -17,6 +17,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByProviderAndProviderUserId(AuthProvider provider, String providerUserId);
 
+    boolean existsByNicknameAndIdNot(String nickname, UUID id);
+
     List<User> findByDeletedAtLessThanEqual(Instant threshold);
 
     Page<User> findByNicknameContainingIgnoreCaseOrEmailContainingIgnoreCase(
