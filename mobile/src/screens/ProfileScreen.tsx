@@ -131,8 +131,11 @@ export default function ProfileScreen({ navigation }: Props) {
                 style={styles.nicknameEditButton}
                 activeOpacity={0.6}
                 onPress={() => setIsNicknameModalOpen(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="닉네임 수정"
               >
-                <Ionicons name="create-outline" size={16} color={Colors.gray400} />
+                <Ionicons name="create-outline" size={16} color={Colors.gray500} />
               </TouchableOpacity>
             </View>
 

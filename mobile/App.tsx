@@ -40,7 +40,11 @@ function NewUserRedirectWatcher() {
 
   useEffect(() => {
     if (user && consumeNewUserRedirect()) {
-      setIsNicknamePromptVisible(true);
+      // LoginPromptModal이 닫히는 애니메이션과 겹치지 않도록 지연 후 표시한다.
+      // 같은 렌더에서 두 Modal이 동시에 열고 닫히면 iOS에서 두 번째 Modal이
+      // 조용히 나타나지 않는 경합이 생길 수 있다 (RN 기본 fade 애니메이션 기준 350ms 여유).
+      const timer = setTimeout(() => setIsNicknamePromptVisible(true), 350);
+      return () => clearTimeout(timer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);

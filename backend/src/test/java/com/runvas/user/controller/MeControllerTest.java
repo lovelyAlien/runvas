@@ -32,6 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 @AutoConfigureMockMvc
 @Testcontainers(disabledWithoutDocker = true)
 @ActiveProfiles("test")
+// 여러 테스트가 같은 닉네임("Seoul Runner")을 쓰므로 테스트 간 데이터가 남으면
+// 닉네임 중복 검사 때문에 실행 순서에 따라 실패할 수 있어 트랜잭션으로 롤백한다.
 @Transactional
 class MeControllerTest {
 

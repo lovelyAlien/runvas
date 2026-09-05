@@ -65,14 +65,14 @@ Apple 로그인 시 Apple이 `fullName`을 항상 주지 않는다(최초 1회, 
   type Props = {
     visible: boolean;
     initialNickname: string;
-    onConfirm: (nickname: string) => Promise<void>;
-    onSkip?: () => void;       // 신규 가입 흐름에서만 사용, 프로필 화면에서는 미사용
+    cancelLabel?: string;      // 취소 버튼 라벨 커스터마이즈(예: 신규 가입 흐름의 "건너뛰기")
+    onConfirm: (nickname: string) => void;
     onClose: () => void;
     isSaving: boolean;
   };
   ```
-- 클라이언트 검증: trim 후 2~30자 범위 밖이면 확인 버튼 비활성화 + 안내 문구("2~30자로
-  입력해주세요") 표시. 서버 에러(409 등)는 상위 컴포넌트가 `Alert`로 표시(아래).
+- 클라이언트 검증: trim 후 2~30자 범위 밖이면 확인 버튼을 눌렀을 때 안내 문구를 보여준다.
+  서버 에러(409 등)는 상위 컴포넌트가 `Alert`로 표시(아래).
 
 ### 모바일: `ProfileScreen.tsx` 통합
 
