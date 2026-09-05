@@ -17,6 +17,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAuthGate } from '../hooks/useAuthGate';
 import { patchMe } from '../services/authApi';
 import PaceSelector from '../components/PaceSelector';
+import NicknameEditModal from '../components/NicknameEditModal';
 import WithdrawalReasonModal from '../components/WithdrawalReasonModal';
 import { WithdrawalReason } from '../types';
 import { DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
@@ -35,6 +36,8 @@ export default function ProfileScreen({ navigation }: Props) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isPaceSelectorOpen, setIsPaceSelectorOpen] = useState(false);
   const [isSavingPace, setIsSavingPace] = useState(false);
+  const [isNicknameModalOpen, setIsNicknameModalOpen] = useState(false);
+  const [isSavingNickname, setIsSavingNickname] = useState(false);
   const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
 
@@ -91,6 +94,20 @@ export default function ProfileScreen({ navigation }: Props) {
     }
   };
 
+  const handleNicknameConfirm = async (nickname: string) => {
+    if (!accessToken) return;
+    setIsSavingNickname(true);
+    try {
+      const result = await patchMe({ nickname }, accessToken);
+      await updateUser(result.user);
+      setIsNicknameModalOpen(false);
+    } catch (e: unknown) {
+      Alert.alert('저장 실패', e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+    } finally {
+      setIsSavingNickname(false);
+    }
+  };
+
   const currentPace = user?.runningPaceSecPerKm ?? DEFAULT_PACE_SEC_PER_KM;
 
   return (
@@ -108,7 +125,19 @@ export default function ProfileScreen({ navigation }: Props) {
                 style={styles.avatarPlaceholder}
               />
             )}
-            <Text style={styles.nickname}>{user.nickname}</Text>
+            <View style={styles.nicknameRow}>
+              <Text style={styles.nickname}>{user.nickname}</Text>
+              <TouchableOpacity
+                style={styles.nicknameEditButton}
+                activeOpacity={0.6}
+                onPress={() => setIsNicknameModalOpen(true)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel="닉네임 수정"
+              >
+                <Ionicons name="create-outline" size={16} color={Colors.gray500} />
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={styles.paceRow}
@@ -168,6 +197,13 @@ export default function ProfileScreen({ navigation }: Props) {
         onClose={() => setIsPaceSelectorOpen(false)}
         isSaving={isSavingPace}
       />
+      <NicknameEditModal
+        visible={isNicknameModalOpen}
+        initialNickname={user?.nickname ?? ''}
+        onConfirm={handleNicknameConfirm}
+        onClose={() => setIsNicknameModalOpen(false)}
+        isSaving={isSavingNickname}
+      />
       <WithdrawalReasonModal
         visible={isWithdrawalModalOpen}
         onConfirm={handleWithdraw}
@@ -201,7 +237,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: Colors.gray900,
+  },
+  nicknameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginBottom: 24,
+  },
+  nicknameEditButton: {
+    padding: 4,
   },
   paceRow: {
     flexDirection: 'row',
