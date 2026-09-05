@@ -131,7 +131,7 @@ export default function ProfileScreen({ navigation }: Props) {
                 style={styles.nicknameEditButton}
                 activeOpacity={0.6}
                 onPress={() => setIsNicknameModalOpen(true)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 accessibilityRole="button"
                 accessibilityLabel="닉네임 수정"
               >
