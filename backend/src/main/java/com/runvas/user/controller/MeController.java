@@ -75,6 +75,10 @@ public class MeController {
         User user = userRepository.findById(principal.userId())
                 .orElseThrow(() -> new RunvasException(ErrorCode.UNAUTHORIZED));
         objectionableContentFilter.validate(request.nickname(), request.bio());
+        if (request.nickname() != null
+                && userRepository.existsByNicknameAndIdNot(request.nickname(), principal.userId())) {
+            throw new RunvasException(ErrorCode.CONFLICT, "이미 사용 중인 닉네임입니다");
+        }
         user.updateProfile(request.nickname(), request.profileImageUrl(), request.bio(), request.runningPaceSecPerKm());
         userRepository.save(user);
         return new MeResponse(UserResponse.from(user));
