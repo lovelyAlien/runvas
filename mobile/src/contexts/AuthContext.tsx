@@ -89,7 +89,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const kakaoLogin = useCallback(() => {
     if (!termsAgreedAt) {
       setIsLoginModalVisible(false);
-      setIsTermsModalVisible(true);
+      // LoginPromptModal이 닫히는 애니메이션과 겹치지 않도록 지연 후 TermsAgreementModal을 띄운다.
+      // 같은 틱에서 두 Modal을 동시에 열고 닫으면 iOS에서 두 번째 Modal이 조용히 나타나지 않는
+      // 경합이 생길 수 있다 (App.tsx의 NewUserRedirectWatcher와 동일한 패턴, 350ms 여유).
+      setTimeout(() => setIsTermsModalVisible(true), 350);
       return;
     }
     if (!KAKAO_REST_API_KEY) {
@@ -124,7 +127,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const appleLogin = useCallback(async () => {
     if (!termsAgreedAt) {
       setIsLoginModalVisible(false);
-      setIsTermsModalVisible(true);
+      // kakaoLogin과 동일한 이유로 지연 후 TermsAgreementModal을 띄운다.
+      setTimeout(() => setIsTermsModalVisible(true), 350);
       return;
     }
     setLoginError(null);
@@ -218,12 +222,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await SecureStore.setItemAsync(TERMS_AGREED_AT_KEY, now);
     setTermsAgreedAt(now);
     setIsTermsModalVisible(false);
-    setIsLoginModalVisible(true);
+    // TermsAgreementModal이 닫히는 애니메이션과 겹치지 않도록 지연 후 LoginPromptModal을 다시 띄운다.
+    setTimeout(() => setIsLoginModalVisible(true), 350);
   }, []);
 
   const cancelTermsAgreement = useCallback(() => {
     setIsTermsModalVisible(false);
-    setIsLoginModalVisible(true);
+    // agreeToTerms와 동일한 이유로 지연 후 LoginPromptModal을 다시 띄운다.
+    setTimeout(() => setIsLoginModalVisible(true), 350);
   }, []);
 
   const consumeNewUserRedirect = useCallback((): boolean => {
