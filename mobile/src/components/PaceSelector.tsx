@@ -11,6 +11,7 @@ import {
 import { Colors } from '../constants/theme';
 import { PacePreset } from '../types';
 import { formatPace } from '../utils/format';
+import KeyboardAvoidingModalContainer from './KeyboardAvoidingModalContainer';
 
 interface PacePresetOption {
   label: PacePreset;
@@ -83,7 +84,7 @@ export default function PaceSelector({ visible, currentPace, onConfirm, onClose,
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingModalContainer style={styles.overlay} contentContainerStyle={styles.overlayContent}>
         <View style={styles.card}>
           <Text style={styles.title}>달리기 페이스 설정</Text>
           <Text style={styles.subtitle}>저장 후 경로의 예상 시간에 반영됩니다</Text>
@@ -143,7 +144,7 @@ export default function PaceSelector({ visible, currentPace, onConfirm, onClose,
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingModalContainer>
     </Modal>
   );
 }
@@ -152,6 +153,8 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  overlayContent: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,

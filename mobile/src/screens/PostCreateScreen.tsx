@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -72,31 +74,38 @@ export default function PostCreateScreen({ route, navigation }: Props) {
         </TouchableOpacity>
       </View>
 
-      {attachedCourseTitle && (
-        <View style={styles.courseChip}>
-          <Ionicons name="map-outline" size={14} color={Colors.primary} />
-          <Text style={styles.courseChipLabel} numberOfLines={1}>
-            {attachedCourseTitle}
-          </Text>
-        </View>
-      )}
+      {/* 본문 입력란이 화면 아래 끝까지 늘어나 있어 키보드가 올라오면 입력 중인 줄이 가려진다.
+          키보드 높이만큼 영역을 줄여 본문 입력란이 키보드 위에서 끝나게 한다. */}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoider}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {attachedCourseTitle && (
+          <View style={styles.courseChip}>
+            <Ionicons name="map-outline" size={14} color={Colors.primary} />
+            <Text style={styles.courseChipLabel} numberOfLines={1}>
+              {attachedCourseTitle}
+            </Text>
+          </View>
+        )}
 
-      <TextInput
-        style={styles.titleInput}
-        placeholder="제목을 입력하세요"
-        placeholderTextColor={Colors.gray400}
-        value={title}
-        onChangeText={setTitle}
-      />
-      <TextInput
-        style={styles.bodyInput}
-        placeholder="러닝 경험을 자유롭게 남겨보세요"
-        placeholderTextColor={Colors.gray400}
-        value={body}
-        onChangeText={setBody}
-        multiline
-        textAlignVertical="top"
-      />
+        <TextInput
+          style={styles.titleInput}
+          placeholder="제목을 입력하세요"
+          placeholderTextColor={Colors.gray400}
+          value={title}
+          onChangeText={setTitle}
+        />
+        <TextInput
+          style={styles.bodyInput}
+          placeholder="러닝 경험을 자유롭게 남겨보세요"
+          placeholderTextColor={Colors.gray400}
+          value={body}
+          onChangeText={setBody}
+          multiline
+          textAlignVertical="top"
+        />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -105,6 +114,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.white,
+  },
+  keyboardAvoider: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',

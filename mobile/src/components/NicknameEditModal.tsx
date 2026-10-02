@@ -9,6 +9,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Colors } from '../constants/theme';
+import KeyboardAvoidingModalContainer from './KeyboardAvoidingModalContainer';
 
 const MIN_NICKNAME_LENGTH = 2;
 const MAX_NICKNAME_LENGTH = 30;
@@ -51,7 +52,7 @@ export default function NicknameEditModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingModalContainer style={styles.overlay} contentContainerStyle={styles.overlayContent}>
         <View style={styles.card}>
           <Text style={styles.title}>닉네임 설정</Text>
           <Text style={styles.subtitle}>다른 사용자에게 공개되는 이름입니다</Text>
@@ -90,7 +91,7 @@ export default function NicknameEditModal({
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingModalContainer>
     </Modal>
   );
 }
@@ -99,6 +100,8 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  overlayContent: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,

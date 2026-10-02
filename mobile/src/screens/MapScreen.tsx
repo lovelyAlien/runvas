@@ -44,6 +44,7 @@ import { Colors } from '../constants/theme';
 import { Coordinate, Course, CourseSummary, CourseVisibility, GeoBounds } from '../types';
 import { formatPace } from '../utils/format';
 import { RootTabParamList, RootStackParamList } from '../navigation/types';
+import KeyboardAvoidingModalContainer from '../components/KeyboardAvoidingModalContainer';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<RootTabParamList, 'Map'>,
@@ -561,7 +562,7 @@ export default function MapScreen({ navigation }: Props) {
       />
 
       <Modal visible={isSaveModalOpen} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingModalContainer style={styles.modalOverlay} contentContainerStyle={styles.modalOverlayContent}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>코스 저장</Text>
             <TextInput
@@ -615,7 +616,7 @@ export default function MapScreen({ navigation }: Props) {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingModalContainer>
       </Modal>
     </SafeAreaView>
   );
@@ -705,6 +706,8 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  modalOverlayContent: {
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,

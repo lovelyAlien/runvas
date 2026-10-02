@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { ReportReason } from '../types';
 import { Colors } from '../constants/theme';
+import KeyboardAvoidingModalContainer from './KeyboardAvoidingModalContainer';
 
 const REASON_OPTIONS: { value: ReportReason; label: string }[] = [
   { value: 'SPAM', label: '스팸/광고예요' },
@@ -45,7 +46,7 @@ export default function ReportReasonModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingModalContainer style={styles.overlay} contentContainerStyle={styles.overlayContent}>
         <View style={styles.card}>
           <Text style={styles.title}>신고하기</Text>
           <Text style={styles.subtitle}>신고 사유를 선택해주세요.</Text>
@@ -95,7 +96,7 @@ export default function ReportReasonModal({
             </Pressable>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingModalContainer>
     </Modal>
   );
 }
@@ -104,6 +105,8 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  overlayContent: {
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
