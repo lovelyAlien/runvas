@@ -36,6 +36,7 @@ import { blockUser } from '../services/blockApi';
 import { exportGpx } from '../utils/exportGpx';
 import { useAuth } from '../contexts/AuthContext';
 import { useAuthGate } from '../hooks/useAuthGate';
+import { useKeyboardVisible } from '../hooks/useKeyboardVisible';
 import { DEFAULT_PACE_SEC_PER_KM } from '../hooks/useRoute';
 import { Colors } from '../constants/theme';
 import { Course, CourseComment, ReportReason } from '../types';
@@ -48,6 +49,7 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
   const { accessToken, user } = useAuth();
   const { requireAuth } = useAuthGate();
   const mapRef = useRef<KakaoMapViewRef>(null);
+  const isKeyboardVisible = useKeyboardVisible();
   const [course, setCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -460,11 +462,16 @@ export default function CourseDetailScreen({ route, navigation }: Props) {
         )}
       </View>
 
-      <View style={styles.mapContainer}>
-        <KakaoMapView ref={mapRef} onMapPress={() => {}} onMapReady={handleMapReady} />
-        <View style={styles.floatingButtons}>
-          <FAB icon="create-outline" onPress={handlePressWriteReview} />
-          <FAB icon="list-outline" onPress={handlePressReviewBoard} />
+      {/* 지도가 260pt를 차지해 작은 화면에서는 키보드가 올라오면 댓글 입력 영역이 남지 않는다.
+          키보드가 떠 있는 동안 지도 영역을 접는다. 카카오 지도는 크기가 바뀌면 relayout이 필요하므로
+          지도 자체 크기는 그대로 두고 바깥 컨테이너만 접어서 잘라낸다. */}
+      <View style={[styles.mapContainer, isKeyboardVisible && styles.mapContainerCollapsed]}>
+        <View style={styles.mapContent}>
+          <KakaoMapView ref={mapRef} onMapPress={() => {}} onMapReady={handleMapReady} />
+          <View style={styles.floatingButtons}>
+            <FAB icon="create-outline" onPress={handlePressWriteReview} />
+            <FAB icon="list-outline" onPress={handlePressReviewBoard} />
+          </View>
         </View>
       </View>
 
@@ -668,6 +675,13 @@ const styles = StyleSheet.create({
     color: Colors.gray500,
   },
   mapContainer: {
+    height: 260,
+    overflow: 'hidden',
+  },
+  mapContainerCollapsed: {
+    height: 0,
+  },
+  mapContent: {
     height: 260,
     position: 'relative',
   },

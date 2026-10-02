@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { WithdrawalReason } from '../types';
 import { Colors } from '../constants/theme';
+import KeyboardAvoidingModalContainer from './KeyboardAvoidingModalContainer';
 
 const REASON_OPTIONS: { value: WithdrawalReason; label: string }[] = [
   { value: 'NOT_USING', label: '자주 사용하지 않아요' },
@@ -46,7 +47,7 @@ export default function WithdrawalReasonModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingModalContainer style={styles.overlay} contentContainerStyle={styles.overlayContent}>
         <View style={styles.card}>
           <Text style={styles.title}>회원 탈퇴</Text>
           <Text style={styles.subtitle}>탈퇴 사유를 선택해주세요.</Text>
@@ -101,7 +102,7 @@ export default function WithdrawalReasonModal({
             </Pressable>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingModalContainer>
     </Modal>
   );
 }
@@ -110,6 +111,8 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  overlayContent: {
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
